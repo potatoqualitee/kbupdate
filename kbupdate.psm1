@@ -83,12 +83,6 @@ function Get-KbUpdate {
         $baseproperties = "Title",
         "Description",
         "Architecture",
-        "NameLevel",
-        "SPLevel",
-        "KBLevel",
-        "CULevel",
-        "BuildLevel",
-        "SupportedUntil",
         "Language",
         "Classification",
         "SupportedProducts",
@@ -200,12 +194,7 @@ function Get-KbUpdate {
                     $links = $downloaddialog | Select-String -AllMatches -Pattern "(http[s]?\://download\.windowsupdate\.com\/[^\'\""]*)" | Select-Object -Unique
 
                     foreach ($link in $links) {
-                        $build = Get-DbaBuildReference -Kb "KB$kb" -WarningAction SilentlyContinue
                         $properties = $baseproperties
-
-                        if (-not $build.NameLevel) {
-                            $properties = $properties | Where-Object { $PSItem -notin "NameLevel", "SPLevel", "KBLevel", "CULevel", "BuildLevel", "SupportedUntil" }
-                        }
 
                         if ($Simple) {
                             $properties = $properties | Where-Object { $PSItem -notin "LastModified", "Description", "Size", "Classification", "SupportedProducts", "MSRCNumber", "MSRCSeverity", "RebootBehavior", "RequestsUserInput", "ExclusiveInstall", "NetworkRequired", "UninstallNotes", "UninstallSteps", "SupersededBy", "Supersedes" }
@@ -213,12 +202,6 @@ function Get-KbUpdate {
 
                         [pscustomobject]@{
                             Title             = $title
-                            NameLevel         = $build.NameLevel
-                            SPLevel           = $build.SPLevel
-                            KBLevel           = $build.KBLevel
-                            CULevel           = $build.CULevel
-                            BuildLevel        = $build.BuildLevel
-                            SupportedUntil    = $build.SupportedUntil
                             Architecture      = $arch
                             Language          = $longlang
                             Hotfix            = $ishotfix
