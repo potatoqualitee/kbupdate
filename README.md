@@ -1,7 +1,9 @@
+<img align="left" src=https://user-images.githubusercontent.com/8278033/60797982-97668c00-a170-11e9-8f61-06bd40413c54.png alt="kbupdate logo">
+
 # kbupdate
 KB Viewer and Saver
 
-## Install (coming soon)
+## Install
 
 ```powershell
 Install-Module kbupdate -Scope CurrentUser
