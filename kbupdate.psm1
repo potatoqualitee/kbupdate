@@ -147,6 +147,14 @@ function Get-KbUpdate {
                     $updateid = Get-Info -Text $downloaddialog -Pattern 'updateID ='
                     $ishotfix = Get-Info -Text $downloaddialog -Pattern 'isHotFix ='
 
+                    if ($ishotfix) {
+                        $ishotfix = "True"
+                    } else {
+                        $ishotfix = "False"
+                    }
+                    if ($longlang -eq "all") {
+                        $longlang = "All"
+                    }
                     if ($arch -eq "AMD64") {
                         $arch = "x64"
                     }
