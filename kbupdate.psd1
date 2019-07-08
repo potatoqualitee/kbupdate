@@ -7,7 +7,7 @@
 #
 @{
     # Version number of this module.
-    ModuleVersion     = '1.0.0'
+    ModuleVersion     = '1.0.1'
 
     # ID used to uniquely identify this module
     GUID              = 'f292e190-ed32-4232-b9f3-b50b42a5655f'
@@ -51,7 +51,7 @@
             Tags         = @('kb', 'knowledgebase', 'windowsupdate', 'update', 'patch', 'patches', 'patching')
 
             # The web address of an icon which can be used in galleries to represent this module
-            IconUri      = ''
+            IconUri      = 'https://user-images.githubusercontent.com/8278033/60797982-97668c00-a170-11e9-8f61-06bd40413c54.png'
 
             # Indicates this is a pre-release/testing version of the module.
             IsPrerelease = 'False'
