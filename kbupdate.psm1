@@ -54,13 +54,14 @@ function Get-KbUpdate {
         # Wishing Microsoft offered an RSS feed. Since they don't, we are forced to parse webpages.
         # Also, I don't know regex, if anyone wants to PR with regex fixes, I'm down.
         function Get-Info ($Text, $Pattern) {
+            # sorry, don't know regex. this is ugly af.
             $info = $Text -Split $Pattern
             if ($Pattern -match "labelTitle") {
                 $part = ($info[1] -Split '</span>')[1]
                 $part = $part.Replace("<div>", "")
                 ($part -Split '</div>')[0].Trim()
             } elseif ($Pattern -match "span ") {
-                ($info[1] -Split '</span>')[0].Trim()
+                [regex]::Match($detaildialog, $Pattern + '(.*?)<\/span>').Groups[1].Value
             } else {
                 ($info[1] -Split ';')[0].Replace("'", "").Trim()
             }
@@ -134,7 +135,7 @@ function Get-KbUpdate {
                     $body = @{ updateIDs = "[$post]" }
                     $downloaddialog = Invoke-TlsWebRequest -Uri 'http://www.catalog.update.microsoft.com/DownloadDialog.aspx' -Method Post -Body $body -UseBasicParsing -ErrorAction Stop | Select-Object -ExpandProperty Content
 
-                    # sorry, don't know regex. this is ugly af.
+
                     $title = Get-Info -Text $downloaddialog -Pattern 'enTitle ='
                     $arch = Get-Info -Text $downloaddialog -Pattern 'architectures ='
                     $longlang = Get-Info -Text $downloaddialog -Pattern 'longLanguages ='
