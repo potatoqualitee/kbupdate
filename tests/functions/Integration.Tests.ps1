@@ -9,7 +9,7 @@ Describe "Integration Tests" -Tag "IntegrationTests" {
     }
 
     Context "Get works" {
-        It "returns some good results" {
+        It "returns corret detailed results" {
             $results = Get-KbUpdate -Name KB2992080
             $results.Language | Should -Be "All"
 
@@ -40,6 +40,7 @@ Describe "Integration Tests" -Tag "IntegrationTests" {
         It "downloads a small update" {
             $results = Save-KbUpdate -Name KB2992080 -Path C:\temp
             $results.Name -match 'aspnet'
+            Get-ChildItem -Path $results.FullName | Should -Not -Be $null
             $results | Remove-Item -Confirm:$false
         }
         It "supports piping" {
