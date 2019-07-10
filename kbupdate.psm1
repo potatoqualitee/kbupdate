@@ -318,7 +318,13 @@ function Save-KbUpdate {
                 $file = "$Path$([IO.Path]::DirectorySeparatorChar)$FilePath"
 
                 if ((Get-Command Start-BitsTransfer -ErrorAction Ignore)) {
-                    Start-BitsTransfer -Source $link -Destination $file
+                    try {
+                        Start-BitsTransfer -Source $link -Destination $file -ErrorAction Stop
+                    } catch {
+                        Write-Progress -Activity "Downloading $FilePath" -Id 1
+                        Invoke-TlsWebRequest -OutFile $file -Uri $link -UseBasicParsing
+                        Write-Progress -Activity "Downloading $FilePath" -Id 1 -Completed
+                    }
                 } else {
                     # IWR is crazy slow for large downloads
                     Write-Progress -Activity "Downloading $FilePath" -Id 1
@@ -346,6 +352,14 @@ function Invoke-TlsWebRequest {
     # IWR is crazy slow for large downloads
     $currentProgressPref = $ProgressPreference
     $ProgressPreference = "SilentlyContinue"
+
+    $proxy = (Get-ItemProperty -Path "Registry::HKCU\Software\Microsoft\Windows\CurrentVersion\Internet Settings").ProxyServer
+
+    if ($proxy -and -not ([System.Net.Webrequest]::DefaultWebProxy).Address) {
+        [System.Net.Webrequest]::DefaultWebProxy = New-object System.Net.WebProxy $proxy
+        [System.Net.Webrequest]::DefaultWebProxy.Credentials = [System.Net.CredentialCache]::DefaultNetworkCredentials
+    }
+
     $currentVersionTls = [Net.ServicePointManager]::SecurityProtocol
     $currentSupportableTls = [Math]::Max($currentVersionTls.value__, [Net.SecurityProtocolType]::Tls.value__)
     $availableTls = [enum]::GetValues('Net.SecurityProtocolType') | Where-Object { $_ -gt $currentSupportableTls }
