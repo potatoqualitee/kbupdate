@@ -119,7 +119,7 @@ function Get-KbUpdate {
                 if (-not $kbids) {
                     try {
                         $null = Invoke-TlsWebRequest -Uri "https://support.microsoft.com/app/content/api/content/help/en-us/$kb" -UseBasicParsing -ErrorAction Stop
-                        Write-Warning -Message "We found KB$kb but it has been removed from the catalog"
+                        Write-Warning -Message "KB$kb was found but has been removed from the catalog"
                         return
                     } catch {
                         Write-Warning -Message "No results found for $kb"
