@@ -52,9 +52,7 @@ function Get-KbUpdate {
     )
     begin {
         # Wishing Microsoft offered an RSS feed. Since they don't, we are forced to parse webpages.
-        # Also, I don't know regex, if anyone wants to PR with regex fixes, I'm down.
         function Get-Info ($Text, $Pattern) {
-            # sorry, don't know regex. this is ugly af.
             if ($Pattern -match "labelTitle") {
                 # this should work... not accounting for multiple divs however?
                 [regex]::Match($detaildialog, $Pattern + '[\s\S]*<div>\s*(.*?)\s*<\/div>').Groups[1].Value
@@ -64,7 +62,6 @@ function Get-KbUpdate {
         }
 
         function Get-SuperInfo ($Text, $Pattern) {
-            $info = $Text -Split $Pattern
             if ($Pattern -match "supersededbyInfo") {
                 $span = [regex]::match($Text, '<div id="supersededbyInfo" TABINDEX="1" >[\s\S]*?<span')
                 [regex]::Matches($span, "<div[\s\S]*?'>(.*?)<\/a>").ForEach({ $_.Groups[1].Value })
