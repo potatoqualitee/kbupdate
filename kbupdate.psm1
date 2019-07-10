@@ -55,29 +55,23 @@ function Get-KbUpdate {
         # Also, I don't know regex, if anyone wants to PR with regex fixes, I'm down.
         function Get-Info ($Text, $Pattern) {
             # sorry, don't know regex. this is ugly af.
-            $info = $Text -Split $Pattern
             if ($Pattern -match "labelTitle") {
-                $part = ($info[1] -Split '</span>')[1]
-                $part = $part.Replace("<div>", "")
-                ($part -Split '</div>')[0].Trim()
+                # this should work... not accounting for multiple divs however?
+                [regex]::Match($detaildialog, $Pattern + '[\s\S]*<div>\s*(.*?)\s*<\/div>').Groups[1].Value
             } elseif ($Pattern -match "span ") {
                 [regex]::Match($detaildialog, $Pattern + '(.*?)<\/span>').Groups[1].Value
-            } else {
-                ($info[1] -Split ';')[0].Replace("'", "").Trim()
             }
         }
 
         function Get-SuperInfo ($Text, $Pattern) {
             $info = $Text -Split $Pattern
             if ($Pattern -match "supersededbyInfo") {
-                $part = ($info[1] -Split '<span id="ScopedViewHandler_labelSupersededUpdates_Separator" class="labelTitle">')[0]
+                $span = [regex]::match($Text, '<div id="supersededbyInfo" TABINDEX="1" >[\s\S]*?<span')
+                [regex]::Matches($span, "<div[\s\S]*?'>(.*?)<\/a>").ForEach({ $_.Groups[1].Value })
             } else {
-                $part = ($info[1] -Split '<div id="languageBox" style="display: none">')[0]
-            }
-            $nomarkup = ($part -replace '<[^>]+>', '').Trim() -split [Environment]::NewLine
-            foreach ($line in $nomarkup) {
-                $clean = $line.Trim()
-                if ($clean) { $clean }
+                $span = [regex]::match($Text, $Pattern + '[\s\S]*?<span')
+                [regex]::Matches($span, "<div style.*>\s*(.*)\s*<\/div>").ForEach({ $_.Groups[1].Value })
+
             }
         }
 
