@@ -51,6 +51,21 @@ function Get-KbUpdate {
         [switch]$Simple
     )
     begin {
+        # Wishing Microsoft offered an RSS feed. Since they don't, we are forced to parse webpages.
+        # Also, I don't know regex, if anyone wants to PR with regex fixes, I'm down.
+        function Get-Info ($Text, $Pattern) {
+            $info = $Text -Split $Pattern
+            if ($Pattern -match "labelTitle") {
+                $part = ($info[1] -Split '</span>')[1]
+                $part = $part.Replace("<div>", "")
+                ($part -Split '</div>')[0].Trim()
+            } elseif ($Pattern -match "span ") {
+                ($info[1] -Split '</span>')[0].Trim()
+            } else {
+                ($info[1] -Split ';')[0].Replace("'", "").Trim()
+            }
+        }
+
         function Get-SuperInfo ($Text, $Pattern) {
             $info = $Text -Split $Pattern
             if ($Pattern -match "supersededbyInfo") {
@@ -119,12 +134,12 @@ function Get-KbUpdate {
                     $body = @{ updateIDs = "[$post]" }
                     $downloaddialog = Invoke-TlsWebRequest -Uri 'http://www.catalog.update.microsoft.com/DownloadDialog.aspx' -Method Post -Body $body -UseBasicParsing -ErrorAction Stop | Select-Object -ExpandProperty Content
 
-                    # changed to regex, the language of the mystics and psychopaths (included \s? for optional whitespace as some lines are a bit whacko)
-                    $title = [regex]::Match($downloaddialog, "enTitle =\s?'(.*?)';").Groups[1].Value
-                    $arch = [regex]::Match($downloaddialog, "architectures =\s?'(.*?)';").Groups[1].Value
-                    $longlang = [regex]::Match($downloaddialog, "longLanguages =\s?'(.*?)';").Groups[1].Value
-                    $updateid = [regex]::Match($downloaddialog, "updateID =\s?'(.*?)';").Groups[1].Value
-                    $ishotfix = [regex]::Match($downloaddialog, "isHotFix =\s?'(.*?)';").Groups[1].Value
+                    # sorry, don't know regex. this is ugly af.
+                    $title = Get-Info -Text $downloaddialog -Pattern 'enTitle ='
+                    $arch = Get-Info -Text $downloaddialog -Pattern 'architectures ='
+                    $longlang = Get-Info -Text $downloaddialog -Pattern 'longLanguages ='
+                    $updateid = Get-Info -Text $downloaddialog -Pattern 'updateID ='
+                    $ishotfix = Get-Info -Text $downloaddialog -Pattern 'isHotFix ='
 
                     if ($ishotfix) {
                         $ishotfix = "True"
@@ -149,21 +164,20 @@ function Get-KbUpdate {
                     }
 
                     if (-not $Simple) {
-                        # it aint much prettier but eh, will do superinfo parsing later
                         $detaildialog = Invoke-TlsWebRequest -Uri "https://www.catalog.update.microsoft.com/ScopedViewInline.aspx?updateid=$updateid" -UseBasicParsing -ErrorAction Stop
-                        $description = [regex]::Match($detaildialog, '<span id="ScopedViewHandler_desc">(.*?)<\/span>').Groups[1].Value
-                        $lastmodified = [regex]::Match($detaildialog, '<span id="ScopedViewHandler_date">(.*?)<\/span>').Groups[1].Value
-                        $size = [regex]::Match($detaildialog, '<span id="ScopedViewHandler_size">(.*?)<\/span>').Groups[1].Value
-                        $classification = [regex]::Match($detaildialog, '<span id="ScopedViewHandler_labelClassification_Separator" class="labelTitle">(.*?)<\/span>').Groups[1].Value
-                        $supportedproducts = [regex]::Match($detaildialog, '<span id="ScopedViewHandler_labelSupportedProducts_Separator" class="labelTitle">(.*?)<\/span>').Groups[1].Value
-                        $msrcnumber = [regex]::Match($detaildialog, '<span id="ScopedViewHandler_labelSecurityBulliten_Separator" class="labelTitle">(.*?)<\/span>').Groups[1].Value
-                        $msrcseverity = [regex]::Match($detaildialog, '<span id="ScopedViewHandler_msrcSeverity">(.*?)<\/span>').Groups[1].Value
-                        $rebootbehavior = [regex]::Match($detaildialog, '<span id="ScopedViewHandler_rebootBehavior">(.*?)<\/span>').Groups[1].Value
-                        $requestuserinput = [regex]::Match($detaildialog, '<span id="ScopedViewHandler_userInput">(.*?)<\/span>').Groups[1].Value
-                        $exclusiveinstall = [regex]::Match($detaildialog, '<span id="ScopedViewHandler_installationImpact">(.*?)<\/span>').Groups[1].Value
-                        $networkrequired = [regex]::Match($detaildialog, '<span id="ScopedViewHandler_connectivity">(.*?)<\/span>').Groups[1].Value
-                        $uninstallnotes = [regex]::Match($detaildialog, '<span id="ScopedViewHandler_labelUninstallNotes_Separator" class="labelTitle">(.*?)<\/span>').Groups[1].Value
-                        $uninstallsteps = [regex]::Match($detaildialog, '<span id="ScopedViewHandler_labelUninstallSteps_Separator" class="labelTitle">(.*?)<\/span>').Groups[1].Value
+                        $description = Get-Info -Text $detaildialog -Pattern '<span id="ScopedViewHandler_desc">'
+                        $lastmodified = Get-Info -Text $detaildialog -Pattern '<span id="ScopedViewHandler_date">'
+                        $size = Get-Info -Text $detaildialog -Pattern '<span id="ScopedViewHandler_size">'
+                        $classification = Get-Info -Text $detaildialog -Pattern '<span id="ScopedViewHandler_labelClassification_Separator" class="labelTitle">'
+                        $supportedproducts = Get-Info -Text $detaildialog -Pattern '<span id="ScopedViewHandler_labelSupportedProducts_Separator" class="labelTitle">'
+                        $msrcnumber = Get-Info -Text $detaildialog -Pattern '<span id="ScopedViewHandler_labelSecurityBulliten_Separator" class="labelTitle">'
+                        $msrcseverity = Get-Info -Text $detaildialog -Pattern '<span id="ScopedViewHandler_msrcSeverity">'
+                        $rebootbehavior = Get-Info -Text $detaildialog -Pattern '<span id="ScopedViewHandler_rebootBehavior">'
+                        $requestuserinput = Get-Info -Text $detaildialog -Pattern '<span id="ScopedViewHandler_userInput">'
+                        $exclusiveinstall = Get-Info -Text $detaildialog -Pattern '<span id="ScopedViewHandler_installationImpact">'
+                        $networkrequired = Get-Info -Text $detaildialog -Pattern '<span id="ScopedViewHandler_connectivity">'
+                        $uninstallnotes = Get-Info -Text $detaildialog -Pattern '<span id="ScopedViewHandler_labelUninstallNotes_Separator" class="labelTitle">'
+                        $uninstallsteps = Get-Info -Text $detaildialog -Pattern '<span id="ScopedViewHandler_labelUninstallSteps_Separator" class="labelTitle">'
                         $supersededby = Get-SuperInfo -Text $detaildialog -Pattern '<div id="supersededbyInfo" TABINDEX="1" >'
                         $supersedes = Get-SuperInfo -Text $detaildialog -Pattern '<div id="supersedesInfo" TABINDEX="1">'
 
