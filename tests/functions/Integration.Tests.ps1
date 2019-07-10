@@ -35,6 +35,14 @@ Describe "Integration Tests" -Tag "IntegrationTests" {
             $results.LastModified      | Should -Be "10/14/2014"
             $results.Link              | Should -Be "http://download.windowsupdate.com/c/msdownload/update/software/secu/2014/10/aspnetwebfxupdate_kb2992080_55c239c6b443cb122b04667a9be948b03046bf88.exe"
         }
+        It "returns correct 404 when found in the catalog" {
+            $null = Get-KbUpdate -Name 4482972 -WarningVariable foundit -WarningAction SilentlyContinue
+            $foundit | Should -Match "We found KB4482972 but it has been removed from the catalog"
+        }
+        It "returns correct 404 when not found in the catalog" {
+            $null = Get-KbUpdate -Name 4482972abc123 -WarningVariable notfound -WarningAction SilentlyContinue
+            $notfound | Should -Match "No results found for"
+        }
     }
     Context "Save works" {
         It "downloads a small update" {

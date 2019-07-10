@@ -117,8 +117,14 @@ function Get-KbUpdate {
                     Select-Object -ExpandProperty  ID
 
                 if (-not $kbids) {
-                    Write-Warning -Message "No results found for $Name"
-                    return
+                    try {
+                        $null = Invoke-TlsWebRequest -Uri "https://support.microsoft.com/app/content/api/content/help/en-us/$kb" -UseBasicParsing -ErrorAction Stop
+                        Write-Warning -Message "We found KB$kb but it has been removed from the catalog"
+                        return
+                    } catch {
+                        Write-Warning -Message "No results found for $kb"
+                        return
+                    }
                 }
 
                 Write-Verbose -Message "$kbids"
