@@ -9,7 +9,7 @@ Describe "Integration Tests" -Tag "IntegrationTests" {
     }
 
     Context "Get works" {
-        It "returns corret detailed results" {
+        It "returns correct detailed results" {
             $results = Get-KbUpdate -Name KB2992080
             $results.Language | Should -Be "All"
 
