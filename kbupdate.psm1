@@ -64,14 +64,16 @@ function Get-KbUpdate {
         }
 
         function Get-SuperInfo ($Text, $Pattern) {
-            if ($Pattern -match "supersededbyInfo") {
-                $span = [regex]::match($Text, '<div id="supersededbyInfo" TABINDEX="1" >[\s\S]*?<span')
-                [regex]::Matches($span, "<div[\s\S]*?'>(.*?)<\/a>").ForEach({ $_.Groups[1].Value })
-            } else {
-                $span = [regex]::match($Text, $Pattern + '[\s\S]*?<span')
-                [regex]::Matches($span, "<div style.*>\s*(.*)\s*<\/div>").ForEach({ $_.Groups[1].Value })
+            # this works, but may also summon cthulhu
+            $span = [regex]::match($Text, $pattern + '[\s\S]*?<div id')
 
+            switch -Wildcard ($span.Value) {  
+                "*div style*" { $regex = '">\s*(.*?)\s*<\/div>' }
+                "*a href*" { $regex = "<div[\s\S]*?'>(.*?)<\/a" }
+                default { $regex = '"\s?>\s*(\S+?)\s*<\/div>'}
             }
+
+            [regex]::Matches($span, $regex).ForEach({ $_.Groups[1].Value })
         }
 
         $baseproperties = "Title",
