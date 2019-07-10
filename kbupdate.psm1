@@ -149,6 +149,9 @@ function Get-KbUpdate {
                     if ($longlang -eq "all") {
                         $longlang = "All"
                     }
+                    if ($arch -eq "") {
+                        $arch = $null
+                    }
                     if ($arch -eq "AMD64") {
                         $arch = "x64"
                     }

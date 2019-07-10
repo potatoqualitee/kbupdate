@@ -12,6 +12,28 @@ Describe "Integration Tests" -Tag "IntegrationTests" {
         It "returns some good results" {
             $results = Get-KbUpdate -Name KB2992080
             $results.Language | Should -Be "All"
+
+            $results.Title             | Should -Be "Security Update for Microsoft ASP.NET MVC 5.0 (KB2992080)"
+            $results.Description       | Should -Match 'A security issue \(MS14\-059\) has been identified in a Microsoft software product that could affect your system\. You can protect your system by'
+            $results.Architecture      | Should -Be $null
+            $results.Language          | Should -Be "All"
+            $results.Classification    | Should -Be "Security Updates"
+            $results.SupportedProducts | Should -Be "ASP.NET Web Frameworks"
+            $results.MSRCNumber        | Should -Be "MS14-059"
+            $results.MSRCSeverity      | Should -Be "Important"
+            $results.Hotfix            | Should -Be "True"
+            $results.Size              | Should -Be "462 KB"
+            $results.UpdateId          | Should -Be "0c84df7a-e685-466c-a545-a24de5ad2601"
+            $results.RebootBehavior    | Should -Be "Can request restart"
+            $results.RequestsUserInput | Should -Be "No"
+            $results.ExclusiveInstall  | Should -Be "No"
+            $results.NetworkRequired   | Should -Be "No"
+            $results.UninstallNotes    | Should -Be "This software update can be removed via Add or Remove Programs in Control Panel."
+            $results.UninstallSteps    | Should -Be "n/a"
+            $results.SupersededBy      | Should -Be "n/a"
+            $results.Supersedes        | Should -Be "n/a"
+            $results.LastModified      | Should -Be "10/14/2014"
+            $results.Link              | Should -Be "http://download.windowsupdate.com/c/msdownload/update/software/secu/2014/10/aspnetwebfxupdate_kb2992080_55c239c6b443cb122b04667a9be948b03046bf88.exe"
         }
     }
     Context "Save works" {
