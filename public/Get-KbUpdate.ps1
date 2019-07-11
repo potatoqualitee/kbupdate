@@ -100,10 +100,10 @@ function Get-KbUpdate {
                 if (-not $kbids) {
                     try {
                         $null = Invoke-TlsWebRequest -Uri "https://support.microsoft.com/app/content/api/content/help/en-us/$kb" -UseBasicParsing -ErrorAction Stop
-                        Stop-PSFFunction -Message "Matches were found for $kb, but the results no longer exist in the catalog"
+                        Stop-PSFFunction -EnableException:$EnableException -Message "Matches were found for $kb, but the results no longer exist in the catalog"
                         return
                     } catch {
-                        Stop-PSFFunction -Message "No results found for $kb"
+                        Stop-PSFFunction -EnableException:$EnableException -Message "No results found for $kb"
                         return
                     }
                 }
@@ -242,7 +242,7 @@ function Get-KbUpdate {
                     }
                 }
             } catch {
-                Stop-PSFFunction -Message "Failure" -ErrorRecord $_ -Continue
+                Stop-PSFFunction -EnableException:$EnableException -Message "Failure" -ErrorRecord $_ -Continue
             }
         }
 
