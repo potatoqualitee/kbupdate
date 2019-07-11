@@ -67,13 +67,13 @@ function Get-KbUpdate {
             # this works, but may also summon cthulhu
             $span = [regex]::match($Text, $pattern + '[\s\S]*?<div id')
 
-            switch -Wildcard ($span.Value) {  
+            switch -Wildcard ($span.Value) {
                 "*div style*" { $regex = '">\s*(.*?)\s*<\/div>' }
                 "*a href*" { $regex = "<div[\s\S]*?'>(.*?)<\/a" }
                 default { $regex = '"\s?>\s*(\S+?)\s*<\/div>'}
             }
 
-            [regex]::Matches($span, $regex).ForEach({ $_.Groups[1].Value })
+            [regex]::Matches($span, $regex).ForEach( { $_.Groups[1].Value })
         }
 
         $baseproperties = "Title",
@@ -295,7 +295,7 @@ function Save-KbUpdate {
         [ValidateSet("x64", "x86", "ia64", "All")]
         [string]$Architecture = "All",
         [parameter(ValueFromPipeline)]
-        [pscustomobject]$InputObject
+        [pscustomobject[]]$InputObject
     )
     process {
         if ($Name.Count -gt 0 -and $PSBoundParameters.FilePath) {

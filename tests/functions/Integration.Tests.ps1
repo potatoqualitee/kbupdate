@@ -45,6 +45,11 @@ Describe "Integration Tests" -Tag "IntegrationTests" {
         }
     }
     Context "Save works" {
+        It "supports multiple saves" {
+            $results = Save-KbUpdate -Path C:\temp -Name KB2992080, KB2994397
+            $results[0].Name -match 'aspnet'
+            $results | Remove-Item -Confirm:$false
+        }
         It "downloads a small update" {
             $results = Save-KbUpdate -Name KB2992080 -Path C:\temp
             $results.Name -match 'aspnet'
