@@ -37,7 +37,7 @@ Describe "Integration Tests" -Tag "IntegrationTests" {
         }
         It "returns correct 404 when found in the catalog" {
             $null = Get-KbUpdate -Name 4482972 -WarningVariable foundit 3>$null
-            $foundit | Should -Match "KB4482972 was found but has been removed from the catalog"
+            $foundit | Should -Match "but they have been removed"
         }
         It "returns correct 404 when not found in the catalog" {
             $null = Get-KbUpdate -Name 4482972abc123 -WarningVariable notfound 3>$null
