@@ -1,5 +1,5 @@
 ﻿Write-Host -Object "Running $PSCommandpath" -ForegroundColor Cyan
-. "$PSScriptRoot\..\constants.ps1"
+. "$PSScriptRoot\constants.ps1"
 
 Describe "Integration Tests" -Tag "IntegrationTests" {
     BeforeAll {
@@ -36,11 +36,11 @@ Describe "Integration Tests" -Tag "IntegrationTests" {
             $results.Link              | Should -Be "http://download.windowsupdate.com/c/msdownload/update/software/secu/2014/10/aspnetwebfxupdate_kb2992080_55c239c6b443cb122b04667a9be948b03046bf88.exe"
         }
         It "returns correct 404 when found in the catalog" {
-            $null = Get-KbUpdate -Name 4482972 -WarningVariable foundit -WarningAction SilentlyContinue
+            $null = Get-KbUpdate -Name 4482972 -WarningVariable foundit 3>$null
             $foundit | Should -Match "KB4482972 was found but has been removed from the catalog"
         }
         It "returns correct 404 when not found in the catalog" {
-            $null = Get-KbUpdate -Name 4482972abc123 -WarningVariable notfound -WarningAction SilentlyContinue
+            $null = Get-KbUpdate -Name 4482972abc123 -WarningVariable notfound 3>$null
             $notfound | Should -Match "No results found for"
         }
     }
