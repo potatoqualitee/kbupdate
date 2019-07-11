@@ -229,7 +229,7 @@ function Get-KbUpdate {
                             Supersedes        = $supersedes
                             SupersededBy      = $supersededby
                             Link              = $link.matches.value
-                        } | Select-DefaultView -Property $properties
+                        }
                     }
                 }
             } catch {
@@ -237,7 +237,7 @@ function Get-KbUpdate {
             }
         }
 
-        $baseproperties = "Title",
+        $properties = "Title",
         "Id",
         "Description",
         "Architecture",
@@ -259,21 +259,21 @@ function Get-KbUpdate {
         "Supersedes",
         "LastModified",
         "Link"
+
+        if ($Simple) {
+            $properties = $properties | Where-Object { $PSItem -notin "LastModified", "Description", "Size", "Classification", "SupportedProducts", "MSRCNumber", "MSRCSeverity", "RebootBehavior", "RequestsUserInput", "ExclusiveInstall", "NetworkRequired", "UninstallNotes", "UninstallSteps", "SupersededBy", "Supersedes" }
+        }
     }
     process {
         foreach ($kb in $Pattern) {
-            $kbdepth = "$kb-$Simple"
+            $kbdepth = "$kb-$Architecture"
             if (-not $script:kbcollection.ContainsKey($kbdepth)) {
                 $kbitem = Get-KbItem $kb
                 if ($kbitem) {
                     $null = $script:kbcollection.Add($kbdepth, $kbitem)
                 }
             }
-            if ($Architecture -and $Architecture -ne "All") {
-                $script:kbcollection[$kbdepth] | Where-Object Architecture -eq $Architecture
-            } else {
-                $script:kbcollection[$kbdepth]
-            }
+            $script:kbcollection[$kbdepth] | Select-DefaultView -Property $properties
         }
     }
 }
