@@ -114,7 +114,7 @@ function Get-KbUpdate {
                     Where-Object ID -match '_link' |
                     Where-Object { $_.OuterHTML -match ( "(?=.*" + ( $Filter -join ")(?=.*" ) + ")" ) }
 
-                # do some magic to get the title too
+                # get the title too
                 $guids = @()
                 foreach ($resultlink in $resultlinks) {
                     $itemguid = $resultlink.id.replace('_link', '')
@@ -130,6 +130,14 @@ function Get-KbUpdate {
                 foreach ($item in $guids) {
                     $guid = $item.Guid
                     $itemtitle = $item.Title
+
+                    # cacher
+                    $guidarch = "$guid-$Architecture"
+                    if ($script:kbcollection.ContainsKey($guidarch)) {
+                        $script:kbcollection[$guidarch]
+                        continue
+                    }
+
                     Write-ProgressHelper -Activity "Found results for $kb" -Message "Getting results for $itemtitle" -TotalSteps $guids.Guid.Count -StepNumber $guids.Guid.IndexOf($guid)
                     Write-PSFMessage -Level Verbose -Message "Downloading information for $itemtitle"
                     $post = @{ size = 0; updateID = $guid; uidInfo = $guid } | ConvertTo-Json -Compress
@@ -164,8 +172,6 @@ function Get-KbUpdate {
                     }
 
                     if (-not $Simple) {
-                        Write-ProgressHelper -Activity "Found results for $kb" -Message "Getting details for $title" -TotalSteps $guids.Guid.Count -StepNumber $guids.Guid.IndexOf($guid)
-
                         $detaildialog = Invoke-TlsWebRequest -Uri "https://www.catalog.update.microsoft.com/ScopedViewInline.aspx?updateid=$updateid" -UseBasicParsing -ErrorAction Stop
                         $description = Get-Info -Text $detaildialog -Pattern '<span id="ScopedViewHandler_desc">'
                         $lastmodified = Get-Info -Text $detaildialog -Pattern '<span id="ScopedViewHandler_date">'
@@ -206,30 +212,33 @@ function Get-KbUpdate {
                             $properties = $properties | Where-Object { $PSItem -notin "LastModified", "Description", "Size", "Classification", "SupportedProducts", "MSRCNumber", "MSRCSeverity", "RebootBehavior", "RequestsUserInput", "ExclusiveInstall", "NetworkRequired", "UninstallNotes", "UninstallSteps", "SupersededBy", "Supersedes" }
                         }
 
-                        [pscustomobject]@{
-                            Title             = $title
-                            Id                = $kbnumbers
-                            Architecture      = $arch
-                            Language          = $longlang
-                            Hotfix            = $ishotfix
-                            Description       = $description
-                            LastModified      = $lastmodified
-                            Size              = $size
-                            Classification    = $classification
-                            SupportedProducts = $supportedproducts
-                            MSRCNumber        = $msrcnumber
-                            MSRCSeverity      = $msrcseverity
-                            RebootBehavior    = $rebootbehavior
-                            RequestsUserInput = $requestuserinput
-                            ExclusiveInstall  = $exclusiveinstall
-                            NetworkRequired   = $networkrequired
-                            UninstallNotes    = $uninstallnotes
-                            UninstallSteps    = $uninstallsteps
-                            UpdateId          = $updateid
-                            Supersedes        = $supersedes
-                            SupersededBy      = $supersededby
-                            Link              = $link.matches.value
-                        }
+                        $null = $script:kbcollection.Add($guidarch, (
+                                [pscustomobject]@{
+                                    Title             = $title
+                                    Id                = $kbnumbers
+                                    Architecture      = $arch
+                                    Language          = $longlang
+                                    Hotfix            = $ishotfix
+                                    Description       = $description
+                                    LastModified      = $lastmodified
+                                    Size              = $size
+                                    Classification    = $classification
+                                    SupportedProducts = $supportedproducts
+                                    MSRCNumber        = $msrcnumber
+                                    MSRCSeverity      = $msrcseverity
+                                    RebootBehavior    = $rebootbehavior
+                                    RequestsUserInput = $requestuserinput
+                                    ExclusiveInstall  = $exclusiveinstall
+                                    NetworkRequired   = $networkrequired
+                                    UninstallNotes    = $uninstallnotes
+                                    UninstallSteps    = $uninstallsteps
+                                    UpdateId          = $updateid
+                                    Supersedes        = $supersedes
+                                    SupersededBy      = $supersededby
+                                    Link              = $link.matches.value
+                                    InputObject       = $kb
+                                }))
+                        $script:kbcollection[$guidarch]
                     }
                 }
             } catch {
@@ -261,19 +270,12 @@ function Get-KbUpdate {
         "Link"
 
         if ($Simple) {
-            $properties = $properties | Where-Object { $PSItem -notin "LastModified", "Description", "Size", "Classification", "SupportedProducts", "MSRCNumber", "MSRCSeverity", "RebootBehavior", "RequestsUserInput", "ExclusiveInstall", "NetworkRequired", "UninstallNotes", "UninstallSteps", "SupersededBy", "Supersedes" }
+            $properties = $properties | Where-Object { $PSItem -notin "ID", "LastModified", "Description", "Size", "Classification", "SupportedProducts", "MSRCNumber", "MSRCSeverity", "RebootBehavior", "RequestsUserInput", "ExclusiveInstall", "NetworkRequired", "UninstallNotes", "UninstallSteps", "SupersededBy", "Supersedes" }
         }
     }
     process {
         foreach ($kb in $Pattern) {
-            $kbdepth = "$kb-$Architecture"
-            if (-not $script:kbcollection.ContainsKey($kbdepth)) {
-                $kbitem = Get-KbItem $kb
-                if ($kbitem) {
-                    $null = $script:kbcollection.Add($kbdepth, $kbitem)
-                }
-            }
-            $script:kbcollection[$kbdepth] | Select-DefaultView -Property $properties
+            Get-KbItem $kb | Select-DefaultView -Property $properties
         }
     }
 }
