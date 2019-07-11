@@ -7,7 +7,7 @@
 #
 @{
     # Version number of this module.
-    ModuleVersion     = '1.0.4'
+    ModuleVersion     = '1.0.5'
 
     # ID used to uniquely identify this module
     GUID              = 'f292e190-ed32-4232-b9f3-b50b42a5655f'
@@ -28,7 +28,9 @@
     PowerShellVersion = '3.0'
 
     # Modules that must be imported into the global environment prior to importing this module
-    RequiredModules   = @('PSFramework')
+    RequiredModules   = @(
+        @{ ModuleName = 'PSFramework'; ModuleVersion = '1.0.19' }
+    )
 
     # Script module or binary module file associated with this manifest.
     RootModule        = 'kbupdate.psm1'
