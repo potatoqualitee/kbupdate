@@ -101,9 +101,9 @@ function Get-KbUpdate {
         "Supersedes",
         "LastModified",
         "Link"
-    }
-    process {
-        foreach ($kb in $Name) {
+
+        # put everything in this function so that it can be easily cached
+        function Get-KbItem ($kb) {
             Write-Progress -Activity "Getting information for $kb" -Id 1
             try {
                 # Thanks! https://keithga.wordpress.com/2017/05/21/new-tool-get-the-latest-windows-10-cumulative-updates/
@@ -121,7 +121,7 @@ function Get-KbUpdate {
                         Stop-PSFFunction -Message "KB$kb was found but has been removed from the catalog"
                         return
                     } catch {
-                       Stop-PSFFunction -Message "No results found for $kb"
+                        Stop-PSFFunction -Message "No results found for $kb"
                         return
                     }
                 }
@@ -238,6 +238,17 @@ function Get-KbUpdate {
                 Stop-PSFFunction -Message "Failure" -ErrorRecord $_ -Continue
             }
             Write-Progress -Activity "Getting information for $kb" -Id 1 -Completed
+        }
+    }
+    process {
+        foreach ($kb in $Name) {
+            if (-not $script:kbcollection.ContainsKey($kb)) {
+                $kbitem = Get-KbItem $kb
+                if ($kbitem) {
+                    $script:kbcollection.Add($kb, $kbitem)
+                }
+            }
+            $script:kbcollection[$kb]
         }
     }
 }

@@ -38,3 +38,8 @@ foreach ($function in (Get-ChildItem "$ModuleRoot\private" -Filter "*.ps1" -Recu
 foreach ($function in (Get-ChildItem "$ModuleRoot\public" -Filter "*.ps1" -Recurse -ErrorAction Ignore)) {
     . Import-ModuleFile -Path $function.FullName
 }
+
+# Setup initial kbcollection
+if (-not $script:kbcollection) {
+    $script:kbcollection = @{}
+}

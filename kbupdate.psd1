@@ -28,7 +28,7 @@
     PowerShellVersion = '3.0'
 
     # Modules that must be imported into the global environment prior to importing this module
-    RequiredModules   = @('PSFramework', 'PSCache')
+    RequiredModules   = @('PSFramework')
 
     # Script module or binary module file associated with this manifest.
     RootModule        = 'kbupdate.psm1'

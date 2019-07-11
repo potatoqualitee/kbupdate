@@ -13,10 +13,6 @@ choco install pester | Out-Null
 Write-Host -Object "appveyor.prep: Install PSFramework" -ForegroundColor DarkGreen
 Install-Module -Name PSFramework -Force -SkipPublisherCheck | Out-Null
 
-#Get PSCache (dependency)
-Write-Host -Object "appveyor.prep: Install PSCache" -ForegroundColor DarkGreen
-Install-Module -Name PSCache -Force -SkipPublisherCheck | Out-Null
-
 $null = mkdir C:\temp
 
 $sw.Stop()

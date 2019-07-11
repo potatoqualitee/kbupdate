@@ -8,8 +8,6 @@ if ($env:BUILD_BUILDURI -like "vstfs*") {
     Install-Module Pester -Force -SkipPublisherCheck
     Write-Host "Installing PSFramework" -ForegroundColor Cyan
     Install-Module PSFramework -Force -SkipPublisherCheck
-    Write-Host "Installing PSCache" -ForegroundColor Cyan
-    Install-Module PSCache -Force -SkipPublisherCheck
 }
 
 Write-Host "Loading constants"
@@ -27,7 +25,7 @@ $totalRun = 0
 $testresults = @()
 Write-Host "Proceeding with individual tests"
 foreach ($file in (Get-ChildItem "$PSScriptRoot" -File -Filter "*.Tests.ps1")) {
-    Write-Host "  Executing $($file.Name)"
+    Write-Host "Executing $($file.Name)"
     $results = Invoke-Pester -Script $file.FullName -PassThru
     foreach ($result in $results) {
         $totalRun += $result.TotalCount
