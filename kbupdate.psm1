@@ -52,33 +52,28 @@ function Get-KbUpdate {
     )
     begin {
         # Wishing Microsoft offered an RSS feed. Since they don't, we are forced to parse webpages.
-        # Also, I don't know regex, if anyone wants to PR with regex fixes, I'm down.
         function Get-Info ($Text, $Pattern) {
-            # sorry, don't know regex. this is ugly af.
-            $info = $Text -Split $Pattern
             if ($Pattern -match "labelTitle") {
-                $part = ($info[1] -Split '</span>')[1]
-                $part = $part.Replace("<div>", "")
-                ($part -Split '</div>')[0].Trim()
+                # this should work... not accounting for multiple divs however?
+                [regex]::Match($Text, $Pattern + '[\s\S]*?\s*(.*?)\s*<\/div>').Groups[1].Value
             } elseif ($Pattern -match "span ") {
-                [regex]::Match($detaildialog, $Pattern + '(.*?)<\/span>').Groups[1].Value
+                [regex]::Match($Text, $Pattern + '(.*?)<\/span>').Groups[1].Value
             } else {
-                ($info[1] -Split ';')[0].Replace("'", "").Trim()
+                [regex]::Match($Text, $Pattern + "\s?'?(.*?)'?;").Groups[1].Value
             }
         }
 
         function Get-SuperInfo ($Text, $Pattern) {
-            $info = $Text -Split $Pattern
-            if ($Pattern -match "supersededbyInfo") {
-                $part = ($info[1] -Split '<span id="ScopedViewHandler_labelSupersededUpdates_Separator" class="labelTitle">')[0]
-            } else {
-                $part = ($info[1] -Split '<div id="languageBox" style="display: none">')[0]
+            # this works, but may also summon cthulhu
+            $span = [regex]::match($Text, $pattern + '[\s\S]*?<div id')
+
+            switch -Wildcard ($span.Value) {  
+                "*div style*" { $regex = '">\s*(.*?)\s*<\/div>' }
+                "*a href*" { $regex = "<div[\s\S]*?'>(.*?)<\/a" }
+                default { $regex = '"\s?>\s*(\S+?)\s*<\/div>'}
             }
-            $nomarkup = ($part -replace '<[^>]+>', '').Trim() -split [Environment]::NewLine
-            foreach ($line in $nomarkup) {
-                $clean = $line.Trim()
-                if ($clean) { $clean }
-            }
+
+            [regex]::Matches($span, $regex).ForEach({ $_.Groups[1].Value })
         }
 
         $baseproperties = "Title",
