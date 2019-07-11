@@ -87,6 +87,7 @@ function Get-KbUpdate {
         }
 
         $baseproperties = "Title",
+        "Id",
         "Description",
         "Architecture",
         "Language",
@@ -181,6 +182,7 @@ function Get-KbUpdate {
                         $supportedproducts = Get-Info -Text $detaildialog -Pattern '<span id="ScopedViewHandler_labelSupportedProducts_Separator" class="labelTitle">'
                         $msrcnumber = Get-Info -Text $detaildialog -Pattern '<span id="ScopedViewHandler_labelSecurityBulliten_Separator" class="labelTitle">'
                         $msrcseverity = Get-Info -Text $detaildialog -Pattern '<span id="ScopedViewHandler_msrcSeverity">'
+                        $kbnumbers = Get-Info -Text $detaildialog -Pattern '<span id="ScopedViewHandler_labelKBArticle_Separator" class="labelTitle">'
                         $rebootbehavior = Get-Info -Text $detaildialog -Pattern '<span id="ScopedViewHandler_rebootBehavior">'
                         $requestuserinput = Get-Info -Text $detaildialog -Pattern '<span id="ScopedViewHandler_userInput">'
                         $exclusiveinstall = Get-Info -Text $detaildialog -Pattern '<span id="ScopedViewHandler_installationImpact">'
@@ -203,6 +205,9 @@ function Get-KbUpdate {
                     $links = $downloaddialog | Select-String -AllMatches -Pattern "(http[s]?\://download\.windowsupdate\.com\/[^\'\""]*)" | Select-Object -Unique
 
                     foreach ($link in $links) {
+                        if ($kbnumbers -eq "n/a") {
+                            $kbnumbers = $null
+                        }
                         $properties = $baseproperties
 
                         if ($Simple) {
@@ -211,6 +216,7 @@ function Get-KbUpdate {
 
                         [pscustomobject]@{
                             Title             = $title
+                            Id                = $kbnumbers
                             Architecture      = $arch
                             Language          = $longlang
                             Hotfix            = $ishotfix

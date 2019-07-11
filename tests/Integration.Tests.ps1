@@ -11,8 +11,8 @@ Describe "Integration Tests" -Tag "IntegrationTests" {
     Context "Get works" {
         It "returns correct detailed results" {
             $results = Get-KbUpdate -Name KB2992080
-            $results.Language | Should -Be "All"
-
+            $results.Id                | Should -Be 2992080
+            $results.Language          | Should -Be "All"
             $results.Title             | Should -Be "Security Update for Microsoft ASP.NET MVC 5.0 (KB2992080)"
             $results.Description       | Should -Match 'A security issue \(MS14\-059\) has been identified in a Microsoft software product that could affect your system\. You can protect your system by'
             $results.Architecture      | Should -Be $null
