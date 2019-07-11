@@ -242,13 +242,14 @@ function Get-KbUpdate {
     }
     process {
         foreach ($kb in $Name) {
-            if (-not $script:kbcollection.ContainsKey($kb)) {
+            $kbdepth = "$kb-$Simple"
+            if (-not $script:kbcollection.ContainsKey($kbdepth)) {
                 $kbitem = Get-KbItem $kb
                 if ($kbitem) {
-                    $script:kbcollection.Add($kb, $kbitem)
+                    $script:kbcollection.Add($kbdepth, $kbitem)
                 }
             }
-            $script:kbcollection[$kb]
+            $script:kbcollection[$kbdepth]
         }
     }
 }
