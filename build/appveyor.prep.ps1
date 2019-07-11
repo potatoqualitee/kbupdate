@@ -17,7 +17,7 @@ Install-Module -Name PSFramework -Force -SkipPublisherCheck | Out-Null
 Write-Host -Object "appveyor.prep: Install PSCache" -ForegroundColor DarkGreen
 Install-Module -Name PSCache -Force -SkipPublisherCheck | Out-Null
 
-mkdir C:\temp
+$null = mkdir C:\temp
 
 $sw.Stop()
 Update-AppveyorTest -Name "appveyor.prep" -Framework NUnit -FileName "appveyor.prep.ps1" -Outcome Passed -Duration $sw.ElapsedMilliseconds
