@@ -8,6 +8,15 @@ Install-Module -Name PSScriptAnalyzer -Force -SkipPublisherCheck | Out-Null
 #Get Pester (to run tests)
 Write-Host -Object "appveyor.prep: Install Pester" -ForegroundColor DarkGreen
 choco install pester | Out-Null
+
+#Get PSFramework (dependency)
+Write-Host -Object "appveyor.prep: Install PSFramework" -ForegroundColor DarkGreen
+Install-Module -Name PSFramework -Force -SkipPublisherCheck | Out-Null
+
+#Get PSCache (dependency)
+Write-Host -Object "appveyor.prep: Install PSCache" -ForegroundColor DarkGreen
+Install-Module -Name PSCache -Force -SkipPublisherCheck | Out-Null
+
 mkdir C:\temp
 
 $sw.Stop()

@@ -6,9 +6,11 @@ cache:
 - C:\ProgramData\chocolatey\lib -> appveyor.yml
 - C:\Program Files\WindowsPowerShell\Modules\PSScriptAnalyzer -> appveyor.yml
 - C:\Program Files\WindowsPowerShell\Modules\Pester -> appveyor.yml
+- C:\Program Files\WindowsPowerShell\Modules\PSFramework -> appveyor.yml
+- C:\Program Files\WindowsPowerShell\Modules\PSCache -> appveyor.yml
 
 shallow_clone: true
-  
+
 environment:
   environment: master
   version: 0.0.$(appveyor_build_number)

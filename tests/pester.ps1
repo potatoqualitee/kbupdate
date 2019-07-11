@@ -1,18 +1,21 @@
 param (
-	$Show = "None"
+    $Show = "None"
 )
 
 Write-Host "Starting Tests" -ForegroundColor Green
-if ($env:BUILD_BUILDURI -like "vstfs*")
-{
-	Write-Host "Installing Pester" -ForegroundColor Cyan
+if ($env:BUILD_BUILDURI -like "vstfs*") {
+    Write-Host "Installing Pester" -ForegroundColor Cyan
     Install-Module Pester -Force -SkipPublisherCheck
+    Write-Host "Installing PSFramework" -ForegroundColor Cyan
+    Install-Module PSFramework -Force -SkipPublisherCheck
+    Write-Host "Installing PSCache" -ForegroundColor Cyan
+    Install-Module PSCache -Force -SkipPublisherCheck
 }
 
-Write-Output -Message "Loading constants"
+Write-Host "Loading constants"
 . "$PSScriptRoot\constants.ps1"
 
-Write-Output -Message "Importing Module"
+Write-Host "Importing Module"
 
 Remove-Module kbupdate -ErrorAction Ignore
 Import-Module "$PSScriptRoot\..\kbupdate.psd1"
@@ -22,31 +25,28 @@ $totalFailed = 0
 $totalRun = 0
 
 $testresults = @()
-Write-Output -Message "Proceeding with individual tests"
-foreach ($file in (Get-ChildItem "$PSScriptRoot\functions" -Recurse -File -Filter "*.Tests.ps1"))
-{
-	Write-Output -Message "  Executing $($file.Name)"
-	$results = Invoke-Pester -Script $file.FullName -PassThru
-	foreach ($result in $results)
-	{
-		$totalRun += $result.TotalCount
-		$totalFailed += $result.FailedCount
-		$result.TestResult | Where-Object { -not $_.Passed } | ForEach-Object {
-			$name = $_.Name
-			$testresults += [pscustomobject]@{
-				Describe   = $_.Describe
-				Context    = $_.Context
-				Name	   = "It $name"
-				Result	   = $_.Result
-				Message    = $_.FailureMessage
-			}
-		}
-	}
+Write-Host "Proceeding with individual tests"
+foreach ($file in (Get-ChildItem "$PSScriptRoot" -File -Filter "*.Tests.ps1")) {
+    Write-Host "  Executing $($file.Name)"
+    $results = Invoke-Pester -Script $file.FullName -PassThru
+    foreach ($result in $results) {
+        $totalRun += $result.TotalCount
+        $totalFailed += $result.FailedCount
+        $result.TestResult | Where-Object { -not $_.Passed } | ForEach-Object {
+            $name = $_.Name
+            $testresults += [pscustomobject]@{
+                Describe = $_.Describe
+                Context  = $_.Context
+                Name     = "It $name"
+                Result   = $_.Result
+                Message  = $_.FailureMessage
+            }
+        }
+    }
 }
 
 $testresults | Sort-Object Describe, Context, Name, Result, Message | Format-List
 
-if ($totalFailed -gt 0)
-{
-	throw "$totalFailed / $totalRun tests failed"
+if ($totalFailed -gt 0) {
+    throw "$totalFailed / $totalRun tests failed"
 }
