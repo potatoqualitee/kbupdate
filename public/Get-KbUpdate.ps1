@@ -10,8 +10,8 @@ function Get-KbUpdate {
 
         Use the Simple parameter for simplified output and faster results.
 
-    .PARAMETER Name
-        The KB name or number. For example, KB4057119 or 4057119.
+    .PARAMETER Pattern
+        Any pattern. Can be the KB name, number or even MSRC numbrer. For example, KB4057119, 4057119, or MS15-101.
 
     .PARAMETER Architecture
         Can be x64, x86, ia64 or "All". Defaults to All.
@@ -31,24 +31,30 @@ function Get-KbUpdate {
         License: MIT https://opensource.org/licenses/MIT
 
     .EXAMPLE
-        PS C:\> Get-KbUpdate -Name KB4057119
+        PS C:\> Get-KbUpdate KB4057119
 
         Gets detailed information about KB4057119. This works for SQL Server or any other KB.
 
     .EXAMPLE
-        PS C:\> Get-KbUpdate -Name KB4057119, 4057114
+        PS C:\> Get-KbUpdate -Pattern MS15-101
+
+        Downloads KBs related to MSRC MS15-101 to the current directory.
+
+    .EXAMPLE
+        PS C:\> Get-KbUpdate -Pattern KB4057119, 4057114
 
         Gets detailed information about KB4057119 and KB4057114. This works for SQL Server or any other KB.
 
     .EXAMPLE
-        PS C:\> Get-KbUpdate -Name KB4057119, 4057114 -Simple
+        PS C:\> Get-KbUpdate -Pattern KB4057119, 4057114 -Simple
 
         A lil faster. Returns, at the very least: Title, Architecture, Language, Hotfix, UpdateId and Link
 #>
     [CmdletBinding()]
     param(
         [Parameter(Mandatory)]
-        [string[]]$Name,
+        [Alias("Name")]
+        [string[]]$Pattern,
         [ValidateSet("x64", "x86", "ia64", "All")]
         [string]$Architecture = "All",
         [switch]$Simple,
@@ -107,9 +113,7 @@ function Get-KbUpdate {
             Write-Progress -Activity "Getting information for $kb" -Id 1
             try {
                 # Thanks! https://keithga.wordpress.com/2017/05/21/new-tool-get-the-latest-windows-10-cumulative-updates/
-                $kb = $kb.Replace("KB", "").Replace("kb", "").Replace("Kb", "")
-
-                $results = Invoke-TlsWebRequest -Uri "http://www.catalog.update.microsoft.com/Search.aspx?q=KB$kb" -UseBasicParsing -ErrorAction Stop
+                $results = Invoke-TlsWebRequest -Uri "http://www.catalog.update.microsoft.com/Search.aspx?q=$kb" -UseBasicParsing -ErrorAction Stop
 
                 $kbids = $results.InputFields |
                     Where-Object { $_.type -eq 'Button' -and $_.Value -eq 'Download' } |
@@ -166,10 +170,6 @@ function Get-KbUpdate {
                     }
                     if ($title -notmatch '64-Bit' -and $title -match '32-Bit' -and -not $arch) {
                         $arch = "x86"
-                    }
-
-                    if ($arch -and $Architecture -ne "All" -and $arch -ne $Architecture) {
-                        continue
                     }
 
                     if (-not $Simple) {
@@ -241,7 +241,7 @@ function Get-KbUpdate {
         }
     }
     process {
-        foreach ($kb in $Name) {
+        foreach ($kb in $Pattern) {
             $kbdepth = "$kb-$Simple"
             if (-not $script:kbcollection.ContainsKey($kbdepth)) {
                 $kbitem = Get-KbItem $kb
@@ -249,7 +249,11 @@ function Get-KbUpdate {
                     $script:kbcollection.Add($kbdepth, $kbitem)
                 }
             }
-            $script:kbcollection[$kbdepth]
+            if ($Architecture -and $Architecture -ne "All") {
+                $script:kbcollection[$kbdepth] | Where-Object Architecture -eq $Architecture
+            } else {
+                $script:kbcollection[$kbdepth]
+            }
         }
     }
 }
