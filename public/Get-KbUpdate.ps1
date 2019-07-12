@@ -56,7 +56,9 @@ function Get-KbUpdate {
         [Alias("Name")]
         [string[]]$Pattern,
         [ValidateSet("x64", "x86", "ia64", "All")]
-        [string]$Architecture = "All",
+        [string[]]$Architecture,
+        [ValidateSet("Windows XP", "Windows Vista", "Windows 7", "Windows 8", "Windows 10", "Windows Server 2019", "Windows Server 2012", "Windows Server 2012 R2", "Windows Server 2008", "Windows Server 2008 R2", "Windows Server 2003")]
+        [string[]]$OperatingSystem,
         [switch]$Simple,
         [switch]$EnableException
     )
@@ -89,8 +91,9 @@ function Get-KbUpdate {
         # put everything in this function so that it can be easily cached
         function Get-KbItem ($kb) {
             try {
+                $search = "$kb $Architecture $OperatingSystem"
                 Write-Progress -Activity "Searching catalog for $kb" -Id 1 -Status "Contacting catalog.update.microsoft.com"
-                $results = Invoke-TlsWebRequest -Uri "http://www.catalog.update.microsoft.com/Search.aspx?q=$kb" -UseBasicParsing -ErrorAction Stop
+                $results = Invoke-TlsWebRequest -Uri "http://www.catalog.update.microsoft.com/Search.aspx?q=$search" -UseBasicParsing -ErrorAction Stop
                 Write-Progress -Activity "Searching catalog for $kb" -Id 1 -Completed
 
                 $kbids = $results.InputFields |
@@ -138,7 +141,7 @@ function Get-KbUpdate {
                         continue
                     }
 
-                    Write-ProgressHelper -Activity "Found results for $kb" -Message "Getting results for $itemtitle" -TotalSteps $guids.Guid.Count -StepNumber $guids.Guid.IndexOf($guid)
+                    Write-ProgressHelper -Activity "Found up to $($guids.Count) results for $kb" -Message "Getting results for $itemtitle" -TotalSteps $guids.Guid.Count -StepNumber $guids.Guid.IndexOf($guid)
                     Write-PSFMessage -Level Verbose -Message "Downloading information for $itemtitle"
                     $post = @{ size = 0; updateID = $guid; uidInfo = $guid } | ConvertTo-Json -Compress
                     $body = @{ updateIDs = "[$post]" }
@@ -238,7 +241,7 @@ function Get-KbUpdate {
                                     Link              = $link.matches.value
                                     InputObject       = $kb
                                 }))
-                        $script:kbcollection[$guidarch]
+                        Search-Kb -InputObject $script:kbcollection[$guidarch] @boundparams
                     }
                 }
             } catch {
@@ -246,6 +249,8 @@ function Get-KbUpdate {
             }
         }
 
+        $boundparams = $PSBoundParameters
+        $null = $boundparams.Remove("Architecture")
         $properties = "Title",
         "Id",
         "Description",

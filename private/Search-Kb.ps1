@@ -1,5 +1,5 @@
 
-function Search-KbUpdate {
+function Search-Kb {
     <#
     .SYNOPSIS
         Searches the kb results
@@ -23,41 +23,51 @@ function Search-KbUpdate {
         License: MIT https://opensource.org/licenses/MIT
 
     .EXAMPLE
-        PS C:\> Search-KbUpdate -Name KB4057119
+        PS C:\> Search-KbUpdate -Pattern KB4057119
 
         Downloads KB4057119 to the current directory. This works for SQL Server or any other KB.
 
     .EXAMPLE
-        PS C:\> Get-KbUpdate -Name 3118347 -Simple -Architecture x64 | Out-GridView -Passthru | Search-KbUpdate
+        PS C:\> Get-KbUpdate -Pattern 3118347 -Simple -Architecture x64 | Out-GridView -Passthru | Search-KbUpdate
 
         Downloads the selected files from KB4057119 to the current directory.
 
     .EXAMPLE
-        PS C:\> Search-KbUpdate -Name KB4057119, 4057114 -Architecture x64 -Path C:\temp
+        PS C:\> Search-KbUpdate -Pattern KB4057119, 4057114 -Architecture x64 -Path C:\temp
 
         Downloads KB4057119 and the x64 version of KB4057114 to C:\temp.
 
     .EXAMPLE
-        PS C:\> Search-KbUpdate -Name KB4057114 -Path C:\temp
+        PS C:\> Search-KbUpdate -Pattern KB4057114 -Path C:\temp
 
         Downloads all versions of KB4057114 and the x86 version of KB4057114 to C:\temp.
 #>
     [CmdletBinding()]
     param(
-        [string[]]$Name,
+        [string[]]$Pattern,
         [ValidateSet("x64", "x86", "ia64", "All")]
         [string]$Architecture = "All",
+        [ValidateSet("Windows XP", "Windows Vista", "Windows 7", "Windows 8", "Windows 10", "Windows Server 2019", "Windows Server 2012", "Windows Server 2012 R2", "Windows Server 2008", "Windows Server 2008 R2", "Windows Server 2003")]
+        [string[]]$OperatingSystem,
         [parameter(ValueFromPipeline)]
         [pscustomobject[]]$InputObject
     )
     process {
-        if (-not $PSBoundParameters.InputObject -and -not $PSBoundParameters.Name) {
+        $singlekb = $script:kbcollection[$guidarch]
+        if ($OperatingSystem) {
+            foreach ($os in $OperatingSystem) {
+                $singlekb = $singlekb | Where-Object SupportedProducts -match $OperatingSystem.Replace(' ', '.*')
+            }
+        }
+        $singlekb
+        return
+        if (-not $PSBoundParameters.InputObject -and -not $PSBoundParameters.Pattern) {
             Write-Warning -Message "You must specify a KB name or pipe in results from Get-KbUpdate"
             return
         }
 
-        foreach ($kb in $Name) {
-            $InputObject += Get-KbUpdate -Name $kb -Architecture $Architecture
+        foreach ($kb in $Pattern) {
+            $InputObject += Get-KbUpdate -Pattern $kb
         }
 
         foreach ($object in $InputObject) {
