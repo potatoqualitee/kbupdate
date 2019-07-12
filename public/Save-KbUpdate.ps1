@@ -6,8 +6,8 @@ function Save-KbUpdate {
     .DESCRIPTION
          Downloads patches from Microsoft
 
-    .PARAMETER Name
-        The KB name or number. For example, KB4057119 or 4057119.
+    .PARAMETER Pattern
+        Any pattern. Can be the KB name, number or even MSRC numbrer. For example, KB4057119, 4057119, or MS15-101.
 
     .PARAMETER Path
         The directory to save the file.
@@ -33,28 +33,34 @@ function Save-KbUpdate {
         License: MIT https://opensource.org/licenses/MIT
 
     .EXAMPLE
-        PS C:\> Save-KbUpdate -Name KB4057119
+        PS C:\> Save-KbUpdate -Pattern KB4057119
 
         Downloads KB4057119 to the current directory. This works for SQL Server or any other KB.
 
     .EXAMPLE
-        PS C:\> Get-KbUpdate -Name 3118347 -Simple -Architecture x64 | Out-GridView -Passthru | Save-KbUpdate
+        PS C:\> Save-KbUpdate -Pattern MS15-101
+
+        Downloads KBs related to MSRC MS15-101 to the current directory.
+
+    .EXAMPLE
+        PS C:\> Get-KbUpdate -Pattern 3118347 -Simple -Architecture x64 | Out-GridView -Passthru | Save-KbUpdate
 
         Downloads the selected files from KB4057119 to the current directory.
 
     .EXAMPLE
-        PS C:\> Save-KbUpdate -Name KB4057119, 4057114 -Architecture x64 -Path C:\temp
+        PS C:\> Save-KbUpdate -Pattern KB4057119, 4057114 -Architecture x64 -Path C:\temp
 
         Downloads KB4057119 and the x64 version of KB4057114 to C:\temp.
 
     .EXAMPLE
-        PS C:\> Save-KbUpdate -Name KB4057114 -Path C:\temp
+        PS C:\> Save-KbUpdate -Pattern KB4057114 -Path C:\temp
 
         Downloads all versions of KB4057114 and the x86 version of KB4057114 to C:\temp.
 #>
     [CmdletBinding()]
     param(
-        [string[]]$Name,
+        [Alias("Name")]
+        [string[]]$Pattern,
         [string]$Path = ".",
         [string]$FilePath,
         [ValidateSet("x64", "x86", "ia64", "All")]
@@ -64,18 +70,18 @@ function Save-KbUpdate {
         [switch]$EnableException
     )
     process {
-        if ($Name.Count -gt 0 -and $PSBoundParameters.FilePath) {
-            Stop-PSFFunction -Message "You can only specify one KB when using FilePath"
+        if ($Pattern.Count -gt 0 -and $PSBoundParameters.FilePath) {
+            Stop-PSFFunction -EnableException:$EnableException -Message "You can only specify one KB when using FilePath"
             return
         }
 
-        if (-not $PSBoundParameters.InputObject -and -not $PSBoundParameters.Name) {
-            Stop-PSFFunction -Message "You must specify a KB name or pipe in results from Get-KbUpdate"
+        if (-not $PSBoundParameters.InputObject -and -not $PSBoundParameters.Pattern) {
+            Stop-PSFFunction -EnableException:$EnableException -Message "You must specify a KB name or pipe in results from Get-KbUpdate"
             return
         }
 
-        foreach ($kb in $Name) {
-            $InputObject += Get-KbUpdate -Name $kb -Architecture $Architecture
+        foreach ($kb in $Pattern) {
+            $InputObject += Get-KbUpdate -Pattern $kb -Architecture $Architecture
         }
 
         foreach ($object in $InputObject) {
@@ -89,7 +95,7 @@ function Save-KbUpdate {
                 if ($templinks) {
                     $object = $templinks
                 } else {
-                    Stop-PSFFunction -Message "Could not find architecture match, downloading all"
+                    Stop-PSFFunction -EnableException:$EnableException -Message "Could not find architecture match, downloading all"
                 }
             }
 
@@ -117,7 +123,7 @@ function Save-KbUpdate {
                         Invoke-TlsWebRequest -OutFile $file -Uri $link -UseBasicParsing
                         Write-Progress -Activity "Downloading $FilePath" -Id 1 -Completed
                     } catch {
-                        Stop-PSFFunction -Message "Failure" -ErrorRecord $_ -Continue
+                        Stop-PSFFunction -EnableException:$EnableException -Message "Failure" -ErrorRecord $_ -Continue
                     }
                 }
                 if (Test-Path -Path $file) {
