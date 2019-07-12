@@ -86,35 +86,12 @@ function Get-KbUpdate {
             [regex]::Matches($span, $regex).ForEach( { $_.Groups[1].Value })
         }
 
-        $baseproperties = "Title",
-        "Id",
-        "Description",
-        "Architecture",
-        "Language",
-        "Classification",
-        "SupportedProducts",
-        "MSRCNumber",
-        "MSRCSeverity",
-        "Hotfix",
-        "Size",
-        "UpdateId",
-        "RebootBehavior",
-        "RequestsUserInput",
-        "ExclusiveInstall",
-        "NetworkRequired",
-        "UninstallNotes",
-        "UninstallSteps",
-        "SupersededBy",
-        "Supersedes",
-        "LastModified",
-        "Link"
-
         # put everything in this function so that it can be easily cached
         function Get-KbItem ($kb) {
-            Write-Progress -Activity "Getting information for $kb" -Id 1
             try {
-                # Thanks! https://keithga.wordpress.com/2017/05/21/new-tool-get-the-latest-windows-10-cumulative-updates/
+                Write-Progress -Activity "Searching catalog for $kb" -Id 1 -Status "Contacting catalog.update.microsoft.com"
                 $results = Invoke-TlsWebRequest -Uri "http://www.catalog.update.microsoft.com/Search.aspx?q=$kb" -UseBasicParsing -ErrorAction Stop
+                Write-Progress -Activity "Searching catalog for $kb" -Id 1 -Completed
 
                 $kbids = $results.InputFields |
                     Where-Object { $_.type -eq 'Button' -and $_.Value -eq 'Download' } |
@@ -123,28 +100,49 @@ function Get-KbUpdate {
                 if (-not $kbids) {
                     try {
                         $null = Invoke-TlsWebRequest -Uri "https://support.microsoft.com/app/content/api/content/help/en-us/$kb" -UseBasicParsing -ErrorAction Stop
-                        Stop-PSFFunction -Message "KB$kb was found but has been removed from the catalog"
+                        Stop-PSFFunction -EnableException:$EnableException -Message "Matches were found for $kb, but the results no longer exist in the catalog"
                         return
                     } catch {
-                        Stop-PSFFunction -Message "No results found for $kb"
+                        Stop-PSFFunction -EnableException:$EnableException -Message "No results found for $kb"
                         return
                     }
                 }
 
                 Write-PSFMessage -Level Verbose -Message "$kbids"
-
-                $guids = $results.Links |
+                # Thanks! https://keithga.wordpress.com/2017/05/21/new-tool-get-the-latest-windows-10-cumulative-updates/
+                $resultlinks = $results.Links |
                     Where-Object ID -match '_link' |
-                    Where-Object { $_.OuterHTML -match ( "(?=.*" + ( $Filter -join ")(?=.*" ) + ")" ) } |
-                    ForEach-Object { $_.id.replace('_link', '') } |
-                    Where-Object { $_ -in $kbids }
+                    Where-Object { $_.OuterHTML -match ( "(?=.*" + ( $Filter -join ")(?=.*" ) + ")" ) }
 
-                foreach ($guid in $guids) {
-                    Write-PSFMessage -Level Verbose -Message "Downloading information for $guid"
+                # get the title too
+                $guids = @()
+                foreach ($resultlink in $resultlinks) {
+                    $itemguid = $resultlink.id.replace('_link', '')
+                    $itemtitle = ($resultlink.outerHTML -replace '<[^>]+>', '').Trim()
+                    if ($itemguid -in $kbids) {
+                        $guids += [pscustomobject]@{
+                            Guid  = $itemguid
+                            Title = $itemtitle
+                        }
+                    }
+                }
+
+                foreach ($item in $guids) {
+                    $guid = $item.Guid
+                    $itemtitle = $item.Title
+
+                    # cacher
+                    $guidarch = "$guid-$Architecture"
+                    if ($script:kbcollection.ContainsKey($guidarch)) {
+                        $script:kbcollection[$guidarch]
+                        continue
+                    }
+
+                    Write-ProgressHelper -Activity "Found results for $kb" -Message "Getting results for $itemtitle" -TotalSteps $guids.Guid.Count -StepNumber $guids.Guid.IndexOf($guid)
+                    Write-PSFMessage -Level Verbose -Message "Downloading information for $itemtitle"
                     $post = @{ size = 0; updateID = $guid; uidInfo = $guid } | ConvertTo-Json -Compress
                     $body = @{ updateIDs = "[$post]" }
                     $downloaddialog = Invoke-TlsWebRequest -Uri 'http://www.catalog.update.microsoft.com/DownloadDialog.aspx' -Method Post -Body $body -UseBasicParsing -ErrorAction Stop | Select-Object -ExpandProperty Content
-
 
                     $title = Get-Info -Text $downloaddialog -Pattern 'enTitle ='
                     $arch = Get-Info -Text $downloaddialog -Pattern 'architectures ='
@@ -214,52 +212,70 @@ function Get-KbUpdate {
                             $properties = $properties | Where-Object { $PSItem -notin "LastModified", "Description", "Size", "Classification", "SupportedProducts", "MSRCNumber", "MSRCSeverity", "RebootBehavior", "RequestsUserInput", "ExclusiveInstall", "NetworkRequired", "UninstallNotes", "UninstallSteps", "SupersededBy", "Supersedes" }
                         }
 
-                        [pscustomobject]@{
-                            Title             = $title
-                            Id                = $kbnumbers
-                            Architecture      = $arch
-                            Language          = $longlang
-                            Hotfix            = $ishotfix
-                            Description       = $description
-                            LastModified      = $lastmodified
-                            Size              = $size
-                            Classification    = $classification
-                            SupportedProducts = $supportedproducts
-                            MSRCNumber        = $msrcnumber
-                            MSRCSeverity      = $msrcseverity
-                            RebootBehavior    = $rebootbehavior
-                            RequestsUserInput = $requestuserinput
-                            ExclusiveInstall  = $exclusiveinstall
-                            NetworkRequired   = $networkrequired
-                            UninstallNotes    = $uninstallnotes
-                            UninstallSteps    = $uninstallsteps
-                            UpdateId          = $updateid
-                            Supersedes        = $supersedes
-                            SupersededBy      = $supersededby
-                            Link              = $link.matches.value
-                        } | Select-DefaultView -Property $properties
+                        $null = $script:kbcollection.Add($guidarch, (
+                                [pscustomobject]@{
+                                    Title             = $title
+                                    Id                = $kbnumbers
+                                    Architecture      = $arch
+                                    Language          = $longlang
+                                    Hotfix            = $ishotfix
+                                    Description       = $description
+                                    LastModified      = $lastmodified
+                                    Size              = $size
+                                    Classification    = $classification
+                                    SupportedProducts = $supportedproducts
+                                    MSRCNumber        = $msrcnumber
+                                    MSRCSeverity      = $msrcseverity
+                                    RebootBehavior    = $rebootbehavior
+                                    RequestsUserInput = $requestuserinput
+                                    ExclusiveInstall  = $exclusiveinstall
+                                    NetworkRequired   = $networkrequired
+                                    UninstallNotes    = $uninstallnotes
+                                    UninstallSteps    = $uninstallsteps
+                                    UpdateId          = $updateid
+                                    Supersedes        = $supersedes
+                                    SupersededBy      = $supersededby
+                                    Link              = $link.matches.value
+                                    InputObject       = $kb
+                                }))
+                        $script:kbcollection[$guidarch]
                     }
                 }
             } catch {
-                Stop-PSFFunction -Message "Failure" -ErrorRecord $_ -Continue
+                Stop-PSFFunction -EnableException:$EnableException -Message "Failure" -ErrorRecord $_ -Continue
             }
-            Write-Progress -Activity "Getting information for $kb" -Id 1 -Completed
+        }
+
+        $properties = "Title",
+        "Id",
+        "Description",
+        "Architecture",
+        "Language",
+        "Classification",
+        "SupportedProducts",
+        "MSRCNumber",
+        "MSRCSeverity",
+        "Hotfix",
+        "Size",
+        "UpdateId",
+        "RebootBehavior",
+        "RequestsUserInput",
+        "ExclusiveInstall",
+        "NetworkRequired",
+        "UninstallNotes",
+        "UninstallSteps",
+        "SupersededBy",
+        "Supersedes",
+        "LastModified",
+        "Link"
+
+        if ($Simple) {
+            $properties = $properties | Where-Object { $PSItem -notin "ID", "LastModified", "Description", "Size", "Classification", "SupportedProducts", "MSRCNumber", "MSRCSeverity", "RebootBehavior", "RequestsUserInput", "ExclusiveInstall", "NetworkRequired", "UninstallNotes", "UninstallSteps", "SupersededBy", "Supersedes" }
         }
     }
     process {
         foreach ($kb in $Pattern) {
-            $kbdepth = "$kb-$Simple"
-            if (-not $script:kbcollection.ContainsKey($kbdepth)) {
-                $kbitem = Get-KbItem $kb
-                if ($kbitem) {
-                    $script:kbcollection.Add($kbdepth, $kbitem)
-                }
-            }
-            if ($Architecture -and $Architecture -ne "All") {
-                $script:kbcollection[$kbdepth] | Where-Object Architecture -eq $Architecture
-            } else {
-                $script:kbcollection[$kbdepth]
-            }
+            Get-KbItem $kb | Select-DefaultView -Property $properties
         }
     }
 }

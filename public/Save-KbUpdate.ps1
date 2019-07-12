@@ -71,12 +71,12 @@ function Save-KbUpdate {
     )
     process {
         if ($Pattern.Count -gt 0 -and $PSBoundParameters.FilePath) {
-            Stop-PSFFunction -Message "You can only specify one KB when using FilePath"
+            Stop-PSFFunction -EnableException:$EnableException -Message "You can only specify one KB when using FilePath"
             return
         }
 
         if (-not $PSBoundParameters.InputObject -and -not $PSBoundParameters.Pattern) {
-            Stop-PSFFunction -Message "You must specify a KB name or pipe in results from Get-KbUpdate"
+            Stop-PSFFunction -EnableException:$EnableException -Message "You must specify a KB name or pipe in results from Get-KbUpdate"
             return
         }
 
@@ -95,7 +95,7 @@ function Save-KbUpdate {
                 if ($templinks) {
                     $object = $templinks
                 } else {
-                    Stop-PSFFunction -Message "Could not find architecture match, downloading all"
+                    Stop-PSFFunction -EnableException:$EnableException -Message "Could not find architecture match, downloading all"
                 }
             }
 
@@ -123,7 +123,7 @@ function Save-KbUpdate {
                         Invoke-TlsWebRequest -OutFile $file -Uri $link -UseBasicParsing
                         Write-Progress -Activity "Downloading $FilePath" -Id 1 -Completed
                     } catch {
-                        Stop-PSFFunction -Message "Failure" -ErrorRecord $_ -Continue
+                        Stop-PSFFunction -EnableException:$EnableException -Message "Failure" -ErrorRecord $_ -Continue
                     }
                 }
                 if (Test-Path -Path $file) {
