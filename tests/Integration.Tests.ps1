@@ -36,11 +36,11 @@ Describe "Integration Tests" -Tag "IntegrationTests" {
             $results.Link              | Should -Be "http://download.windowsupdate.com/c/msdownload/update/software/secu/2014/10/aspnetwebfxupdate_kb2992080_55c239c6b443cb122b04667a9be948b03046bf88.exe"
         }
         It "returns correct 404 when found in the catalog" {
-            $null = Get-KbUpdate -Name 4482972 -WarningVariable foundit 3>$null
-            $foundit | Should -Match "removed from the catalog"
+            $foundit = Get-KbUpdate -Name 4482972 3>&1 | Out-String
+            $foundit | Should -Match "results no longer exist"
         }
         It "returns correct 404 when not found in the catalog" {
-            $null = Get-KbUpdate -Name 4482972abc123 -WarningVariable notfound 3>$null
+            $notfound = Get-KbUpdate -Name 4482972abc123 3>&1 | Out-String
             $notfound | Should -Match "No results found"
         }
     }
