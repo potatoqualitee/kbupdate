@@ -19,21 +19,21 @@ Describe "Integration Tests" -Tag "IntegrationTests" {
             $results.Language          | Should -Be "All"
             $results.Classification    | Should -Be "Security Updates"
             $results.SupportedProducts | Should -Be "ASP.NET Web Frameworks"
-            $results.MSRCNumber        | Should -Be "MS14-059"
-            $results.MSRCSeverity      | Should -Be "Important"
-            $results.Hotfix            | Should -Be "True"
-            $results.Size              | Should -Be "462 KB"
-            $results.UpdateId          | Should -Be "0c84df7a-e685-466c-a545-a24de5ad2601"
-            $results.RebootBehavior    | Should -Be "Can request restart"
+            $results.MSRCNumber | Should -Be "MS14-059"
+            $results.MSRCSeverity | Should -Be "Important"
+            $results.Hotfix | Should -Be "True"
+            $results.Size | Should -Be "462 KB"
+            $results.UpdateId | Should -Be "0c84df7a-e685-466c-a545-a24de5ad2601"
+            $results.RebootBehavior | Should -Be "Can request restart"
             $results.RequestsUserInput | Should -Be "No"
-            $results.ExclusiveInstall  | Should -Be "No"
-            $results.NetworkRequired   | Should -Be "No"
-            $results.UninstallNotes    | Should -Be "This software update can be removed via Add or Remove Programs in Control Panel."
-            $results.UninstallSteps    | Should -Be "n/a"
-            $results.SupersededBy      | Should -Be "n/a"
-            $results.Supersedes        | Should -Be "n/a"
-            $results.LastModified      | Should -Be "10/14/2014"
-            $results.Link              | Should -Be "http://download.windowsupdate.com/c/msdownload/update/software/secu/2014/10/aspnetwebfxupdate_kb2992080_55c239c6b443cb122b04667a9be948b03046bf88.exe"
+            $results.ExclusiveInstall | Should -Be "No"
+            $results.NetworkRequired | Should -Be "No"
+            $results.UninstallNotes | Should -Be "This software update can be removed via Add or Remove Programs in Control Panel."
+            $results.UninstallSteps | Should -Be "n/a"
+            $results.SupersededBy | Should -Be "n/a"
+            $results.Supersedes | Should -Be "n/a"
+            $results.LastModified | Should -Be "10/14/2014"
+            $results.Link | Should -Be "http://download.windowsupdate.com/c/msdownload/update/software/secu/2014/10/aspnetwebfxupdate_kb2992080_55c239c6b443cb122b04667a9be948b03046bf88.exe"
         }
         It "returns correct 404 when found in the catalog" {
             $foundit = Get-KbUpdate -Name 4482972 3>&1 | Out-String
@@ -42,6 +42,31 @@ Describe "Integration Tests" -Tag "IntegrationTests" {
         It "returns correct 404 when not found in the catalog" {
             $notfound = Get-KbUpdate -Name 4482972abc123 3>&1 | Out-String
             $notfound | Should -Match "No results found"
+        }
+        It "returns objects for Supersedes and SupersededBy" {
+            $results = Get-KbUpdate -Name KB4505225
+            $results.Title | Should -Be 'Security Update for SQL Server 2017 RTM CU (KB4505225)'
+            $results.Supersedes.KB | Should -Be @(
+                '4293805',
+                '4058562',
+                '4494352',
+                '4038634',
+                '4342123',
+                '4462262',
+                '4464082',
+                '4466404',
+                '4484710',
+                '4498951',
+                '4052574',
+                '4052987',
+                '4056498',
+                '4092643',
+                '4101464',
+                '4229789',
+                '4338363',
+                '4341265'
+            )
+
         }
     }
     Context "Save works" {

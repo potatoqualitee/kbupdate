@@ -82,10 +82,25 @@ function Get-KbUpdate {
             switch -Wildcard ($span.Value) {
                 "*div style*" { $regex = '">\s*(.*?)\s*<\/div>' }
                 "*a href*" { $regex = "<div[\s\S]*?'>(.*?)<\/a" }
-                default { $regex = '"\s?>\s*(\S+?)\s*<\/div>'}
+                default { $regex = '"\s?>\s*(\S+?)\s*<\/div>' }
             }
 
-            [regex]::Matches($span, $regex).ForEach( { $_.Groups[1].Value })
+            $spanMatches = [regex]::Matches($span, $regex).ForEach( { $_.Groups[1].Value })
+            if ($spanMatches) {
+                if ($spanMatches -ne 'n/a') {
+                    foreach ($superMatch in $spanMatches) {
+                        $detailedMatches = [regex]::Matches($superMatch, '\b[kK][bB]([0-9]{6,})\b')
+                        if ($null -ne $detailedMatches) {
+                            [PSCustomObject] @{
+                                'KB'          = $detailedMatches.Groups[1].Value
+                                'Description' = $superMatch
+                            }
+                        }
+                    }
+                } else {
+                    $spanMatches
+                }
+            }
         }
 
         # put everything in this function so that it can be easily cached
@@ -97,8 +112,8 @@ function Get-KbUpdate {
                 Write-Progress -Activity "Searching catalog for $kb" -Id 1 -Completed
 
                 $kbids = $results.InputFields |
-                    Where-Object { $_.type -eq 'Button' -and $_.Value -eq 'Download' } |
-                    Select-Object -ExpandProperty  ID
+                Where-Object { $_.type -eq 'Button' -and $_.Value -eq 'Download' } |
+                Select-Object -ExpandProperty  ID
 
                 if (-not $kbids) {
                     try {
