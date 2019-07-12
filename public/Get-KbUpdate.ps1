@@ -49,7 +49,7 @@ function Get-KbUpdate {
         PS C:\> Get-KbUpdate -Pattern KB4057119, 4057114 -Simple
 
         A lil faster. Returns, at the very least: Title, Architecture, Language, Hotfix, UpdateId and Link
-#>
+    #>
     [CmdletBinding()]
     param(
         [Parameter(Mandatory)]
@@ -112,8 +112,8 @@ function Get-KbUpdate {
                 Write-Progress -Activity "Searching catalog for $kb" -Id 1 -Completed
 
                 $kbids = $results.InputFields |
-                Where-Object { $_.type -eq 'Button' -and $_.Value -eq 'Download' } |
-                Select-Object -ExpandProperty  ID
+                    Where-Object { $_.type -eq 'Button' -and $_.Value -eq 'Download' } |
+                    Select-Object -ExpandProperty  ID
 
                 if (-not $kbids) {
                     try {

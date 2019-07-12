@@ -6,7 +6,7 @@ function Invoke-TlsWebRequest {
     rather than the default, which on a lot
     of standard installations is just TLS 1.0
 
-       #>
+    #>
 
     # IWR is crazy slow for large downloads
     $currentProgressPref = $ProgressPreference

@@ -41,7 +41,7 @@ function Search-Kb {
         PS C:\> Search-KbUpdate -Pattern KB4057114 -Path C:\temp
 
         Downloads all versions of KB4057114 and the x86 version of KB4057114 to C:\temp.
-#>
+    #>
     [CmdletBinding()]
     param(
         [string[]]$Pattern,

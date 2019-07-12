@@ -1,4 +1,4 @@
-﻿Add-AppveyorTest -Name "appveyor.prep" -Framework NUnit -FileName "appveyor.prep.ps1" -Outcome Running
+Add-AppveyorTest -Name "appveyor.prep" -Framework NUnit -FileName "appveyor.prep.ps1" -Outcome Running
 $sw = [system.diagnostics.stopwatch]::startNew()
 
 #Get PSScriptAnalyzer (to check warnings)
