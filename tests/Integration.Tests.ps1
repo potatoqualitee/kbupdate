@@ -72,6 +72,10 @@ Describe "Integration Tests" -Tag "IntegrationTests" {
             $results = Get-KbUpdate -Pattern KB968930 -Language Japanese -Architecture x86 -Simple
             $results.Count -eq 4
             $results.Link | Select-Object -Last 1 | Should -Match jpn
+
+            $results = Get-KbUpdate -Pattern "KB2764916 Nederlands" -Simple
+            $results.Title.Count -eq 1
+            $results.Link | Should -Match nl
         }
 
         It "properly supports OS searches" {
