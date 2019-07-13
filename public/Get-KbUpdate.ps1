@@ -136,7 +136,7 @@ function Get-KbUpdate {
                 $search = "$kb"
                 Write-PSFMessage -Level Verbose -Message "$search"
                 Write-Progress -Activity "Searching catalog for $kb" -Id 1 -Status "Contacting catalog.update.microsoft.com"
-                $results = Invoke-TlsWebRequest -Uri "http://www.catalog.update.microsoft.com/Search.aspx?q=$search" -UseBasicParsing -ErrorAction Stop
+                $results = Invoke-TlsWebRequest -Uri "http://www.catalog.update.microsoft.com/Search.aspx?q=$search"
                 Write-Progress -Activity "Searching catalog for $kb" -Id 1 -Completed
 
                 $kbids = $results.InputFields |
@@ -145,7 +145,7 @@ function Get-KbUpdate {
 
                 if (-not $kbids) {
                     try {
-                        $null = Invoke-TlsWebRequest -Uri "https://support.microsoft.com/app/content/api/content/help/en-us/$kb" -UseBasicParsing -ErrorAction Stop
+                        $null = Invoke-TlsWebRequest -Uri "https://support.microsoft.com/app/content/api/content/help/en-us/$kb"
                         Stop-PSFFunction -EnableException:$EnableException -Message "Matches were found for $kb, but the results no longer exist in the catalog"
                         return
                     } catch {
@@ -188,7 +188,7 @@ function Get-KbUpdate {
                     Write-PSFMessage -Level Verbose -Message "Downloading information for $itemtitle"
                     $post = @{ size = 0; updateID = $guid; uidInfo = $guid } | ConvertTo-Json -Compress
                     $body = @{ updateIDs = "[$post]" }
-                    $downloaddialog = Invoke-TlsWebRequest -Uri 'http://www.catalog.update.microsoft.com/DownloadDialog.aspx' -Method Post -Body $body -UseBasicParsing -ErrorAction Stop | Select-Object -ExpandProperty Content
+                    $downloaddialog = Invoke-TlsWebRequest -Uri 'http://www.catalog.update.microsoft.com/DownloadDialog.aspx' -Method Post -Body $body | Select-Object -ExpandProperty Content
 
                     $title = Get-Info -Text $downloaddialog -Pattern 'enTitle ='
                     $arch = Get-Info -Text $downloaddialog -Pattern 'architectures ='
@@ -218,7 +218,7 @@ function Get-KbUpdate {
                     }
 
                     if (-not $Simple) {
-                        $detaildialog = Invoke-TlsWebRequest -Uri "https://www.catalog.update.microsoft.com/ScopedViewInline.aspx?updateid=$updateid" -UseBasicParsing -ErrorAction Stop
+                        $detaildialog = Invoke-TlsWebRequest -Uri "https://www.catalog.update.microsoft.com/ScopedViewInline.aspx?updateid=$updateid"
                         $description = Get-Info -Text $detaildialog -Pattern '<span id="ScopedViewHandler_desc">'
                         $lastmodified = Get-Info -Text $detaildialog -Pattern '<span id="ScopedViewHandler_date">'
                         $size = Get-Info -Text $detaildialog -Pattern '<span id="ScopedViewHandler_size">'
