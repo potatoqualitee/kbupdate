@@ -344,7 +344,7 @@ function Get-KbUpdate {
         }
     }
     end {
-        # I'm not super awesome with the pipeline, but believe this is the best way
+        # I'm not super awesome with the pipeline, and am open to suggestions if this is not the best way
         if ($Latest) {
             $allkbs | Select-Latest | Select-DefaultView -Property $properties
         }
