@@ -157,8 +157,9 @@ function Get-KbUpdate {
                     $itemtitle = $item.Title
 
                     # cacher
-                    if ($script:kbcollection.ContainsKey($guid)) {
-                        $script:kbcollection[$guid]
+                    $hashkey = "$guid-$Simple"
+                    if ($script:kbcollection.ContainsKey($hashkey)) {
+                        $script:kbcollection[$hashkey]
                         continue
                     }
 
@@ -236,7 +237,7 @@ function Get-KbUpdate {
                             $properties = $properties | Where-Object { $PSItem -notin "LastModified", "Description", "Size", "Classification", "SupportedProducts", "MSRCNumber", "MSRCSeverity", "RebootBehavior", "RequestsUserInput", "ExclusiveInstall", "NetworkRequired", "UninstallNotes", "UninstallSteps", "SupersededBy", "Supersedes" }
                         }
 
-                        $null = $script:kbcollection.Add($guid, (
+                        $null = $script:kbcollection.Add($hashkey, (
                                 [pscustomobject]@{
                                     Title             = $title
                                     Id                = $kbnumbers
@@ -262,7 +263,7 @@ function Get-KbUpdate {
                                     Link              = $link.matches.value
                                     InputObject       = $kb
                                 }))
-                        $script:kbcollection[$guid]
+                        $script:kbcollection[$hashkey]
                     }
                 }
             } catch {

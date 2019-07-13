@@ -52,7 +52,7 @@ function Search-Kb {
         [pscustomobject[]]$InputObject
     )
     process {
-        if (-not $OperatingSystem -and -not $Architecture) {
+        if (-not $PSBoundParameters.OperatingSystem -and -not $PSBoundParameters.Architecture) {
             return $InputObject
         }
 
@@ -66,48 +66,46 @@ function Search-Kb {
             }
 
             if ($OperatingSystem) {
-                $kb = @()
+                $match = @()
                 foreach ($os in $OperatingSystem) {
-                    $kb += $object | Where-Object SupportedProducts -match $OperatingSystem.Replace(' ', '.*')
-                    $kb += $object | Where-Object Title -match $OperatingSystem.Replace(' ', '.*')
+                    $match += $object | Where-Object SupportedProducts -match $os.Replace(' ', '.*')
+                    $match += $object | Where-Object Title -match $os.Replace(' ', '.*')
                 }
-                if ($kb) {
-                    $tempobject = $kb | Select-Object -First 1
+                if (-not $match) {
+                    continue
                 }
             }
 
-            if ($Architecture) {
-                $kb = @()
+            if ($Architecture -and $Architecture -notcontains "All") {
+                $match = @()
                 foreach ($arch in $Architecture) {
-                    if ($arch -eq "All") {
-                        $kb += $tempobject
-                    } else {
-                        $kb += $tempobject | Where-Object Title -match $Architecture
-                        $kb += $tempobject | Where-Object Architecture -eq $Architecture
-                        # if architecture from user is -ne all and then multiple files are listed?
-                        $kb += $tempobject | Where-Object Link -match "$($Architecture)_"
-                        # if architecture from microsoft is all but then listed in the title without the others
-                        # oh my, this needs some regex
-                        if ($tempobject.Architecture -ne "All" -and $tempobject.Title -match $arch) {
-                            $temparch = $tempobject
-                            foreach ($value in $Architecture) {
-                                if ($value -eq "All" -or $value -eq $arch) { continue }
-                                if ($tempobject.Title -match $value) {
-                                    $temparch = $null
-                                }
+                    $match += $object | Where-Object Title -match $arch
+                    $match += $object | Where-Object Architecture -eq $arch
+
+                    # if architecture from user is -ne all and then multiple files are listed? how to just get that link
+                    # perhaps this is where we can check the pipeline, if save, then hardcore filter
+                    $match += $object | Where-Object Link -match "$($arch)_"
+
+                    # if architecture from microsoft is all but then listed in the title without the others
+                    # oh my, this needs some regex
+                    if ($object.Title -match $arch) {
+                        $tempvalue = $object
+                        foreach ($value in $arch) {
+                            if ($tempvalue.Title -match $value -and $arch -ne $value) {
+                                $tempvalue = $null
                             }
-                            if ($temparch) {
-                                $kb += $temparch
-                            }
+                        }
+                        if ($tempvalue) {
+                            $match += $object
                         }
                     }
                 }
-                if ($kb) {
-                    $tempobject = $kb | Select-Object -First 1
+                if (-not $match) {
+                    continue
                 }
             }
 
-            $tempobject | Sort-Object -Unique Title, ID
+            $object | Sort-Object -Unique Title, ID
         }
     }
 }
