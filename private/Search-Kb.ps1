@@ -53,23 +53,31 @@ function Search-Kb {
                 # object.Language cannot be trusted
                 # are there any language matches at all? if not just skip.
                 $languagespecific = $false
-                foreach ($code in $script:languages.Values) {
-                    if ($object | Where-Object Link -match "-$($code)_") {
+                foreach ($key in $script:languages.Keys) {
+                    $shortname = $key.Split(" ")[0]
+                    $code = $script:languages[$key]
+                    if ($object.Link -match '-.._' -or $object.Link -match "-$($code)_" -or ($object.Title -match $shortname -or $object.Description -match $shortname)) {
                         $languagespecific = $true
                     }
                 }
+
                 if ($languagespecific) {
+                    $textmatch = $false
                     $matches = @()
                     foreach ($item in $Language) {
-                        # In case I end up going back to getcultures
-                        # $codes = [System.Globalization.CultureInfo]::GetCultures("AllCultures") | Where-Object DisplayName -in $Language | Select-Object -ExpandProperty Name
+                        $shortname = $item.Split(" ")[0]
                         $matches += $object.Link -match "$($script:languages[$item])_"
+                        if ($object.Title -match $shortname -or $object.Description -match $shortname) {
+                            $textmatch = $true
+                        }
                     }
-                    if ($matches) {
+                    if ($matches -match 'http') {
                         $object.Link = $matches
                     } else {
-                        Write-PSFMessage -Level Verbose -Message "Skipping $($object.Title) - no match to $Language"
-                        continue
+                        if (-not $textmatch) {
+                            Write-PSFMessage -Level Verbose -Message "Skipping $($object.Title) - no match to $Language"
+                            continue
+                        }
                     }
                 }
             }

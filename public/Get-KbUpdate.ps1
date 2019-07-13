@@ -60,6 +60,11 @@ function Get-KbUpdate {
         PS C:\> Get-KbUpdate -Pattern KB4057119, 4057114 -Simple
 
         A lil faster. Returns, at the very least: Title, Architecture, Language, Hotfix, UpdateId and Link
+
+    .EXAMPLE
+        PS C:\> Get-KbUpdate -Pattern "KB2764916 Nederlands" -Simple
+
+        An alternative way to search for language specific packages
 #>
     [CmdletBinding()]
     param(
