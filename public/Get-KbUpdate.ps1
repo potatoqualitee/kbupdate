@@ -16,7 +16,7 @@ function Get-KbUpdate {
         Any pattern. Can be the KB name, number or even MSRC numbrer. For example, KB4057119, 4057119, or MS15-101.
 
     .PARAMETER Architecture
-        Can be x64, x86, ia64, ARM or "All".
+        Can be x64, x86, ia64, or ARM.
 
     .PARAMETER OperatingSystem
         Specify one or more operating systems. Tab complete to see what's available. If anything is missing, please file an issue.
@@ -60,7 +60,7 @@ function Get-KbUpdate {
         [Parameter(Mandatory)]
         [Alias("Name")]
         [string[]]$Pattern,
-        [ValidateSet("x64", "x86", "ia64", "ARM", "All")]
+        [ValidateSet("x64", "x86", "ia64", "ARM")]
         [string[]]$Architecture,
         [ValidateSet("Windows XP", "Windows Vista", "Windows 7", "Windows 8", "Windows 10", "Windows Server 2019", "Windows Server 2012", "Windows Server 2012 R2", "Windows Server 2008", "Windows Server 2008 R2", "Windows Server 2003", "Windows Server 2000")]
         [string[]]$OperatingSystem,

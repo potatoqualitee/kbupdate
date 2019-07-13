@@ -16,7 +16,7 @@ function Save-KbUpdate {
         The exact file name to save to, otherwise, it uses the name given by the webserver
 
     .PARAMETER Architecture
-        Can be x64, x86, ia64, ARM or "All".
+        Can be x64, x86, ia64, or ARM.
 
     .PARAMETER OperatingSystem
         Specify one or more operating systems. Tab complete to see what's available. If anything is missing, please file an issue.
@@ -66,7 +66,7 @@ function Save-KbUpdate {
         [string[]]$Pattern,
         [string]$Path = ".",
         [string]$FilePath,
-        [ValidateSet("x64", "x86", "ia64", "ARM", "All")]
+        [ValidateSet("x64", "x86", "ia64", "ARM")]
         [string[]]$Architecture,
         [ValidateSet("Windows XP", "Windows Vista", "Windows 7", "Windows 8", "Windows 10", "Windows Server 2019", "Windows Server 2012", "Windows Server 2012 R2", "Windows Server 2008", "Windows Server 2008 R2", "Windows Server 2003", "Windows Server 2000")]
         [string[]]$OperatingSystem,
@@ -100,7 +100,7 @@ function Save-KbUpdate {
         }
 
         foreach ($object in $InputObject) {
-            if ($Architecture -and $Architecture -ne "All") {
+            if ($Architecture) {
                 $templinks = $object.Link | Where-Object { $PSItem -match "$($Architecture)_" }
 
                 if (-not $templinks) {

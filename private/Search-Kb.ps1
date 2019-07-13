@@ -11,7 +11,7 @@ function Search-Kb {
         The KB name or number. For example, KB4057119 or 4057119.
 
     .PARAMETER Architecture
-        Can be x64, x86, ia64 or "All". Defaults to All.
+        Can be x64, x86, ia64 or ARM.
 
     .PARAMETER InputObject
         Enables piping from Get-KbUpdate
@@ -44,8 +44,8 @@ function Search-Kb {
     #>
     [CmdletBinding()]
     param(
-        [ValidateSet("x64", "x86", "ia64", "ARM", "All")]
-        [string[]]$Architecture = "All",
+        [ValidateSet("x64", "x86", "ia64", "ARM")]
+        [string[]]$Architecture,
         [ValidateSet("Windows XP", "Windows Vista", "Windows 7", "Windows 8", "Windows 10", "Windows Server 2019", "Windows Server 2012", "Windows Server 2012 R2", "Windows Server 2008", "Windows Server 2008 R2", "Windows Server 2003")]
         [string[]]$OperatingSystem,
         [parameter(ValueFromPipeline)]
@@ -76,7 +76,7 @@ function Search-Kb {
                 }
             }
 
-            if ($Architecture -and $Architecture -notcontains "All") {
+            if ($Architecture) {
                 $match = @()
                 foreach ($arch in $Architecture) {
                     $match += $object | Where-Object Title -match $arch
@@ -105,7 +105,8 @@ function Search-Kb {
                 }
             }
 
-            $object | Sort-Object -Unique Title, ID
+
+            $object
         }
     }
 }
