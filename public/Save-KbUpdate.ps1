@@ -117,14 +117,20 @@ function Save-KbUpdate {
 
         foreach ($object in $InputObject) {
             if ($Architecture) {
-                $templinks = $object.Link | Where-Object { $PSItem -match "$($Architecture)_" }
+                $templinks = @()
+                foreach ($arch in $Architecture) {
+                    $templinks += $object.Link | Where-Object { $PSItem -match "$($arch)_" }
 
-                if (-not $templinks) {
-                    $templinks = $object | Where-Object Architecture -eq $Architecture
+                    if ("x64" -eq $arch) {
+                        $templinks += $object.Link | Where-Object { $PSItem -match "64_" }
+                    }
+                    if (-not $templinks) {
+                        $templinks += $object | Where-Object Architecture -eq $arch | Select-Object -ExpandProperty Link
+                    }
                 }
 
                 if ($templinks) {
-                    $object = $templinks
+                    $object.Link = ($templinks | Sort-Object -Unique)
                 } else {
                     Stop-PSFFunction -EnableException:$EnableException -Message "Could not find architecture match, downloading all"
                 }
