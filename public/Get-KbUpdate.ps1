@@ -129,31 +129,26 @@ function Get-KbUpdate {
             }
         }
 
-        function Get-Guid {
-            $nextbutton = $results.InputFields | Where-Object id -match nextPageLinkButton
-            if ($nextbutton) {
-                Write-PSFMessage -Level Verbose -Message "Next button found"
-            } else {
-                Write-PSFMessage -Level Verbose -Message "Next button not found"
-            }
-
-            if ($MaxResults -gt 25 -and $nextbutton) {
-                write-warning wut
-                # nothing yet
-            } else {
-                $results.InputFields |
-                    Where-Object { $_.type -eq 'Button' -and $_.Value -eq 'Download' } |
-                    Select-Object -ExpandProperty  ID
-            }
-        }
-        # put everything in this function so that it can be easily cached
         function Get-KbItem ($kb) {
             try {
                 Write-PSFMessage -Level Verbose -Message "$kb"
                 Write-Progress -Activity "Searching catalog for $kb" -Id 1 -Status "Contacting catalog.update.microsoft.com"
-                $results = Invoke-TlsWebRequest -Uri "http://www.catalog.update.microsoft.com/Search.aspx?q=$kb"
+                $results = Invoke-TlsWebRequest -Uri "https://www.catalog.update.microsoft.com/Search.aspx?q=$kb"
                 Write-Progress -Activity "Searching catalog for $kb" -Id 1 -Completed
-                $kbids = Get-Guid $kb
+                $nextbutton = $results.InputFields | Where-Object id -match nextPageLinkButton
+                if ($nextbutton) {
+                    Write-PSFMessage -Level Verbose -Message "Next button found"
+                } else {
+                    Write-PSFMessage -Level Verbose -Message "Next button not found"
+                }
+
+                if ($MaxResults -gt 25 -and $nextbutton) {
+                    # nothing yet, i cannot figure this out
+                } else {
+                    $kbids = $results.InputFields |
+                        Where-Object { $_.type -eq 'Button' -and $_.Value -eq 'Download' } |
+                        Select-Object -ExpandProperty  ID
+                }
 
                 if (-not $kbids) {
                     try {
@@ -200,7 +195,7 @@ function Get-KbUpdate {
                     Write-PSFMessage -Level Verbose -Message "Downloading information for $itemtitle"
                     $post = @{ size = 0; updateID = $guid; uidInfo = $guid } | ConvertTo-Json -Compress
                     $body = @{ updateIDs = "[$post]" }
-                    $downloaddialog = Invoke-TlsWebRequest -Uri 'http://www.catalog.update.microsoft.com/DownloadDialog.aspx' -Method Post -Body $body | Select-Object -ExpandProperty Content
+                    $downloaddialog = Invoke-TlsWebRequest -Uri 'https://www.catalog.update.microsoft.com/DownloadDialog.aspx' -Method Post -Body $body | Select-Object -ExpandProperty Content
 
                     $title = Get-Info -Text $downloaddialog -Pattern 'enTitle ='
                     $arch = Get-Info -Text $downloaddialog -Pattern 'architectures ='
