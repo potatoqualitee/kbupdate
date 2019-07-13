@@ -91,6 +91,17 @@ Describe "Integration Tests" -Tag "IntegrationTests" {
             $results = Get-KbUpdate -Pattern KB2920730 -Product 'Office 2020' | Select-Object -First 1
             $null -eq $results
         }
+
+        It "grabs the latest" {
+            $results = Get-KbUpdate -Pattern 2416447, 979906
+            $results.Count | Should -Be 6
+            $results = Get-KbUpdate -Pattern 2416447
+            $results.Count | Should -Be 3
+            $results = Get-KbUpdate -Pattern 979906
+            $results.Count | Should -Be 3
+            $results = Get-KbUpdate -Pattern 2416447, 979906 -Latest
+            $results.Count  | Should -Be 3
+        }
     }
 
     Context "Save works" {
