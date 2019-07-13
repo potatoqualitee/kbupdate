@@ -30,6 +30,11 @@ function Save-KbUpdate {
     .PARAMETER InputObject
         Enables piping from Get-KbUpdate
 
+    .PARAMETER Strict
+        By default, when Language is specified, if a KB supports all language, the file will be downloaded.
+
+        Use Strict to download ONLY the language and not universal KBs.
+
     .PARAMETER EnableException
         By default, when something goes wrong we try to catch it, interpret it and give you a friendly warning message.
         This avoids overwhelming you with "sea of red" exceptions, but is inconvenient because it basically disables advanced scripting.
@@ -78,6 +83,7 @@ function Save-KbUpdate {
         [string[]]$Language,
         [parameter(ValueFromPipeline)]
         [pscustomobject[]]$InputObject,
+        [switch]$Strict,
         [switch]$EnableException
     )
     process {
@@ -88,6 +94,11 @@ function Save-KbUpdate {
 
         if (-not $PSBoundParameters.InputObject -and -not $PSBoundParameters.Pattern) {
             Stop-PSFFunction -EnableException:$EnableException -Message "You must specify a KB name or pipe in results from Get-KbUpdate"
+            return
+        }
+
+        if (-not $PSBoundParameters.InputObject -and ($PSBoundParameters.OperatingSystem -or $PSBoundParameters.Product)) {
+            Stop-PSFFunction -EnableException:$EnableException -Message "When piping, please do not use OperatingSystem or Product filters. It's assumed that you are piping the results that you wish to download, so unexpected results may occur."
             return
         }
 
@@ -120,26 +131,32 @@ function Save-KbUpdate {
             }
 
             foreach ($link in $object.Link) {
+                $Strict = $true
                 # Microsoft's KB Language field cannot be relied upon. It'll say English then contain Chinese files.
-                if ($Language -and $object.Link.Count -gt 1) {
-                    # object.Language cannot be trusted
-                    # are there any language matches at all? if not just skip.
-                    $match = $false
+                if ($Language -and ($object.Link.Count -gt 1 -or $Strict)) {
+                    # are there any language matches at all? if not, download it unless Strict
+                    if ($Strict) {
+                        $languagespecific = $true
+                    } else {
+                        $languagespecific = $false
+                    }
+
                     foreach ($code in $script:languages.Values) {
-                        if ($object | Where-Object Link -match "-$($code)_") {
-                            $match = $true
+                        if ($link -match "-$($code)_") {
+                            $languagespecific = $true
                         }
                     }
-                    if ($match) {
+
+                    if ($languagespecific) {
                         $matches = @()
-                        foreach ($item in $Language) {
-                            # In case I end up going back to getcultures
-                            # $codes = [System.Globalization.CultureInfo]::GetCultures("AllCultures") | Where-Object DisplayName -in $Language | Select-Object -ExpandProperty Name
-                            $code = $item[$item]
-                            $matches += $object | Where-Object Link -match "$($code)_"
+                        foreach ($value in $Language) {
+                            $code = $script:languages[$value]
+                            $matches += $object.Link -match "$($code)_"
                         }
-                        if (-not $matches) {
-                            Write-PSFMessage -Level Warning -Message "Skipping $link - no match to $Language"
+                        if ($matches) {
+                            $object.Link = $matches
+                        } else {
+                            Write-PSFMessage -Level Verbose -Message "Skipping $link - no match to $Language"
                             continue
                         }
                     }

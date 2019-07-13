@@ -279,13 +279,6 @@ function Get-KbUpdate {
             }
         }
 
-        $boundparams = @{
-            Architecture = $Architecture
-            OperatingSystem = $OperatingSystem
-            Product = $Product
-            Language = $Language
-        }
-
         $properties = "Title",
         "Id",
         "Description",
@@ -311,6 +304,13 @@ function Get-KbUpdate {
 
         if ($Simple) {
             $properties = $properties | Where-Object { $PSItem -notin "ID", "LastModified", "Description", "Size", "Classification", "SupportedProducts", "MSRCNumber", "MSRCSeverity", "RebootBehavior", "RequestsUserInput", "ExclusiveInstall", "NetworkRequired", "UninstallNotes", "UninstallSteps", "SupersededBy", "Supersedes" }
+        }
+
+        $boundparams = @{
+            Architecture = $PSBoundParameters.Architecture
+            OperatingSystem = $PSBoundParameters.OperatingSystem
+            Product = $PSBoundParameters.Product
+            Language = $PSBoundParameters.Language
         }
     }
     process {

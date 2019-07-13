@@ -3,44 +3,6 @@ function Search-Kb {
     <#
     .SYNOPSIS
         Searches the kb results
-
-    .DESCRIPTION
-         Searches patches from Microsoft
-
-    .PARAMETER Name
-        The KB name or number. For example, KB4057119 or 4057119.
-
-    .PARAMETER Architecture
-        Can be x64, x86, ia64 or ARM.
-
-    .PARAMETER InputObject
-        Enables piping from Get-KbUpdate
-
-    .NOTES
-        Tags: Update
-        Author: Chrissy LeMaire (@cl), netnerds.net
-        Copyright: (c) licensed under MIT
-        License: MIT https://opensource.org/licenses/MIT
-
-    .EXAMPLE
-        PS C:\> Search-KbUpdate -Pattern KB4057119
-
-        Downloads KB4057119 to the current directory. This works for SQL Server or any other KB.
-
-    .EXAMPLE
-        PS C:\> Get-KbUpdate -Pattern 3118347 -Simple -Architecture x64 | Out-GridView -Passthru | Search-KbUpdate
-
-        Downloads the selected files from KB4057119 to the current directory.
-
-    .EXAMPLE
-        PS C:\> Search-KbUpdate -Pattern KB4057119, 4057114 -Architecture x64 -Path C:\temp
-
-        Downloads KB4057119 and the x64 version of KB4057114 to C:\temp.
-
-    .EXAMPLE
-        PS C:\> Search-KbUpdate -Pattern KB4057114 -Path C:\temp
-
-        Downloads all versions of KB4057114 and the x86 version of KB4057114 to C:\temp.
     #>
     [CmdletBinding()]
     param(
@@ -52,7 +14,7 @@ function Search-Kb {
         [pscustomobject[]]$InputObject
     )
     process {
-        if (-not $PSBoundParameters.OperatingSystem -and -not $PSBoundParameters.Architecture) {
+        if (-not $OperatingSystem -and -not $Architecture -and -not $Product -and -not $Language) {
             return $InputObject
         }
 
@@ -76,24 +38,37 @@ function Search-Kb {
                 }
             }
 
+            if ($Product) {
+                $match = @()
+                foreach ($item in $Product) {
+                    $match += $object | Where-Object SupportedProducts -match $item.Replace(' ', '.*')
+                    $match += $object | Where-Object Title -match $item.Replace(' ', '.*')
+                }
+                if (-not $match) {
+                    continue
+                }
+            }
+
             if ($Language) {
                 # object.Language cannot be trusted
                 # are there any language matches at all? if not just skip.
-                $match = $false
+                $languagespecific = $false
                 foreach ($code in $script:languages.Values) {
                     if ($object | Where-Object Link -match "-$($code)_") {
-                        $match = $true
+                        $languagespecific = $true
                     }
                 }
-                if ($match) {
+                if ($languagespecific) {
                     $matches = @()
                     foreach ($item in $Language) {
                         # In case I end up going back to getcultures
                         # $codes = [System.Globalization.CultureInfo]::GetCultures("AllCultures") | Where-Object DisplayName -in $Language | Select-Object -ExpandProperty Name
-                        $code = $item[$item]
-                        $matches += $object | Where-Object Link -match "$($code)_"
+                        $matches += $object.Link -match "$($script:languages[$item])_"
                     }
-                    if (-not $matches) {
+                    if ($matches) {
+                        $object.Link = $matches
+                    } else {
+                        Write-PSFMessage -Level Verbose -Message "Skipping $($object.Title) - no match to $Language"
                         continue
                     }
                 }
