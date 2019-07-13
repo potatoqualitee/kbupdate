@@ -99,7 +99,7 @@ function Save-KbUpdate {
         }
 
         foreach ($object in $InputObject) {
-            if ($Architecture -ne "All") {
+            if ($Architecture -and $Architecture -ne "All") {
                 $templinks = $object.Link | Where-Object { $PSItem -match "$($Architecture)_" }
 
                 if (-not $templinks) {
