@@ -27,6 +27,9 @@ function Save-KbUpdate {
     .PARAMETER Language
         Specify one or more Language. Tab complete to see what's available. This is not an exact science, as the data itself is miscategorized.
 
+    .PARAMETER Latest
+        Filters out any patches that have been superseded by other patches in the batch
+
     .PARAMETER InputObject
         Enables piping from Get-KbUpdate
 
@@ -83,6 +86,7 @@ function Save-KbUpdate {
         [string[]]$Language,
         [parameter(ValueFromPipeline)]
         [pscustomobject[]]$InputObject,
+        [switch]$Latest,
         [switch]$Strict,
         [switch]$EnableException
     )
@@ -103,6 +107,11 @@ function Save-KbUpdate {
         }
 
         foreach ($kb in $Pattern) {
+            if ($Latest) {
+                $simple = $false
+            } else {
+                $simple = $true
+            }
             $params = @{
                 Pattern         = $kb
                 Architecture    = $Architecture
@@ -110,7 +119,8 @@ function Save-KbUpdate {
                 Product         = $Product
                 Language        = $Language
                 EnableException = $EnableException
-                Simple          = $true
+                Simple          = $Simple
+                Latest          = $Latest
             }
             $InputObject += Get-KbUpdate @params
         }

@@ -27,6 +27,9 @@ function Get-KbUpdate {
     .PARAMETER Product
         Specify one or more products (SharePoint, SQL Server, etc). Tab complete to see what's available. If anything is missing, please file an issue.
 
+    .PARAMETER Latest
+        Filters out any patches that have been superseded by other patches in the batch
+
     .PARAMETER Simple
         A lil faster. Returns, at the very least: Title, Architecture, Language, Hotfix, UpdateId and Link
 
@@ -76,6 +79,7 @@ function Get-KbUpdate {
         [string[]]$Product,
         [string[]]$Language,
         [switch]$Simple,
+        [switch]$Latest,
         [switch]$EnableException
     )
     begin {
@@ -317,10 +321,28 @@ function Get-KbUpdate {
             Product         = $PSBoundParameters.Product
             Language        = $PSBoundParameters.Language
         }
+
+        # if latest is used, needs a collection
+        $allkbs = @()
+
     }
     process {
+        if ($Latest -and $Simple) {
+            Write-PSFMessage -Level Warning -Message "Simple is ignored when Latest is specified, as latest requires detailed data"
+            $Simple = $false
+        }
         foreach ($kb in $Pattern) {
-            Get-KbItem $kb | Search-Kb @boundparams | Select-DefaultView -Property $properties
+            if ($Latest) {
+                $allkbs += Get-KbItem $kb | Search-Kb @boundparams
+            } else {
+                Get-KbItem $kb | Search-Kb @boundparams | Select-DefaultView -Property $properties
+            }
+        }
+    }
+    end {
+        # I'm not super awesome with the pipeline, but believe this is the best way
+        if ($Latest) {
+            $allkbs | Select-Latest | Select-DefaultView -Property $properties
         }
     }
 }
