@@ -18,8 +18,8 @@ function Get-KbUpdate {
     .PARAMETER Architecture
         Can be x64, x86, ia64, or ARM.
 
-    .PARAMETER OperatingSystem
-        Specify one or more operating systems. Tab complete to see what's available. If anything is missing, please file an issue.
+    .PARAMETER Language
+        Specify one or more Language. Tab complete to see what's available. This is not an exact science, as the data itself is miscategorized.
 
     .PARAMETER OperatingSystem
         Specify one or more operating systems. Tab complete to see what's available. If anything is missing, please file an issue.
@@ -307,10 +307,10 @@ function Get-KbUpdate {
         }
 
         $boundparams = @{
-            Architecture = $PSBoundParameters.Architecture
+            Architecture    = $PSBoundParameters.Architecture
             OperatingSystem = $PSBoundParameters.OperatingSystem
-            Product = $PSBoundParameters.Product
-            Language = $PSBoundParameters.Language
+            Product         = $PSBoundParameters.Product
+            Language        = $PSBoundParameters.Language
         }
     }
     process {

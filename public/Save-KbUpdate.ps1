@@ -25,7 +25,7 @@ function Save-KbUpdate {
         Specify one or more products (SharePoint, SQL Server, etc). Tab complete to see what's available. If anything is missing, please file an issue.
 
     .PARAMETER Language
-        Specify one or more operating systems. Tab complete to see what's available. If anything is missing, please file an issue.
+        Specify one or more Language. Tab complete to see what's available. This is not an exact science, as the data itself is miscategorized.
 
     .PARAMETER InputObject
         Enables piping from Get-KbUpdate
