@@ -16,13 +16,24 @@ function Save-KbUpdate {
         The exact file name to save to, otherwise, it uses the name given by the webserver
 
     .PARAMETER Architecture
-        Can be x64, x86, ia64, ARM or "All".
+        Can be x64, x86, ia64, or ARM.
 
     .PARAMETER OperatingSystem
         Specify one or more operating systems. Tab complete to see what's available. If anything is missing, please file an issue.
 
+    .PARAMETER Product
+        Specify one or more products (SharePoint, SQL Server, etc). Tab complete to see what's available. If anything is missing, please file an issue.
+
+    .PARAMETER Language
+        Specify one or more operating systems. Tab complete to see what's available. If anything is missing, please file an issue.
+
     .PARAMETER InputObject
         Enables piping from Get-KbUpdate
+
+    .PARAMETER Strict
+        By default, when Language is specified, if a KB supports all language, the file will be downloaded.
+
+        Use Strict to download ONLY the language and not universal KBs.
 
     .PARAMETER EnableException
         By default, when something goes wrong we try to catch it, interpret it and give you a friendly warning message.
@@ -66,12 +77,13 @@ function Save-KbUpdate {
         [string[]]$Pattern,
         [string]$Path = ".",
         [string]$FilePath,
-        [ValidateSet("x64", "x86", "ia64", "ARM", "All")]
         [string[]]$Architecture,
-        [ValidateSet("Windows XP", "Windows Vista", "Windows 7", "Windows 8", "Windows 10", "Windows Server 2019", "Windows Server 2012", "Windows Server 2012 R2", "Windows Server 2008", "Windows Server 2008 R2", "Windows Server 2003", "Windows Server 2000")]
         [string[]]$OperatingSystem,
+        [string[]]$Product,
+        [string[]]$Language,
         [parameter(ValueFromPipeline)]
         [pscustomobject[]]$InputObject,
+        [switch]$Strict,
         [switch]$EnableException
     )
     process {
@@ -85,22 +97,26 @@ function Save-KbUpdate {
             return
         }
 
+        if (-not $PSBoundParameters.InputObject -and ($PSBoundParameters.OperatingSystem -or $PSBoundParameters.Product)) {
+            Stop-PSFFunction -EnableException:$EnableException -Message "When piping, please do not use OperatingSystem or Product filters. It's assumed that you are piping the results that you wish to download, so unexpected results may occur."
+            return
+        }
+
         foreach ($kb in $Pattern) {
-            # why arent psboundparams working, this just started happening
-            # terribly gross but i'm sleepy and it works
-            if ($Architecture -and $OperatingSystem) {
-                $InputObject += Get-KbUpdate -Pattern $kb -EnableException:$EnableException -Architecture $Architecture -OperatingSystem $OperatingSystem
-            } elseif ($Architecture -and -not $OperatingSystem) {
-                $InputObject += Get-KbUpdate -Pattern $kb -EnableException:$EnableException -Architecture $Architecture
-            } elseif (-not $Architecture -and $OperatingSystem) {
-                $InputObject += Get-KbUpdate -Pattern $kb -EnableException:$EnableException -OperatingSystem $OperatingSystem
-            } else {
-                $InputObject += Get-KbUpdate -Pattern $kb -EnableException:$EnableException
+            $params = @{
+                Pattern         = $kb
+                Architecture    = $Architecture
+                OperatingSystem = $OperatingSystem
+                Product         = $Product
+                Language        = $Language
+                EnableException = $EnableException
+                Simple          = $true
             }
+            $InputObject += Get-KbUpdate @params
         }
 
         foreach ($object in $InputObject) {
-            if ($Architecture -and $Architecture -ne "All") {
+            if ($Architecture) {
                 $templinks = $object.Link | Where-Object { $PSItem -match "$($Architecture)_" }
 
                 if (-not $templinks) {
@@ -115,6 +131,37 @@ function Save-KbUpdate {
             }
 
             foreach ($link in $object.Link) {
+                $Strict = $true
+                # Microsoft's KB Language field cannot be relied upon. It'll say English then contain Chinese files.
+                if ($Language -and ($object.Link.Count -gt 1 -or $Strict)) {
+                    # are there any language matches at all? if not, download it unless Strict
+                    if ($Strict) {
+                        $languagespecific = $true
+                    } else {
+                        $languagespecific = $false
+                    }
+
+                    foreach ($code in $script:languages.Values) {
+                        if ($link -match "-$($code)_") {
+                            $languagespecific = $true
+                        }
+                    }
+
+                    if ($languagespecific) {
+                        $matches = @()
+                        foreach ($value in $Language) {
+                            $code = $script:languages[$value]
+                            $matches += $object.Link -match "$($code)_"
+                        }
+                        if ($matches) {
+                            $object.Link = $matches
+                        } else {
+                            Write-PSFMessage -Level Verbose -Message "Skipping $link - no match to $Language"
+                            continue
+                        }
+                    }
+                }
+
                 if (-not $PSBoundParameters.FilePath) {
                     $FilePath = Split-Path -Path $link -Leaf
                 } else {

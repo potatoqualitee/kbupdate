@@ -3,56 +3,18 @@ function Search-Kb {
     <#
     .SYNOPSIS
         Searches the kb results
-
-    .DESCRIPTION
-         Searches patches from Microsoft
-
-    .PARAMETER Name
-        The KB name or number. For example, KB4057119 or 4057119.
-
-    .PARAMETER Architecture
-        Can be x64, x86, ia64 or "All". Defaults to All.
-
-    .PARAMETER InputObject
-        Enables piping from Get-KbUpdate
-
-    .NOTES
-        Tags: Update
-        Author: Chrissy LeMaire (@cl), netnerds.net
-        Copyright: (c) licensed under MIT
-        License: MIT https://opensource.org/licenses/MIT
-
-    .EXAMPLE
-        PS C:\> Search-KbUpdate -Pattern KB4057119
-
-        Downloads KB4057119 to the current directory. This works for SQL Server or any other KB.
-
-    .EXAMPLE
-        PS C:\> Get-KbUpdate -Pattern 3118347 -Simple -Architecture x64 | Out-GridView -Passthru | Search-KbUpdate
-
-        Downloads the selected files from KB4057119 to the current directory.
-
-    .EXAMPLE
-        PS C:\> Search-KbUpdate -Pattern KB4057119, 4057114 -Architecture x64 -Path C:\temp
-
-        Downloads KB4057119 and the x64 version of KB4057114 to C:\temp.
-
-    .EXAMPLE
-        PS C:\> Search-KbUpdate -Pattern KB4057114 -Path C:\temp
-
-        Downloads all versions of KB4057114 and the x86 version of KB4057114 to C:\temp.
     #>
     [CmdletBinding()]
     param(
-        [ValidateSet("x64", "x86", "ia64", "ARM", "All")]
-        [string[]]$Architecture = "All",
-        [ValidateSet("Windows XP", "Windows Vista", "Windows 7", "Windows 8", "Windows 10", "Windows Server 2019", "Windows Server 2012", "Windows Server 2012 R2", "Windows Server 2008", "Windows Server 2008 R2", "Windows Server 2003")]
+        [string[]]$Architecture,
         [string[]]$OperatingSystem,
+        [string[]]$Product,
+        [string[]]$Language,
         [parameter(ValueFromPipeline)]
         [pscustomobject[]]$InputObject
     )
     process {
-        if (-not $PSBoundParameters.OperatingSystem -and -not $PSBoundParameters.Architecture) {
+        if (-not $OperatingSystem -and -not $Architecture -and -not $Product -and -not $Language) {
             return $InputObject
         }
 
@@ -76,11 +38,47 @@ function Search-Kb {
                 }
             }
 
-            if ($Architecture -and $Architecture -notcontains "All") {
+            if ($Product) {
+                $match = @()
+                foreach ($item in $Product) {
+                    $match += $object | Where-Object SupportedProducts -match $item.Replace(' ', '.*')
+                    $match += $object | Where-Object Title -match $item.Replace(' ', '.*')
+                }
+                if (-not $match) {
+                    continue
+                }
+            }
+
+            if ($Language) {
+                # object.Language cannot be trusted
+                # are there any language matches at all? if not just skip.
+                $languagespecific = $false
+                foreach ($code in $script:languages.Values) {
+                    if ($object | Where-Object Link -match "-$($code)_") {
+                        $languagespecific = $true
+                    }
+                }
+                if ($languagespecific) {
+                    $matches = @()
+                    foreach ($item in $Language) {
+                        # In case I end up going back to getcultures
+                        # $codes = [System.Globalization.CultureInfo]::GetCultures("AllCultures") | Where-Object DisplayName -in $Language | Select-Object -ExpandProperty Name
+                        $matches += $object.Link -match "$($script:languages[$item])_"
+                    }
+                    if ($matches) {
+                        $object.Link = $matches
+                    } else {
+                        Write-PSFMessage -Level Verbose -Message "Skipping $($object.Title) - no match to $Language"
+                        continue
+                    }
+                }
+            }
+
+            if ($Architecture) {
                 $match = @()
                 foreach ($arch in $Architecture) {
                     $match += $object | Where-Object Title -match $arch
-                    $match += $object | Where-Object Architecture -eq $arch
+                    $match += $object | Where-Object Architecture -in $arch, $null, "All"
 
                     # if architecture from user is -ne all and then multiple files are listed? how to just get that link
                     # perhaps this is where we can check the pipeline, if save, then hardcore filter
@@ -104,8 +102,7 @@ function Search-Kb {
                     continue
                 }
             }
-
-            $object | Sort-Object -Unique Title, ID
+            $object
         }
     }
 }
