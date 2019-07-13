@@ -33,6 +33,9 @@ function Get-KbUpdate {
     .PARAMETER Simple
         A lil faster. Returns, at the very least: Title, Architecture, Language, Hotfix, UpdateId and Link
 
+    .PARAMETER MaxResults
+        The number of results. catalog.update.microsoft.com returns 25 per page.
+
     .PARAMETER EnableException
         By default, when something goes wrong we try to catch it, interpret it and give you a friendly warning message.
         This avoids overwhelming you with "sea of red" exceptions, but is inconvenient because it basically disables advanced scripting.
@@ -80,6 +83,7 @@ function Get-KbUpdate {
         [string[]]$Language,
         [switch]$Simple,
         [switch]$Latest,
+        [int]$MaxResults = 25,
         [switch]$EnableException
     )
     begin {
@@ -125,23 +129,35 @@ function Get-KbUpdate {
             }
         }
 
+        function Get-Guid {
+            $nextbutton = $results.InputFields | Where-Object id -match nextPageLinkButton
+            if ($nextbutton) {
+                Write-PSFMessage -Level Verbose -Message "Next button found"
+            } else {
+                Write-PSFMessage -Level Verbose -Message "Next button not found"
+            }
+
+            if ($MaxResults -gt 25 -and $nextbutton) {
+                write-warning wut
+                # nothing yet
+            } else {
+                $results.InputFields |
+                    Where-Object { $_.type -eq 'Button' -and $_.Value -eq 'Download' } |
+                    Select-Object -ExpandProperty  ID
+            }
+        }
         # put everything in this function so that it can be easily cached
         function Get-KbItem ($kb) {
             try {
-                # may switch this up later to expand on the search
-                $search = "$kb"
-                Write-PSFMessage -Level Verbose -Message "$search"
+                Write-PSFMessage -Level Verbose -Message "$kb"
                 Write-Progress -Activity "Searching catalog for $kb" -Id 1 -Status "Contacting catalog.update.microsoft.com"
-                $results = Invoke-TlsWebRequest -Uri "http://www.catalog.update.microsoft.com/Search.aspx?q=$search" -UseBasicParsing -ErrorAction Stop
+                $results = Invoke-TlsWebRequest -Uri "http://www.catalog.update.microsoft.com/Search.aspx?q=$kb"
                 Write-Progress -Activity "Searching catalog for $kb" -Id 1 -Completed
-
-                $kbids = $results.InputFields |
-                    Where-Object { $_.type -eq 'Button' -and $_.Value -eq 'Download' } |
-                    Select-Object -ExpandProperty  ID
+                $kbids = Get-Guid $kb
 
                 if (-not $kbids) {
                     try {
-                        $null = Invoke-TlsWebRequest -Uri "https://support.microsoft.com/app/content/api/content/help/en-us/$kb" -UseBasicParsing -ErrorAction Stop
+                        $null = Invoke-TlsWebRequest -Uri "https://support.microsoft.com/app/content/api/content/help/en-us/$kb"
                         Stop-PSFFunction -EnableException:$EnableException -Message "Matches were found for $kb, but the results no longer exist in the catalog"
                         return
                     } catch {
@@ -184,7 +200,7 @@ function Get-KbUpdate {
                     Write-PSFMessage -Level Verbose -Message "Downloading information for $itemtitle"
                     $post = @{ size = 0; updateID = $guid; uidInfo = $guid } | ConvertTo-Json -Compress
                     $body = @{ updateIDs = "[$post]" }
-                    $downloaddialog = Invoke-TlsWebRequest -Uri 'http://www.catalog.update.microsoft.com/DownloadDialog.aspx' -Method Post -Body $body -UseBasicParsing -ErrorAction Stop | Select-Object -ExpandProperty Content
+                    $downloaddialog = Invoke-TlsWebRequest -Uri 'http://www.catalog.update.microsoft.com/DownloadDialog.aspx' -Method Post -Body $body | Select-Object -ExpandProperty Content
 
                     $title = Get-Info -Text $downloaddialog -Pattern 'enTitle ='
                     $arch = Get-Info -Text $downloaddialog -Pattern 'architectures ='
@@ -214,7 +230,7 @@ function Get-KbUpdate {
                     }
 
                     if (-not $Simple) {
-                        $detaildialog = Invoke-TlsWebRequest -Uri "https://www.catalog.update.microsoft.com/ScopedViewInline.aspx?updateid=$updateid" -UseBasicParsing -ErrorAction Stop
+                        $detaildialog = Invoke-TlsWebRequest -Uri "https://www.catalog.update.microsoft.com/ScopedViewInline.aspx?updateid=$updateid"
                         $description = Get-Info -Text $detaildialog -Pattern '<span id="ScopedViewHandler_desc">'
                         $lastmodified = Get-Info -Text $detaildialog -Pattern '<span id="ScopedViewHandler_date">'
                         $size = Get-Info -Text $detaildialog -Pattern '<span id="ScopedViewHandler_size">'
@@ -327,6 +343,10 @@ function Get-KbUpdate {
 
     }
     process {
+        if ($MaxResults -gt 25) {
+            Stop-PSFFunction -Message "Sorry! MaxResults greater than 25 is not supported yet. Try a stricter search for now." -EnableException:$EnableException
+            return
+        }
         if ($Latest -and $Simple) {
             Write-PSFMessage -Level Warning -Message "Simple is ignored when Latest is specified, as latest requires detailed data"
             $Simple = $false
@@ -341,7 +361,7 @@ function Get-KbUpdate {
     }
     end {
         # I'm not super awesome with the pipeline, and am open to suggestions if this is not the best way
-        if ($Latest) {
+        if ($Latest -and $allkbs) {
             $allkbs | Select-Latest | Select-DefaultView -Property $properties
         }
     }
