@@ -86,7 +86,8 @@ function Save-KbUpdate {
         }
 
         foreach ($kb in $Pattern) {
-            # wtfffff why arent psboundparams working, this just started happening
+            # why arent psboundparams working, this just started happening
+            # terribly gross but i'm sleepy and it works
             if ($Architecture -and $OperatingSystem) {
                 $InputObject += Get-KbUpdate -Pattern $kb -EnableException:$EnableException -Architecture $Architecture -OperatingSystem $OperatingSystem
             } elseif ($Architecture -and -not $OperatingSystem) {
