@@ -113,7 +113,7 @@ function Get-KbUpdate {
             try {
                 # may switch this up later to expand on the search
                 $search = "$kb"
-                Write-Message -Level Verbose -Message "$search"
+                Write-PSFMessage -Level Verbose -Message "$search"
                 Write-Progress -Activity "Searching catalog for $kb" -Id 1 -Status "Contacting catalog.update.microsoft.com"
                 $results = Invoke-TlsWebRequest -Uri "http://www.catalog.update.microsoft.com/Search.aspx?q=$search" -UseBasicParsing -ErrorAction Stop
                 Write-Progress -Activity "Searching catalog for $kb" -Id 1 -Completed
