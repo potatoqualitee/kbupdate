@@ -62,17 +62,19 @@ function Search-Kb {
                 }
 
                 if ($languagespecific) {
+                    $textmatch = $false
                     $matches = @()
                     foreach ($item in $Language) {
-                        # In case I end up going back to getcultures
-                        # $codes = [System.Globalization.CultureInfo]::GetCultures("AllCultures") | Where-Object DisplayName -in $Language | Select-Object -ExpandProperty Name
+                        $shortname = $item.Split(" ")[0]
                         $matches += $object.Link -match "$($script:languages[$item])_"
+                        if ($object.Title -match $shortname -or $object.Description -match $shortname) {
+                            $textmatch = $true
+                        }
                     }
                     if ($matches) {
                         $object.Link = $matches
                     } else {
-                        $shortname = $item.Split(" ")[0]
-                        if ($object.Title -notmatch $shortname -and $object.Description -notmatch $shortname) {
+                        if (-not $textmatch) {
                             Write-PSFMessage -Level Verbose -Message "Skipping $($object.Title) - no match to $Language"
                             continue
                         }
