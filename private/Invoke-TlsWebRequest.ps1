@@ -27,7 +27,6 @@ function Invoke-TlsWebRequest {
     }
 
     if ($script:websession) {
-        write-warning session
         Invoke-WebRequest @Args -WebSession $script:websession -UseBasicParsing -ErrorAction Stop
     } else {
         Invoke-WebRequest @Args -SessionVariable websession -UseBasicParsing -ErrorAction Stop
