@@ -56,7 +56,7 @@ function Search-Kb {
                 foreach ($key in $script:languages.Keys) {
                     $shortname = $key.Split(" ")[0]
                     $code = $script:languages[$key]
-                    if ($object.Link -match "-$($code)_" -or $object.Title -match $shortname -or $object.Description -match $shortname) {
+                    if ($object.Link -match '-.._' -or $object.Link -match "-$($code)_" -or ($object.Title -match $shortname -or $object.Description -match $shortname)) {
                         $languagespecific = $true
                     }
                 }
@@ -71,7 +71,7 @@ function Search-Kb {
                             $textmatch = $true
                         }
                     }
-                    if ($matches) {
+                    if ($matches -match 'http') {
                         $object.Link = $matches
                     } else {
                         if (-not $textmatch) {
