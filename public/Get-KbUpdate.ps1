@@ -131,13 +131,21 @@ function Get-KbUpdate {
 
         function Get-Guid {
             Write-PSFMessage -Level Verbose -Message "$search"
-                Write-Progress -Activity "Searching catalog for $kb" -Id 1 -Status "Contacting catalog.update.microsoft.com"
-                $results = Invoke-TlsWebRequest -Uri "http://www.catalog.update.microsoft.com/Search.aspx?q=$search"
-                Write-Progress -Activity "Searching catalog for $kb" -Id 1 -Completed
+            Write-Progress -Activity "Searching catalog for $kb" -Id 1 -Status "Contacting catalog.update.microsoft.com"
+            $results = Invoke-TlsWebRequest -Uri "http://www.catalog.update.microsoft.com/Search.aspx?q=$search"
 
-                $results.InputFields |
-                    Where-Object { $_.type -eq 'Button' -and $_.Value -eq 'Download' } |
-                    Select-Object -ExpandProperty  ID
+            $nextbutton = $results.InputFields | Where-Object id -match nextPageLinkButton
+            Write-Message -Level Verbose -Message "Next button found: $nextbutton"
+
+            if ($MaxResults -gt 25 -and $nextbutton) {
+                # nothing yet
+            } else {
+            $results.InputFields |
+                Where-Object { $_.type -eq 'Button' -and $_.Value -eq 'Download' } |
+                Select-Object -ExpandProperty  ID
+            }
+
+            Write-Progress -Activity "Searching catalog for $kb" -Id 1 -Completed
         }
         # put everything in this function so that it can be easily cached
         function Get-KbItem ($kb) {
