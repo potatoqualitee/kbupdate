@@ -53,11 +53,14 @@ function Search-Kb {
                 # object.Language cannot be trusted
                 # are there any language matches at all? if not just skip.
                 $languagespecific = $false
-                foreach ($code in $script:languages.Values) {
-                    if ($object | Where-Object Link -match "-$($code)_") {
+                foreach ($key in $script:languages.Keys) {
+                    $shortname = $key.Split(" ")[0]
+                    $code = $script:languages[$key]
+                    if ($object.Link -match "-$($code)_" -or $object.Title -match $shortname -or $object.Description -match $shortname) {
                         $languagespecific = $true
                     }
                 }
+
                 if ($languagespecific) {
                     $matches = @()
                     foreach ($item in $Language) {
@@ -68,8 +71,11 @@ function Search-Kb {
                     if ($matches) {
                         $object.Link = $matches
                     } else {
-                        Write-PSFMessage -Level Verbose -Message "Skipping $($object.Title) - no match to $Language"
-                        continue
+                        $shortname = $item.Split(" ")[0]
+                        if ($object.Title -notmatch $shortname -and $object.Description -notmatch $shortname) {
+                            Write-PSFMessage -Level Verbose -Message "Skipping $($object.Title) - no match to $Language"
+                            continue
+                        }
                     }
                 }
             }
