@@ -33,6 +33,9 @@ function Get-KbUpdate {
     .PARAMETER Simple
         A lil faster. Returns, at the very least: Title, Architecture, Language, Hotfix, UpdateId and Link
 
+    .PARAMETER MaxResults
+        The number of results. catalog.update.microsoft.com returns 25 per page.
+
     .PARAMETER EnableException
         By default, when something goes wrong we try to catch it, interpret it and give you a friendly warning message.
         This avoids overwhelming you with "sea of red" exceptions, but is inconvenient because it basically disables advanced scripting.
@@ -80,6 +83,7 @@ function Get-KbUpdate {
         [string[]]$Language,
         [switch]$Simple,
         [switch]$Latest,
+        [int]$MaxResults = 25,
         [switch]$EnableException
     )
     begin {
