@@ -130,34 +130,30 @@ function Get-KbUpdate {
         }
 
         function Get-Guid {
-            Write-PSFMessage -Level Verbose -Message "$search"
-            Write-Progress -Activity "Searching catalog for $kb" -Id 1 -Status "Contacting catalog.update.microsoft.com"
-            $results = Invoke-TlsWebRequest -Uri "http://www.catalog.update.microsoft.com/Search.aspx?q=$search"
-
             $nextbutton = $results.InputFields | Where-Object id -match nextPageLinkButton
-            Write-Message -Level Verbose -Message "Next button found: $nextbutton"
-
-            if ($MaxResults -gt 25 -and $nextbutton) {
-                # nothing yet
+            if ($nextbutton) {
+                Write-PSFMessage -Level Verbose -Message "Next button found"
             } else {
-            $results.InputFields |
-                Where-Object { $_.type -eq 'Button' -and $_.Value -eq 'Download' } |
-                Select-Object -ExpandProperty  ID
+                Write-PSFMessage -Level Verbose -Message "Next button not found"
             }
 
-            Write-Progress -Activity "Searching catalog for $kb" -Id 1 -Completed
+            if ($MaxResults -gt 25 -and $nextbutton) {
+                write-warning wut
+                # nothing yet
+            } else {
+                $results.InputFields |
+                    Where-Object { $_.type -eq 'Button' -and $_.Value -eq 'Download' } |
+                    Select-Object -ExpandProperty  ID
+            }
         }
         # put everything in this function so that it can be easily cached
         function Get-KbItem ($kb) {
             try {
-                # may switch this up later to expand on the search
-                $search = "$kb"
-                Write-PSFMessage -Level Verbose -Message "$search"
+                Write-PSFMessage -Level Verbose -Message "$kb"
                 Write-Progress -Activity "Searching catalog for $kb" -Id 1 -Status "Contacting catalog.update.microsoft.com"
-                $results = Invoke-TlsWebRequest -Uri "http://www.catalog.update.microsoft.com/Search.aspx?q=$search"
+                $results = Invoke-TlsWebRequest -Uri "http://www.catalog.update.microsoft.com/Search.aspx?q=$kb"
                 Write-Progress -Activity "Searching catalog for $kb" -Id 1 -Completed
-
-                $kbids = Get-Guid
+                $kbids = Get-Guid $kb
 
                 if (-not $kbids) {
                     try {
@@ -347,6 +343,10 @@ function Get-KbUpdate {
 
     }
     process {
+        if ($MaxResults -gt 25) {
+            Stop-PSFFunction -Message "Sorry! MaxResults greater than 25 is not supported yet. Try a stricter search for now." -EnableException:$EnableException
+            return
+        }
         if ($Latest -and $Simple) {
             Write-PSFMessage -Level Warning -Message "Simple is ignored when Latest is specified, as latest requires detailed data"
             $Simple = $false
@@ -361,7 +361,7 @@ function Get-KbUpdate {
     }
     end {
         # I'm not super awesome with the pipeline, and am open to suggestions if this is not the best way
-        if ($Latest) {
+        if ($Latest -and $allkbs) {
             $allkbs | Select-Latest | Select-DefaultView -Property $properties
         }
     }
