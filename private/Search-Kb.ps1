@@ -44,10 +44,10 @@ function Search-Kb {
     #>
     [CmdletBinding()]
     param(
-        [ValidateSet("x64", "x86", "ia64", "ARM")]
         [string[]]$Architecture,
-        [ValidateSet("Windows XP", "Windows Vista", "Windows 7", "Windows 8", "Windows 10", "Windows Server 2019", "Windows Server 2012", "Windows Server 2012 R2", "Windows Server 2008", "Windows Server 2008 R2", "Windows Server 2003")]
         [string[]]$OperatingSystem,
+        [string[]]$Product,
+        [string[]]$Language,
         [parameter(ValueFromPipeline)]
         [pscustomobject[]]$InputObject
     )
@@ -76,11 +76,34 @@ function Search-Kb {
                 }
             }
 
+            if ($Language) {
+                # object.Language cannot be trusted
+                # are there any language matches at all? if not just skip.
+                $match = $false
+                foreach ($code in $script:languages.Values) {
+                    if ($object | Where-Object Link -match "-$($code)_") {
+                        $match = $true
+                    }
+                }
+                if ($match) {
+                    $matches = @()
+                    foreach ($item in $Language) {
+                        # In case I end up going back to getcultures
+                        # $codes = [System.Globalization.CultureInfo]::GetCultures("AllCultures") | Where-Object DisplayName -in $Language | Select-Object -ExpandProperty Name
+                        $code = $item[$item]
+                        $matches += $object | Where-Object Link -match "$($code)_"
+                    }
+                    if (-not $matches) {
+                        continue
+                    }
+                }
+            }
+
             if ($Architecture) {
                 $match = @()
                 foreach ($arch in $Architecture) {
                     $match += $object | Where-Object Title -match $arch
-                    $match += $object | Where-Object Architecture -eq $arch
+                    $match += $object | Where-Object Architecture -in $arch, $null, "All"
 
                     # if architecture from user is -ne all and then multiple files are listed? how to just get that link
                     # perhaps this is where we can check the pipeline, if save, then hardcore filter
@@ -104,8 +127,6 @@ function Search-Kb {
                     continue
                 }
             }
-
-
             $object
         }
     }

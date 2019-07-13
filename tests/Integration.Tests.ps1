@@ -86,5 +86,7 @@ Describe "Integration Tests" -Tag "IntegrationTests" {
             $results.Name -match 'aspnet'
             $results | Remove-Item -Confirm:$false
         }
+        # has mulitple languages
+        # Get-KbUpdate -Simple -Pattern KB968930
     }
 }

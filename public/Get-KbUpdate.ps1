@@ -21,6 +21,12 @@ function Get-KbUpdate {
     .PARAMETER OperatingSystem
         Specify one or more operating systems. Tab complete to see what's available. If anything is missing, please file an issue.
 
+    .PARAMETER OperatingSystem
+        Specify one or more operating systems. Tab complete to see what's available. If anything is missing, please file an issue.
+
+    .PARAMETER Product
+        Specify one or more products (SharePoint, SQL Server, etc). Tab complete to see what's available. If anything is missing, please file an issue.
+
     .PARAMETER Simple
         A lil faster. Returns, at the very least: Title, Architecture, Language, Hotfix, UpdateId and Link
 
@@ -60,10 +66,10 @@ function Get-KbUpdate {
         [Parameter(Mandatory)]
         [Alias("Name")]
         [string[]]$Pattern,
-        [ValidateSet("x64", "x86", "ia64", "ARM")]
         [string[]]$Architecture,
-        [ValidateSet("Windows XP", "Windows Vista", "Windows 7", "Windows 8", "Windows 10", "Windows Server 2019", "Windows Server 2012", "Windows Server 2012 R2", "Windows Server 2008", "Windows Server 2008 R2", "Windows Server 2003", "Windows Server 2000")]
         [string[]]$OperatingSystem,
+        [string[]]$Product,
+        [string[]]$Language,
         [switch]$Simple,
         [switch]$EnableException
     )
@@ -91,11 +97,13 @@ function Get-KbUpdate {
             }
 
             $spanMatches = [regex]::Matches($span, $regex).ForEach( { $_.Groups[1].Value })
+
             if ($spanMatches) {
                 if ($spanMatches -ne 'n/a') {
                     foreach ($superMatch in $spanMatches) {
                         $detailedMatches = [regex]::Matches($superMatch, '\b[kK][bB]([0-9]{6,})\b')
-                        if ($null -ne $detailedMatches) {
+                        # $null -ne $detailedMatches can throw cant index null errors, get more detailed
+                        if ($null -ne $detailedMatches.Groups) {
                             [PSCustomObject] @{
                                 'KB'          = $detailedMatches.Groups[1].Value
                                 'Description' = $superMatch
@@ -215,10 +223,10 @@ function Get-KbUpdate {
                         $supersededby = Get-SuperInfo -Text $detaildialog -Pattern '<div id="supersededbyInfo" TABINDEX="1" >'
                         $supersedes = Get-SuperInfo -Text $detaildialog -Pattern '<div id="supersedesInfo" TABINDEX="1">'
 
-                        $product = $supportedproducts -split ","
-                        if ($product.Count -gt 1) {
+                        $products = $supportedproducts -split ","
+                        if ($products.Count -gt 1) {
                             $supportedproducts = @()
-                            foreach ($line in $product) {
+                            foreach ($line in $products) {
                                 $clean = $line.Trim()
                                 if ($clean) { $supportedproducts += $clean }
                             }
@@ -271,9 +279,12 @@ function Get-KbUpdate {
             }
         }
 
-        $boundparams = $PSBoundParameters
-        $null = $boundparams.Remove("Pattern")
-        $null = $boundparams.Remove("EnableException")
+        $boundparams = @{
+            Architecture = $Architecture
+            OperatingSystem = $OperatingSystem
+            Product = $Product
+            Language = $Language
+        }
 
         $properties = "Title",
         "Id",

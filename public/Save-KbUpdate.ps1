@@ -21,6 +21,12 @@ function Save-KbUpdate {
     .PARAMETER OperatingSystem
         Specify one or more operating systems. Tab complete to see what's available. If anything is missing, please file an issue.
 
+    .PARAMETER Product
+        Specify one or more products (SharePoint, SQL Server, etc). Tab complete to see what's available. If anything is missing, please file an issue.
+
+    .PARAMETER Language
+        Specify one or more operating systems. Tab complete to see what's available. If anything is missing, please file an issue.
+
     .PARAMETER InputObject
         Enables piping from Get-KbUpdate
 
@@ -66,10 +72,10 @@ function Save-KbUpdate {
         [string[]]$Pattern,
         [string]$Path = ".",
         [string]$FilePath,
-        [ValidateSet("x64", "x86", "ia64", "ARM")]
         [string[]]$Architecture,
-        [ValidateSet("Windows XP", "Windows Vista", "Windows 7", "Windows 8", "Windows 10", "Windows Server 2019", "Windows Server 2012", "Windows Server 2012 R2", "Windows Server 2008", "Windows Server 2008 R2", "Windows Server 2003", "Windows Server 2000")]
         [string[]]$OperatingSystem,
+        [string[]]$Product,
+        [string[]]$Language,
         [parameter(ValueFromPipeline)]
         [pscustomobject[]]$InputObject,
         [switch]$EnableException
@@ -86,17 +92,16 @@ function Save-KbUpdate {
         }
 
         foreach ($kb in $Pattern) {
-            # why arent psboundparams working, this just started happening
-            # terribly gross but i'm sleepy and it works
-            if ($Architecture -and $OperatingSystem) {
-                $InputObject += Get-KbUpdate -Pattern $kb -EnableException:$EnableException -Architecture $Architecture -OperatingSystem $OperatingSystem
-            } elseif ($Architecture -and -not $OperatingSystem) {
-                $InputObject += Get-KbUpdate -Pattern $kb -EnableException:$EnableException -Architecture $Architecture
-            } elseif (-not $Architecture -and $OperatingSystem) {
-                $InputObject += Get-KbUpdate -Pattern $kb -EnableException:$EnableException -OperatingSystem $OperatingSystem
-            } else {
-                $InputObject += Get-KbUpdate -Pattern $kb -EnableException:$EnableException
+            $params = @{
+                Pattern         = $kb
+                Architecture    = $Architecture
+                OperatingSystem = $OperatingSystem
+                Product         = $Product
+                Language        = $Language
+                EnableException = $EnableException
+                Simple          = $true
             }
+            $InputObject += Get-KbUpdate @params
         }
 
         foreach ($object in $InputObject) {
@@ -115,6 +120,31 @@ function Save-KbUpdate {
             }
 
             foreach ($link in $object.Link) {
+                # Microsoft's KB Language field cannot be relied upon. It'll say English then contain Chinese files.
+                if ($Language -and $object.Link.Count -gt 1) {
+                    # object.Language cannot be trusted
+                    # are there any language matches at all? if not just skip.
+                    $match = $false
+                    foreach ($code in $script:languages.Values) {
+                        if ($object | Where-Object Link -match "-$($code)_") {
+                            $match = $true
+                        }
+                    }
+                    if ($match) {
+                        $matches = @()
+                        foreach ($item in $Language) {
+                            # In case I end up going back to getcultures
+                            # $codes = [System.Globalization.CultureInfo]::GetCultures("AllCultures") | Where-Object DisplayName -in $Language | Select-Object -ExpandProperty Name
+                            $code = $item[$item]
+                            $matches += $object | Where-Object Link -match "$($code)_"
+                        }
+                        if (-not $matches) {
+                            Write-PSFMessage -Level Warning -Message "Skipping $link - no match to $Language"
+                            continue
+                        }
+                    }
+                }
+
                 if (-not $PSBoundParameters.FilePath) {
                     $FilePath = Split-Path -Path $link -Leaf
                 } else {
