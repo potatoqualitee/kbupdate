@@ -26,7 +26,13 @@ function Invoke-TlsWebRequest {
         [Net.ServicePointManager]::SecurityProtocol = [Net.ServicePointManager]::SecurityProtocol -bor $_
     }
 
-    Invoke-WebRequest @Args
+    if ($script:websession) {
+        write-warning session
+        Invoke-WebRequest @Args -WebSession $script:websession -UseBasicParsing -ErrorAction Stop
+    } else {
+        Invoke-WebRequest @Args -SessionVariable websession -UseBasicParsing -ErrorAction Stop
+        $script:websession = $websession
+    }
 
     [Net.ServicePointManager]::SecurityProtocol = $currentVersionTls
     $ProgressPreference = $currentProgressPref

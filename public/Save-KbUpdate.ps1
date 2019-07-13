@@ -192,14 +192,14 @@ function Save-KbUpdate {
                         Start-BitsTransfer -Source $link -Destination $file -ErrorAction Stop
                     } catch {
                         Write-Progress -Activity "Downloading $FilePath" -Id 1
-                        Invoke-TlsWebRequest -OutFile $file -Uri $link -UseBasicParsing
+                        Invoke-TlsWebRequest -OutFile $file -Uri $link
                         Write-Progress -Activity "Downloading $FilePath" -Id 1 -Completed
                     }
                 } else {
                     try {
                         # IWR is crazy slow for large downloads
                         Write-Progress -Activity "Downloading $FilePath" -Id 1
-                        Invoke-TlsWebRequest -OutFile $file -Uri $link -UseBasicParsing
+                        Invoke-TlsWebRequest -OutFile $file -Uri $link
                         Write-Progress -Activity "Downloading $FilePath" -Id 1 -Completed
                     } catch {
                         Stop-PSFFunction -EnableException:$EnableException -Message "Failure" -ErrorRecord $_ -Continue
