@@ -66,9 +66,29 @@ Describe "Integration Tests" -Tag "IntegrationTests" {
                 '4338363',
                 '4341265'
             )
+        }
 
+        It "properly supports languages" {
+            $results = Get-KbUpdate -Pattern KB968930 -Language Japanese -Architecture x86 -Simple
+            $results.Count -eq 4
+            $results.Link | Select-Object -Last 1 | Should -Match jpn
+        }
+
+        It "properly supports OS searches" {
+            $results = Get-KbUpdate -Pattern KB968930 -Language Japanese -Architecture x86 -OperatingSystem 'Windows XP'
+            $results.Count -eq 1
+            $results.SupportedProducts -eq 'Windows XP'
+        }
+
+        It "properly supports product" {
+            $results = Get-KbUpdate -Pattern KB2920730 -Product 'Office 2013' | Select-Object -First 1
+            $results.SupportedProducts -eq 'Office 2013'
+
+            $results = Get-KbUpdate -Pattern KB2920730 -Product 'Office 2020' | Select-Object -First 1
+            $null -eq $results
         }
     }
+
     Context "Save works" {
         It "supports multiple saves" {
             $results = Save-KbUpdate -Path C:\temp -Name KB2992080, KB2994397
@@ -86,7 +106,5 @@ Describe "Integration Tests" -Tag "IntegrationTests" {
             $results.Name -match 'aspnet'
             $results | Remove-Item -Confirm:$false
         }
-        # has mulitple languages
-        # Get-KbUpdate -Simple -Pattern KB968930
     }
 }
