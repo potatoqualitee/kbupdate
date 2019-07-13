@@ -15,8 +15,11 @@ function Save-KbUpdate {
     .PARAMETER FilePath
         The exact file name to save to, otherwise, it uses the name given by the webserver
 
-     .PARAMETER Architecture
-        Can be x64, x86, ia64 or "All". Defaults to All.
+    .PARAMETER Architecture
+        Can be x64, x86, ia64, ARM or "All".
+
+    .PARAMETER OperatingSystem
+        Specify one or more operating systems. Tab complete to see what's available. If anything is missing, please file an issue.
 
     .PARAMETER InputObject
         Enables piping from Get-KbUpdate
@@ -63,8 +66,10 @@ function Save-KbUpdate {
         [string[]]$Pattern,
         [string]$Path = ".",
         [string]$FilePath,
-        [ValidateSet("x64", "x86", "ia64", "All")]
-        [string]$Architecture = "All",
+        [ValidateSet("x64", "x86", "ia64", "ARM", "All")]
+        [string[]]$Architecture,
+        [ValidateSet("Windows XP", "Windows Vista", "Windows 7", "Windows 8", "Windows 10", "Windows Server 2019", "Windows Server 2012", "Windows Server 2012 R2", "Windows Server 2008", "Windows Server 2008 R2", "Windows Server 2003", "Windows Server 2000")]
+        [string[]]$OperatingSystem,
         [parameter(ValueFromPipeline)]
         [pscustomobject[]]$InputObject,
         [switch]$EnableException
@@ -81,7 +86,7 @@ function Save-KbUpdate {
         }
 
         foreach ($kb in $Pattern) {
-            $InputObject += Get-KbUpdate -Pattern $kb -Architecture $Architecture
+            $InputObject += Get-KbUpdate -Pattern $kb -Architecture $Architecture -OperatingSystem $OperatingSystem
         }
 
         foreach ($object in $InputObject) {

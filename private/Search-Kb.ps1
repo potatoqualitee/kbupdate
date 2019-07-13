@@ -44,53 +44,70 @@ function Search-Kb {
     #>
     [CmdletBinding()]
     param(
-        [string[]]$Pattern,
-        [ValidateSet("x64", "x86", "ia64", "All")]
-        [string]$Architecture = "All",
+        [ValidateSet("x64", "x86", "ia64", "ARM", "All")]
+        [string[]]$Architecture = "All",
         [ValidateSet("Windows XP", "Windows Vista", "Windows 7", "Windows 8", "Windows 10", "Windows Server 2019", "Windows Server 2012", "Windows Server 2012 R2", "Windows Server 2008", "Windows Server 2008 R2", "Windows Server 2003")]
         [string[]]$OperatingSystem,
         [parameter(ValueFromPipeline)]
         [pscustomobject[]]$InputObject
     )
     process {
-        $singlekb = $script:kbcollection[$guidarch]
-        if ($OperatingSystem) {
-            foreach ($os in $OperatingSystem) {
-                $singlekb = $singlekb | Where-Object SupportedProducts -match $OperatingSystem.Replace(' ', '.*')
-            }
-        }
-        $singlekb
-        return
-        if (-not $PSBoundParameters.InputObject -and -not $PSBoundParameters.Pattern) {
-            Write-Warning -Message "You must specify a KB name or pipe in results from Get-KbUpdate"
-            return
-        }
-
-        foreach ($kb in $Pattern) {
-            $InputObject += Get-KbUpdate -Pattern $kb
+        if (-not $OperatingSystem -and -not $Architecture) {
+            return $InputObject
         }
 
         foreach ($object in $InputObject) {
+            # i am terrible at search logic, if anyone else knows how to do this better, please do
             if ($ComputerName) {
-                # if they specify a computername and it's a SQL patch
+                # if they specify a computername and it's a SQL patch - grab it
                 # if they specify comptutername and not $Architecture, grab the unique architecutre
+                # will need credential
                 # if they specify comptuername and they have kbs already installed that supercedes, warn (Maybe Test output?)
             }
 
-            if ($Architecture -ne "All") {
-                $templinks = $object.Link | Where-Object { $PSItem -match "$($Architecture)_" }
-
-                if (-not $templinks) {
-                    $templinks = $object | Where-Object Architecture -eq $Architecture
+            if ($OperatingSystem) {
+                $kb = @()
+                foreach ($os in $OperatingSystem) {
+                    $kb += $object | Where-Object SupportedProducts -match $OperatingSystem.Replace(' ', '.*')
+                    $kb += $object | Where-Object Title -match $OperatingSystem.Replace(' ', '.*')
                 }
-
-                if ($templinks) {
-                    $object = $templinks
+                if ($kb) {
+                    $tempobject = $kb | Select-Object -First 1
                 }
-
-                # if architecture from microsoft is all but then listed in the title without the others
-                # if architecture from user is -ne all and then multiple files are listed?
             }
+
+            if ($Architecture) {
+                $kb = @()
+                foreach ($arch in $Architecture) {
+                    if ($arch -eq "All") {
+                        $kb += $tempobject
+                    } else {
+                        $kb += $tempobject | Where-Object Title -match $Architecture
+                        $kb += $tempobject | Where-Object Architecture -eq $Architecture
+                        # if architecture from user is -ne all and then multiple files are listed?
+                        $kb += $tempobject | Where-Object Link -match "$($Architecture)_"
+                        # if architecture from microsoft is all but then listed in the title without the others
+                        # oh my, this needs some regex
+                        if ($tempobject.Architecture -ne "All" -and $tempobject.Title -match $arch) {
+                            $temparch = $tempobject
+                            foreach ($value in $Architecture) {
+                                if ($value -eq "All" -or $value -eq $arch) { continue }
+                                if ($tempobject.Title -match $value) {
+                                    $temparch = $null
+                                }
+                            }
+                            if ($temparch) {
+                                $kb += $temparch
+                            }
+                        }
+                    }
+                }
+                if ($kb) {
+                    $tempobject = $kb | Select-Object -First 1
+                }
+            }
+
+            $tempobject | Sort-Object -Unique Title, ID
         }
     }
 }
