@@ -123,6 +123,7 @@ function Save-KbUpdate {
 
                     if ("x64" -eq $arch) {
                         $templinks += $object.Link | Where-Object { $PSItem -match "64_" }
+                        $templinks = $templinks | Where-Object { $PSItem -notmatch "-rt-" }
                     }
                     if (-not $templinks) {
                         $templinks += $object | Where-Object Architecture -eq $arch | Select-Object -ExpandProperty Link
