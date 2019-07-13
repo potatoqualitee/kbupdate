@@ -18,7 +18,7 @@ function Import-ModuleFile {
 			PS C:\> . Import-ModuleFile -File $function.FullName
 
 			Imports the file stored in $function according to import policy
-	#>
+	    #>
     [CmdletBinding()]
     Param (
         [string]

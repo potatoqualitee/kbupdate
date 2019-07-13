@@ -10,11 +10,16 @@ function Get-KbUpdate {
 
         Use the Simple parameter for simplified output and faster results.
 
+        The upside is that you can use this command to search the same way you'd use the search bar at catalog.update.microsoft.com.
+
     .PARAMETER Pattern
         Any pattern. Can be the KB name, number or even MSRC numbrer. For example, KB4057119, 4057119, or MS15-101.
 
     .PARAMETER Architecture
-        Can be x64, x86, ia64 or "All". Defaults to All.
+        Can be x64, x86, ia64, ARM or "All".
+
+    .PARAMETER OperatingSystem
+        Specify one or more operating systems. Tab complete to see what's available. If anything is missing, please file an issue.
 
     .PARAMETER Simple
         A lil faster. Returns, at the very least: Title, Architecture, Language, Hotfix, UpdateId and Link
@@ -55,8 +60,10 @@ function Get-KbUpdate {
         [Parameter(Mandatory)]
         [Alias("Name")]
         [string[]]$Pattern,
-        [ValidateSet("x64", "x86", "ia64", "All")]
-        [string]$Architecture = "All",
+        [ValidateSet("x64", "x86", "ia64", "ARM", "All")]
+        [string[]]$Architecture,
+        [ValidateSet("Windows XP", "Windows Vista", "Windows 7", "Windows 8", "Windows 10", "Windows Server 2019", "Windows Server 2012", "Windows Server 2012 R2", "Windows Server 2008", "Windows Server 2008 R2", "Windows Server 2003", "Windows Server 2000")]
+        [string[]]$OperatingSystem,
         [switch]$Simple,
         [switch]$EnableException
     )
@@ -92,7 +99,7 @@ function Get-KbUpdate {
                             [PSCustomObject] @{
                                 'KB'          = $detailedMatches.Groups[1].Value
                                 'Description' = $superMatch
-                            }
+                            } | Add-Member -MemberType ScriptMethod -Name ToString -Value { $this.Description } -PassThru -Force
                         }
                     }
                 } else {
@@ -104,13 +111,16 @@ function Get-KbUpdate {
         # put everything in this function so that it can be easily cached
         function Get-KbItem ($kb) {
             try {
+                # may switch this up later to expand on the search
+                $search = "$kb"
+                Write-PSFMessage -Level Verbose -Message "$search"
                 Write-Progress -Activity "Searching catalog for $kb" -Id 1 -Status "Contacting catalog.update.microsoft.com"
-                $results = Invoke-TlsWebRequest -Uri "http://www.catalog.update.microsoft.com/Search.aspx?q=$kb" -UseBasicParsing -ErrorAction Stop
+                $results = Invoke-TlsWebRequest -Uri "http://www.catalog.update.microsoft.com/Search.aspx?q=$search" -UseBasicParsing -ErrorAction Stop
                 Write-Progress -Activity "Searching catalog for $kb" -Id 1 -Completed
 
                 $kbids = $results.InputFields |
-                Where-Object { $_.type -eq 'Button' -and $_.Value -eq 'Download' } |
-                Select-Object -ExpandProperty  ID
+                    Where-Object { $_.type -eq 'Button' -and $_.Value -eq 'Download' } |
+                    Select-Object -ExpandProperty  ID
 
                 if (-not $kbids) {
                     try {
@@ -147,13 +157,13 @@ function Get-KbUpdate {
                     $itemtitle = $item.Title
 
                     # cacher
-                    $guidarch = "$guid-$Architecture"
-                    if ($script:kbcollection.ContainsKey($guidarch)) {
-                        $script:kbcollection[$guidarch]
+                    $hashkey = "$guid-$Simple"
+                    if ($script:kbcollection.ContainsKey($hashkey)) {
+                        $script:kbcollection[$hashkey]
                         continue
                     }
 
-                    Write-ProgressHelper -Activity "Found results for $kb" -Message "Getting results for $itemtitle" -TotalSteps $guids.Guid.Count -StepNumber $guids.Guid.IndexOf($guid)
+                    Write-ProgressHelper -Activity "Found up to $($guids.Count) results for $kb" -Message "Getting results for $itemtitle" -TotalSteps $guids.Guid.Count -StepNumber $guids.Guid.IndexOf($guid)
                     Write-PSFMessage -Level Verbose -Message "Downloading information for $itemtitle"
                     $post = @{ size = 0; updateID = $guid; uidInfo = $guid } | ConvertTo-Json -Compress
                     $body = @{ updateIDs = "[$post]" }
@@ -227,7 +237,7 @@ function Get-KbUpdate {
                             $properties = $properties | Where-Object { $PSItem -notin "LastModified", "Description", "Size", "Classification", "SupportedProducts", "MSRCNumber", "MSRCSeverity", "RebootBehavior", "RequestsUserInput", "ExclusiveInstall", "NetworkRequired", "UninstallNotes", "UninstallSteps", "SupersededBy", "Supersedes" }
                         }
 
-                        $null = $script:kbcollection.Add($guidarch, (
+                        $null = $script:kbcollection.Add($hashkey, (
                                 [pscustomobject]@{
                                     Title             = $title
                                     Id                = $kbnumbers
@@ -253,13 +263,17 @@ function Get-KbUpdate {
                                     Link              = $link.matches.value
                                     InputObject       = $kb
                                 }))
-                        $script:kbcollection[$guidarch]
+                        $script:kbcollection[$hashkey]
                     }
                 }
             } catch {
                 Stop-PSFFunction -EnableException:$EnableException -Message "Failure" -ErrorRecord $_ -Continue
             }
         }
+
+        $boundparams = $PSBoundParameters
+        $null = $boundparams.Remove("Pattern")
+        $null = $boundparams.Remove("EnableException")
 
         $properties = "Title",
         "Id",
@@ -290,7 +304,7 @@ function Get-KbUpdate {
     }
     process {
         foreach ($kb in $Pattern) {
-            Get-KbItem $kb | Select-DefaultView -Property $properties
+            Get-KbItem $kb | Search-Kb @boundparams | Select-DefaultView -Property $properties
         }
     }
 }

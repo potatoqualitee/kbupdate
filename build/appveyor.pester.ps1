@@ -1,4 +1,4 @@
-﻿<#
+<#
 .SYNOPSIS
 This script will invoke Pester tests, then serialize XML results and pull them in appveyor.yml
 
