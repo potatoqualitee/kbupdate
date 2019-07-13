@@ -273,6 +273,8 @@ function Get-KbUpdate {
 
         $boundparams = $PSBoundParameters
         $null = $boundparams.Remove("Pattern")
+        $null = $boundparams.Remove("EnableException")
+
         $properties = "Title",
         "Id",
         "Description",
