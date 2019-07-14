@@ -334,13 +334,6 @@ function Get-KbUpdate {
             $properties = $properties | Where-Object { $PSItem -notin "ID", "LastModified", "Description", "Size", "Classification", "SupportedProducts", "MSRCNumber", "MSRCSeverity", "RebootBehavior", "RequestsUserInput", "ExclusiveInstall", "NetworkRequired", "UninstallNotes", "UninstallSteps", "SupersededBy", "Supersedes" }
         }
 
-        $boundparams = @{
-            Architecture    = $PSBoundParameters.Architecture
-            OperatingSystem = $PSBoundParameters.OperatingSystem
-            Product         = $PSBoundParameters.Product
-            Language        = $PSBoundParameters.Language
-        }
-
         # if latest is used, needs a collection
         $allkbs = @()
 
@@ -354,6 +347,47 @@ function Get-KbUpdate {
             Write-PSFMessage -Level Warning -Message "Simple is ignored when Latest is specified, as latest requires detailed data"
             $Simple = $false
         }
+
+        foreach ($computer in $Computername) {
+            # tempting to add language but for now I won't
+            $results = $script:compcollection[$computer]
+            if (-not $results) {
+                $results = Invoke-PSFCommand -ComputerName $computer -Credential $Credential -ScriptBlock {
+                    $proc = $env:PROCESSOR_ARCHITECTURE
+                    if ($proc -eq "AMD64") {
+                        $proc = "x64"
+                    }
+                    $os = Get-CimInstance Win32_OperatingSystem | Select-Object -ExpandProperty Caption
+                    $os = $os.Replace("Standard", "").Replace("Microsoft ", "").Replace(" Pro", "").Replace("Professional", "").Replace("Home", "").Replace("Enterprise", "").Replace("Datacenter", "").Trim()
+                    [pscustomobject]@{
+                        Architecture    = $proc
+                        OperatingSystem = $os
+                    }
+                }
+                $null = $script:compcollection.Add($computer, $results)
+            }
+
+            if ($results.Architecture) {
+                if ($results.Architecture -notin $Architecture) {
+                    Write-PSFMessage -Level Verbose -Message "Adding $($results.Architecture)"
+                    $Architecture += $results.Architecture
+                }
+            }
+            if ($results.OperatingSystem) {
+                if ($results.OperatingSystem -notin $OperatingSystem) {
+                    Write-PSFMessage -Level Verbose -Message "Adding $($results.OperatingSystem)"
+                    $OperatingSystem += $results.OperatingSystem
+                }
+            }
+        }
+
+        $boundparams = @{
+            Architecture    = $Architecture
+            OperatingSystem = $OperatingSystem
+            Product         = $PSBoundParameters.Product
+            Language        = $PSBoundParameters.Language
+        }
+
         foreach ($kb in $Pattern) {
             if ($Latest) {
                 $allkbs += Get-KbItem $kb | Search-Kb @boundparams

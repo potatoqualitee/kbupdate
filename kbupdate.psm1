@@ -39,10 +39,15 @@ foreach ($function in (Get-ChildItem "$ModuleRoot\public" -Filter "*.ps1" -Recur
     . Import-ModuleFile -Path $function.FullName
 }
 
-# Setup initial kbcollection
+# Setup initial collections
 if (-not $script:kbcollection) {
     $script:kbcollection = @{}
 }
+
+if (-not $script:compcollection) {
+    $script:compcollection = @{}
+}
+
 
 $script:languages = . "$ModuleRoot\library\languages.ps1"
 
