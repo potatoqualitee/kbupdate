@@ -19,14 +19,6 @@ function Search-Kb {
         }
 
         foreach ($object in $InputObject) {
-            # i am terrible at search logic, if anyone else knows how to do this better, please do
-            if ($ComputerName) {
-                # if they specify a computername and it's a SQL patch - grab it
-                # if they specify comptutername and not $Architecture, grab the unique architecutre
-                # will need credential
-                # if they specify comptuername and they have kbs already installed that supercedes, warn (Maybe Test output?)
-            }
-
             if ($OperatingSystem) {
                 $match = @()
                 foreach ($os in $OperatingSystem) {
