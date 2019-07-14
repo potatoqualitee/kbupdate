@@ -102,6 +102,14 @@ Describe "Integration Tests" -Tag "IntegrationTests" {
             $results = Get-KbUpdate -Pattern 2416447, 979906 -Latest
             $results.Count  | Should -Be 3
         }
+
+        if ($env:USERDOMAIN -eq "BASE") {
+            It "returns the proper results for -ComputerName" {
+                $results = Get-KbUpdate -Pattern KB4509475 -ComputerName sql2012
+                $results.Title.Count -eq 1
+                $results.SupportedProducts | Should -Be 'Windows Server 2016'
+            }
+        }
     }
 
     Context "Save works" {

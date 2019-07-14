@@ -90,6 +90,9 @@ function Save-KbUpdate {
         [switch]$Strict,
         [switch]$EnableException
     )
+    begin {
+        $files = @()
+    }
     process {
         if ($Pattern.Count -gt 0 -and $PSBoundParameters.FilePath) {
             Stop-PSFFunction -EnableException:$EnableException -Message "You can only specify one KB when using FilePath"
@@ -187,6 +190,9 @@ function Save-KbUpdate {
 
                 $file = "$Path$([IO.Path]::DirectorySeparatorChar)$FilePath"
 
+                # could also Get-ChildItem for the path prior to download
+                if ($file -in $files) { continue }
+
                 if ((Get-Command Start-BitsTransfer -ErrorAction Ignore)) {
                     try {
                         Start-BitsTransfer -Source $link -Destination $file -ErrorAction Stop
@@ -207,6 +213,7 @@ function Save-KbUpdate {
                 }
                 if (Test-Path -Path $file) {
                     Get-ChildItem -Path $file
+                    $files += $file
                 }
             }
         }
