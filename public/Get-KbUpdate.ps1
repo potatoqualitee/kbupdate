@@ -352,17 +352,21 @@ function Get-KbUpdate {
             # tempting to add language but for now I won't
             $results = $script:compcollection[$computer]
             if (-not $results) {
-                $results = Invoke-PSFCommand -ComputerName $computer -Credential $Credential -ScriptBlock {
-                    $proc = $env:PROCESSOR_ARCHITECTURE
-                    if ($proc -eq "AMD64") {
-                        $proc = "x64"
-                    }
-                    $os = Get-CimInstance Win32_OperatingSystem | Select-Object -ExpandProperty Caption
-                    $os = $os.Replace("Standard", "").Replace("Microsoft ", "").Replace(" Pro", "").Replace("Professional", "").Replace("Home", "").Replace("Enterprise", "").Replace("Datacenter", "").Trim()
-                    [pscustomobject]@{
-                        Architecture    = $proc
-                        OperatingSystem = $os
-                    }
+                 try {
+                    $results = Invoke-PSFCommand -ComputerName $computer -Credential $Credential -ScriptBlock {
+                        $proc = $env:PROCESSOR_ARCHITECTURE
+                        if ($proc -eq "AMD64") {
+                            $proc = "x64"
+                        }
+                        $os = Get-CimInstance Win32_OperatingSystem | Select-Object -ExpandProperty Caption
+                        $os = $os.Replace("Standard", "").Replace("Microsoft ", "").Replace(" Pro", "").Replace("Professional", "").Replace("Home", "").Replace("Enterprise", "").Replace("Datacenter", "").Trim()
+                        [pscustomobject]@{
+                            Architecture    = $proc
+                            OperatingSystem = $os
+                        }
+                    } -ErrorAction Stop
+                } catch {
+                    Stop-PSFFunction -Message "Failure" -ErrorRecord $_ -Continue
                 }
                 $null = $script:compcollection.Add($computer, $results)
             }
