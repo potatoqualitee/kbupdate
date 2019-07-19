@@ -12,9 +12,10 @@ function Invoke-TlsWebRequest {
     $currentProgressPref = $ProgressPreference
     $ProgressPreference = "SilentlyContinue"
 
-    $proxy = (Get-ItemProperty -Path "Registry::HKCU\Software\Microsoft\Windows\CurrentVersion\Internet Settings").ProxyServer
+    $regproxy = Get-ItemProperty -Path "Registry::HKCU\Software\Microsoft\Windows\CurrentVersion\Internet Settings"
+    $proxy = $regproxy.ProxyServer
 
-    if ($proxy -and -not ([System.Net.Webrequest]::DefaultWebProxy).Address) {
+    if ($proxy -and -not ([System.Net.Webrequest]::DefaultWebProxy).Address -and $regproxy.ProxyEnable) {
         [System.Net.Webrequest]::DefaultWebProxy = New-object System.Net.WebProxy $proxy
         [System.Net.Webrequest]::DefaultWebProxy.Credentials = [System.Net.CredentialCache]::DefaultNetworkCredentials
     }
