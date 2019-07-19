@@ -3,25 +3,43 @@ function new-db {
     $null = New-SQLiteConnection -DataSource $db
     # updateid is not uniqueidentifier cuz I can't figure out how to do WHERE
     Invoke-SqliteQuery -DataSource $db -Query "CREATE TABLE [kb](
-    [UpdateId] [nvarchar](36) NOT NULL,
-    [RevisionNumber] [int] NOT NULL,
-    [DefaultTitle] [nvarchar](200) NOT NULL,
-    [DefaultDescription] [nvarchar](1500) NULL,
-    [ClassificationId] [nvarchar](36) NOT NULL,
-    [ArrivalDate] [datetime] NOT NULL,
-    [CreationDate] [datetime] NOT NULL,
-    [IsDeclined] [bit] NOT NULL,
-    [IsWsusInfrastructureUpdate] [bit] NOT NULL,
-    [MsrcSeverity] [nvarchar](20) NOT NULL,
-    [PublicationState] [nvarchar](9) NULL,
-    [UpdateType] [nvarchar](256) NOT NULL,
-    [UpdateSource] [nvarchar](15) NOT NULL,
-    [KnowledgebaseArticle] [nvarchar](15) NULL,
-    [SecurityBulletin] [nvarchar](15) NULL,
-    [InstallationCanRequestUserInput] [bit] NOT NULL,
-    [InstallationRequiresNetworkConnectivity] [bit] NOT NULL,
-    [InstallationImpact] [nvarchar](25) NOT NULL,
-    [InstallationRebootBehavior] [nvarchar](20) NOT NULL)"
+        [Title] [nvarchar](200) NOT NULL,
+        [Id] int NOT NULL,
+        [Architecture] [nvarchar](5) NULL,
+        [Language] [nvarchar](25) NULL,
+        [Hotfix] bit NULL,
+        [Description] [nvarchar](1500) NULL,
+        [LastModified] smalldatetime NULL,
+        [Size] [nvarchar](max) NULL,
+        [Classification] [nvarchar](max) NULL,
+        [SupportedProducts] [nvarchar](50) NULL,
+        [MSRCNumber] [nvarchar](25) NULL,
+        [MSRCSeverity] [nvarchar](50) NULL,
+        [RebootBehavior] [nvarchar](50) NULL,
+        [RequestsUserInput] bit NULL,
+        [ExclusiveInstall] bit NULL,
+        [NetworkRequired] bit NULL,
+        [UninstallNotes] [nvarchar](1500) NULL,
+        [UninstallSteps] [nvarchar](1500) NULL,
+        [UpdateId] [nvarchar](36) NOT NULL
+    )"
+
+    Invoke-SqliteQuery -DataSource $db -Query "CREATE TABLE [SupersededBy](
+        [UpdateId] [nvarchar](36) NOT NULL,
+        [Id] int NOT NULL,
+        [Title] [nvarchar](200) NOT NULL
+    )"
+
+    Invoke-SqliteQuery -DataSource $db -Query "CREATE TABLE [Supersedes](
+        [UpdateId] [nvarchar](36) NOT NULL,
+        [Id] int NOT NULL,
+        [Title] [nvarchar](200) NOT NULL
+    )"
+
+    Invoke-SqliteQuery -DataSource $db -Query "CREATE TABLE [Link](
+        [UpdateId] [nvarchar](36) NOT NULL,
+        [Address] [nvarchar](512) NOT NULL
+    )"
 }
 function Update-Db {
     $exists = Invoke-SqliteQuery -DataSource $db -Query "Select distinct UpdateId from kb"
@@ -145,6 +163,10 @@ function blah {
     $config.Save();
     iisreset
     Restart-Service *Wsus* -v
+
+
+    SELECT CAST(UpdateId AS VARCHAR(36)) as UpdateId FROM tbUpdate
+
 
     #>
 }
