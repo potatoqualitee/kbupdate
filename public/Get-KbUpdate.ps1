@@ -248,6 +248,10 @@ function Get-KbUpdate {
                         $supersededby = Get-SuperInfo -Text $detaildialog -Pattern '<div id="supersededbyInfo" TABINDEX="1" >'
                         $supersedes = Get-SuperInfo -Text $detaildialog -Pattern '<div id="supersedesInfo" TABINDEX="1">'
 
+                        if ($uninstallsteps -eq "n/a") {
+                            $uninstallsteps = $null
+                        }
+
                         $products = $supportedproducts -split ","
                         if ($products.Count -gt 1) {
                             $supportedproducts = @()
@@ -349,7 +353,7 @@ function Get-KbUpdate {
             # tempting to add language but for now I won't
             $results = $script:compcollection[$computer]
             if (-not $results) {
-                 try {
+                try {
                     $results = Invoke-PSFCommand -ComputerName $computer -Credential $Credential -ScriptBlock {
                         $proc = $env:PROCESSOR_ARCHITECTURE
                         if ($proc -eq "AMD64") {

@@ -29,9 +29,9 @@ Describe "Integration Tests" -Tag "IntegrationTests" {
             $results.ExclusiveInstall  | Should -Be "No"
             $results.NetworkRequired   | Should -Be "No"
             $results.UninstallNotes    | Should -Be "This software update can be removed via Add or Remove Programs in Control Panel."
-            $results.UninstallSteps    | Should -Be "n/a"
-            $results.SupersededBy      | Should -Be "n/a"
-            $results.Supersedes        | Should -Be "n/a"
+            $results.UninstallSteps    | Should -Be $null
+            $results.SupersededBy      | Should -Be $null
+            $results.Supersedes        | Should -Be $null
             $results.LastModified      | Should -Be "10/14/2014"
             $results.Link              | Should -Be "http://download.windowsupdate.com/c/msdownload/update/software/secu/2014/10/aspnetwebfxupdate_kb2992080_55c239c6b443cb122b04667a9be948b03046bf88.exe"
         }
