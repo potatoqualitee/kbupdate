@@ -125,8 +125,16 @@ Describe "Integration Tests" -Tag "IntegrationTests" {
             $results | Remove-Item -Confirm:$false
         }
         It "supports piping" {
+            $piperesults = Get-KbUpdate -Name KB2992080 | Select-Object -First 1 | Save-KbUpdate -Path C:\temp
+            $piperesults.Name -match 'aspnet'
+        }
+        It "does not overwrite" {
             $results = Get-KbUpdate -Name KB2992080 | Select-Object -First 1 | Save-KbUpdate -Path C:\temp
-            $results.Name -match 'aspnet'
+            $results.LastWriteTime -eq $piperesults.LastWriteTime
+        }
+        It "does overwrite" {
+            $results = Get-KbUpdate -Name KB2992080 | Select-Object -First 1 | Save-KbUpdate -Path C:\temp -AllowClobber
+            $results.LastWriteTime -ne $piperesults.LastWriteTime
             $results | Remove-Item -Confirm:$false
         }
     }

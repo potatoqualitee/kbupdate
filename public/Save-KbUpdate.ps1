@@ -33,6 +33,9 @@ function Save-KbUpdate {
     .PARAMETER InputObject
         Enables piping from Get-KbUpdate
 
+    .PARAMETER AllowClobber
+        Overwrite file if it exsits
+
     .PARAMETER Strict
         By default, when Language is specified, if a KB supports all language, the file will be downloaded.
 
@@ -87,6 +90,7 @@ function Save-KbUpdate {
         [parameter(ValueFromPipeline)]
         [pscustomobject[]]$InputObject,
         [switch]$Latest,
+        [switch]$AllowClobber,
         [switch]$Strict,
         [switch]$EnableException
     )
@@ -189,6 +193,12 @@ function Save-KbUpdate {
                 }
 
                 $file = "$Path$([IO.Path]::DirectorySeparatorChar)$FilePath"
+
+                if ((Test-Path -Path $file) -and -not $AllowClobber) {
+                    Get-ChildItem -Path $file
+                    $files += $file
+                    continue
+                }
 
                 # could also Get-ChildItem for the path prior to download
                 if ($file -in $files) { continue }
