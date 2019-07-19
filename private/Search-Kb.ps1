@@ -64,6 +64,7 @@ function Search-Kb {
                         }
                     }
                     if ($matches -match 'http') {
+                        $object = ($object).PSObject.Copy()
                         $object.Link = $matches
                     } else {
                         if (-not $textmatch) {

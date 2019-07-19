@@ -252,6 +252,10 @@ function Get-KbUpdate {
                             $uninstallsteps = $null
                         }
 
+                        if ($msrcnumber -eq "n/a") {
+                            $msrcnumber = $null
+                        }
+
                         $products = $supportedproducts -split ","
                         if ($products.Count -gt 1) {
                             $supportedproducts = @()
