@@ -118,21 +118,18 @@ function Get-KbUpdate {
             }
 
             $spanMatches = [regex]::Matches($span, $regex).ForEach( { $_.Groups[1].Value })
+            if ($spanMatches -eq 'n/a') { $spanMatches = $null }
 
             if ($spanMatches) {
-                if ($spanMatches -ne 'n/a') {
-                    foreach ($superMatch in $spanMatches) {
-                        $detailedMatches = [regex]::Matches($superMatch, '\b[kK][bB]([0-9]{6,})\b')
-                        # $null -ne $detailedMatches can throw cant index null errors, get more detailed
-                        if ($null -ne $detailedMatches.Groups) {
-                            [PSCustomObject] @{
-                                'KB'          = $detailedMatches.Groups[1].Value
-                                'Description' = $superMatch
-                            } | Add-Member -MemberType ScriptMethod -Name ToString -Value { $this.Description } -PassThru -Force
-                        }
+                foreach ($superMatch in $spanMatches) {
+                    $detailedMatches = [regex]::Matches($superMatch, '\b[kK][bB]([0-9]{6,})\b')
+                    # $null -ne $detailedMatches can throw cant index null errors, get more detailed
+                    if ($null -ne $detailedMatches.Groups) {
+                        [PSCustomObject] @{
+                            'KB'          = $detailedMatches.Groups[1].Value
+                            'Description' = $superMatch
+                        } | Add-Member -MemberType ScriptMethod -Name ToString -Value { $this.Description } -PassThru -Force
                     }
-                } else {
-                    $spanMatches
                 }
             }
         }
@@ -251,6 +248,14 @@ function Get-KbUpdate {
                         $supersededby = Get-SuperInfo -Text $detaildialog -Pattern '<div id="supersededbyInfo" TABINDEX="1" >'
                         $supersedes = Get-SuperInfo -Text $detaildialog -Pattern '<div id="supersedesInfo" TABINDEX="1">'
 
+                        if ($uninstallsteps -eq "n/a") {
+                            $uninstallsteps = $null
+                        }
+
+                        if ($msrcnumber -eq "n/a") {
+                            $msrcnumber = $null
+                        }
+
                         $products = $supportedproducts -split ","
                         if ($products.Count -gt 1) {
                             $supportedproducts = @()
@@ -352,7 +357,7 @@ function Get-KbUpdate {
             # tempting to add language but for now I won't
             $results = $script:compcollection[$computer]
             if (-not $results) {
-                 try {
+                try {
                     $results = Invoke-PSFCommand -ComputerName $computer -Credential $Credential -ScriptBlock {
                         $proc = $env:PROCESSOR_ARCHITECTURE
                         if ($proc -eq "AMD64") {

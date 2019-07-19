@@ -29,9 +29,9 @@ Describe "Integration Tests" -Tag "IntegrationTests" {
             $results.ExclusiveInstall  | Should -Be "No"
             $results.NetworkRequired   | Should -Be "No"
             $results.UninstallNotes    | Should -Be "This software update can be removed via Add or Remove Programs in Control Panel."
-            $results.UninstallSteps    | Should -Be "n/a"
-            $results.SupersededBy      | Should -Be "n/a"
-            $results.Supersedes        | Should -Be "n/a"
+            $results.UninstallSteps    | Should -Be $null
+            $results.SupersededBy      | Should -Be $null
+            $results.Supersedes        | Should -Be $null
             $results.LastModified      | Should -Be "10/14/2014"
             $results.Link              | Should -Be "http://download.windowsupdate.com/c/msdownload/update/software/secu/2014/10/aspnetwebfxupdate_kb2992080_55c239c6b443cb122b04667a9be948b03046bf88.exe"
         }
@@ -103,6 +103,18 @@ Describe "Integration Tests" -Tag "IntegrationTests" {
             $results.Count  | Should -Be 3
         }
 
+        It "does not overwrite links" {
+            $results = Get-KbUpdate -Pattern "sql 2016 sp1" -Latest -Language Japanese
+            $results.Link.Count | Should -Be 3
+            "$($results.Link)" -match "jpn_"
+            "$($results.Link)" -notmatch "kor_"
+
+            $results = Get-KbUpdate -Pattern "sql 2016 sp1" -Latest
+            $results.Link.Count | Should -BeGreaterThan 3
+            "$($results.Link)" -match "jpn_"
+            "$($results.Link)" -match "kor_"
+        }
+
         if ($env:USERDOMAIN -eq "BASE") {
             It "returns the proper results for -ComputerName" {
                 $results = Get-KbUpdate -Pattern KB4509475 -ComputerName sql2012
@@ -125,8 +137,16 @@ Describe "Integration Tests" -Tag "IntegrationTests" {
             $results | Remove-Item -Confirm:$false
         }
         It "supports piping" {
+            $piperesults = Get-KbUpdate -Name KB2992080 | Select-Object -First 1 | Save-KbUpdate -Path C:\temp
+            $piperesults.Name -match 'aspnet'
+        }
+        It "does not overwrite" {
             $results = Get-KbUpdate -Name KB2992080 | Select-Object -First 1 | Save-KbUpdate -Path C:\temp
-            $results.Name -match 'aspnet'
+            $results.LastWriteTime -eq $piperesults.LastWriteTime
+        }
+        It "does overwrite" {
+            $results = Get-KbUpdate -Name KB2992080 | Select-Object -First 1 | Save-KbUpdate -Path C:\temp -AllowClobber
+            $results.LastWriteTime -ne $piperesults.LastWriteTime
             $results | Remove-Item -Confirm:$false
         }
     }
