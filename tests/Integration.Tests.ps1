@@ -103,6 +103,18 @@ Describe "Integration Tests" -Tag "IntegrationTests" {
             $results.Count  | Should -Be 3
         }
 
+        It "does not overwrite links" {
+            $results = Get-KbUpdate -Pattern "sql 2016 sp1" -Latest -Language Japanese
+            $results.Link.Count | Should -Be 3
+            "$($results.Link)" -match "jpn_"
+            "$($results.Link)" -notmatch "kor_"
+
+            $results = Get-KbUpdate -Pattern "sql 2016 sp1" -Latest
+            $results.Link.Count | Should -BeGreaterThan 3
+            "$($results.Link)" -match "jpn_"
+            "$($results.Link)" -match "kor_"
+        }
+
         if ($env:USERDOMAIN -eq "BASE") {
             It "returns the proper results for -ComputerName" {
                 $results = Get-KbUpdate -Pattern KB4509475 -ComputerName sql2012
