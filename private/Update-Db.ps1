@@ -42,35 +42,39 @@ function new-db {
     )"
 }
 function Update-Db {
-    $exists = Invoke-SqliteQuery -DataSource $db -Query "Select distinct UpdateId from kb"
-    $exists = $exists.UpdateId -join "','"
+    Import-Module C:\github\dbatools
+    $all = Get-Content -Path C:\Users\ctrlb\Desktop\guidsall.txt
+    $exists = $all -join "','"
 
-    if ($exists) {
-        $where = "where [UpdateId] NOT IN ('$exists')"
+    $query = "SELECT CAST(UpdateId AS VARCHAR(36)) as UpdateId FROM [SUSDB].[PUBLIC_VIEWS].[vUpdate] Where ArrivalDate >= DATEADD(hour,-4, GETDATE())"
+    $query = "SELECT CAST(UpdateId AS VARCHAR(36)) as UpdateId FROM [SUSDB].[PUBLIC_VIEWS].[vUpdate] Where ArrivalDate >= DATEADD(minute,-220, GETDATE())"
+    $new = (Invoke-DbaQuery -SqlInstance wsus -Database SUSDB -Query $query).UpdateId
+
+    foreach ($guid in $new) {
+        $query = "select updateid from kb where updateid = '$guid'"
+        $exists = Invoke-SqliteQuery -DataSource $db -Query $query
+
+        if (-not $exists) {
+            $update = Get-KbUpdate -Pattern $guid | Select -Property * -ExcludeProperty SupersededBy, Supersedes, Link
+            if ($update) {
+                Invoke-SQLiteBulkCopy -DataTable ($update | ConvertTo-DbaDataTable) -DataSource $db -Table kb -Confirm:$false
+            }
+            $null = Add-Content -Value $guid -Path C:\Users\ctrlb\Desktop\guidsall.txt
+        }
     }
 
-    $query = "SELECT CAST(UpdateId AS VARCHAR(36)) as UpdateId
-        ,[RevisionNumber]
-        ,[DefaultTitle]
-        ,[DefaultDescription]
-        ,CAST(ClassificationId AS VARCHAR(36)) as ClassificationId
-        ,[ArrivalDate]
-        ,[CreationDate]
-        ,[IsDeclined]
-        ,[IsWsusInfrastructureUpdate]
-        ,[MsrcSeverity]
-        ,[PublicationState]
-        ,[UpdateType]
-        ,[UpdateSource]
-        ,[KnowledgebaseArticle]
-        ,[SecurityBulletin]
-        ,[InstallationCanRequestUserInput]
-        ,[InstallationRequiresNetworkConnectivity]
-        ,[InstallationImpact]
-        ,[InstallationRebootBehavior]
-    FROM [SUSDB].[PUBLIC_VIEWS].[vUpdate] $where"
 
-    Invoke-SQLiteBulkCopy -DataTable (Invoke-DbaQuery -SqlInstance sql2017 -Database susdb -Query $query -As DataTable) -DataSource $db -Table kb -Confirm:$false
+
+    foreach ($guid in (Get-Content -Path C:\Users\ctrlb\Desktop\guidsall.txt)) {
+        Invoke-SQLiteBulkCopy -DataTable (Invoke-DbaQuery -SqlInstance sql2017 -Database susdb -Query $query -As DataTable) -DataSource $db -Table kb -Confirm:$false
+
+        if (-not (Test-Path -Path "C:\temp\kbs\$guid.xml")) {
+            $update = Get-KbUpdate -Pattern $guid
+            if ($update) {
+                $update | Export-CliXml -Path "C:\temp\kbs\$guid.xml"
+            }
+        }
+    }
 }
 
 function blah {
