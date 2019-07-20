@@ -4,14 +4,14 @@ function new-db {
     # updateid is not uniqueidentifier cuz I can't figure out how to do WHERE
     Invoke-SqliteQuery -DataSource $db -Query "CREATE TABLE [kb](
         [Title] [nvarchar](200) NOT NULL,
-        [Id] int NOT NULL,
+        [Id] int NULL,
         [Architecture] [nvarchar](5) NULL,
         [Language] [nvarchar](25) NULL,
         [Hotfix] bit NULL,
         [Description] [nvarchar](1500) NULL,
         [LastModified] smalldatetime NULL,
-        [Size] [nvarchar](max) NULL,
-        [Classification] [nvarchar](max) NULL,
+        [Size] [nvarchar](50) NULL,
+        [Classification] [nvarchar](512) NULL,
         [SupportedProducts] [nvarchar](50) NULL,
         [MSRCNumber] [nvarchar](25) NULL,
         [MSRCSeverity] [nvarchar](50) NULL,
@@ -25,45 +25,75 @@ function new-db {
     )"
 
     Invoke-SqliteQuery -DataSource $db -Query "CREATE TABLE [SupersededBy](
-        [UpdateId] [nvarchar](36) NOT NULL,
-        [Id] int NOT NULL,
-        [Title] [nvarchar](200) NOT NULL
+        [UpdateId] [nvarchar](36) NULL,
+        [Kb] int NULL,
+        [Description] [nvarchar](200) NULL
     )"
 
     Invoke-SqliteQuery -DataSource $db -Query "CREATE TABLE [Supersedes](
-        [UpdateId] [nvarchar](36) NOT NULL,
-        [Id] int NOT NULL,
-        [Title] [nvarchar](200) NOT NULL
+        [UpdateId] [nvarchar](36) NULL,
+        [Kb] int NULL,
+        [Description] [nvarchar](200) NULL
     )"
 
     Invoke-SqliteQuery -DataSource $db -Query "CREATE TABLE [Link](
-        [UpdateId] [nvarchar](36) NOT NULL,
-        [Address] [nvarchar](512) NOT NULL
+        [UpdateId] [nvarchar](36) NULL,
+        [Address] [nvarchar](512) NULL,
+        [Length] int NULL
     )"
 }
+
+function Get-Info {
+    Invoke-SqliteQuery -DataSource $db -Query "select * from kb"
+    #Invoke-SqliteQuery -DataSource $db -Query "select * from SupersededBy"
+    #Invoke-SqliteQuery -DataSource $db -Query "select * from Supersedes"
+    #Invoke-SqliteQuery -DataSource $db -Query "select * from Link"
+}
+
 function Update-Db {
+    [CmdletBinding()]
+    param()
     Import-Module C:\github\dbatools
-    $all = Get-Content -Path C:\Users\ctrlb\Desktop\guidsall.txt
-    $exists = $all -join "','"
+    #$all = Get-Content -Path C:\Users\ctrlb\Desktop\guidsall.txt
+    #$exists = $all -join "','"
 
     $query = "SELECT CAST(UpdateId AS VARCHAR(36)) as UpdateId FROM [SUSDB].[PUBLIC_VIEWS].[vUpdate] Where ArrivalDate >= DATEADD(hour,-4, GETDATE())"
-    $query = "SELECT CAST(UpdateId AS VARCHAR(36)) as UpdateId FROM [SUSDB].[PUBLIC_VIEWS].[vUpdate] Where ArrivalDate >= DATEADD(minute,-220, GETDATE())"
+    $query = "SELECT TOP 10 CAST(UpdateId AS VARCHAR(36)) as UpdateId FROM [SUSDB].[PUBLIC_VIEWS].[vUpdate] Where ArrivalDate >= DATEADD(minute,-420, GETDATE())"
     $new = (Invoke-DbaQuery -SqlInstance wsus -Database SUSDB -Query $query).UpdateId
 
     foreach ($guid in $new) {
+        write-warning $guid
         $query = "select updateid from kb where updateid = '$guid'"
         $exists = Invoke-SqliteQuery -DataSource $db -Query $query
 
         if (-not $exists) {
-            $update = Get-KbUpdate -Pattern $guid | Select -Property * -ExcludeProperty SupersededBy, Supersedes, Link
-            if ($update) {
-                Invoke-SQLiteBulkCopy -DataTable ($update | ConvertTo-DbaDataTable) -DataSource $db -Table kb -Confirm:$false
+            $update = Get-KbUpdate -Pattern $guid
+            $kb = $update | Select -Property * -ExcludeProperty SupersededBy, Supersedes, Link, InputObject
+            $SupersededBy = $update.SupersededBy
+            $Supersedes = $update.Supersedes
+            $Link = $update.Link
+
+            foreach ($item in $kb) {
+                Invoke-SQLiteBulkCopy -DataTable ($item | ConvertTo-DbaDataTable) -DataSource $db -Table kb -Confirm:$false
             }
+            foreach ($item in $SupersededBy) {
+                Invoke-SQLiteBulkCopy -DataTable ($item | ConvertTo-DbaDataTable) -DataSource $db -Table SupersededBy -Confirm:$false
+            }
+            foreach ($item in $Supersedes) {
+                Invoke-SQLiteBulkCopy -DataTable ($item | ConvertTo-DbaDataTable) -DataSource $db -Table Supersedes -Confirm:$false
+            }
+            foreach ($item in $Link) {
+                Invoke-SQLiteBulkCopy -DataTable ($item | ConvertTo-DbaDataTable) -DataSource $db -Table Link -Confirm:$false
+            }
+
             $null = Add-Content -Value $guid -Path C:\Users\ctrlb\Desktop\guidsall.txt
         }
     }
+}
 
-
+function blah {
+    Invoke-SqliteQuery -DataSource $db -Query "select * from link"
+    continue
 
     foreach ($guid in (Get-Content -Path C:\Users\ctrlb\Desktop\guidsall.txt)) {
         Invoke-SQLiteBulkCopy -DataTable (Invoke-DbaQuery -SqlInstance sql2017 -Database susdb -Query $query -As DataTable) -DataSource $db -Table kb -Confirm:$false
@@ -75,9 +105,6 @@ function Update-Db {
             }
         }
     }
-}
-
-function blah {
     # https://www.mssqltips.com/sqlservertip/3087/creating-a-sql-server-linked-server-to-sqlite-to-import-data/
 
     <#
@@ -170,7 +197,5 @@ function blah {
 
 
     SELECT CAST(UpdateId AS VARCHAR(36)) as UpdateId FROM tbUpdate
-
-
     #>
 }
