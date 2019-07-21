@@ -60,6 +60,13 @@ function Get-Info {
     #Invoke-SqliteQuery -DataSource $db -Query "select * from KbDupe"
 }
 
+function New-Index {
+    Invoke-SqliteQuery -DataSource $db -Query "CREATE INDEX tag_uid_kb ON Kb (UpdateId)"
+    Invoke-SqliteQuery -DataSource $db -Query "CREATE INDEX tag_uid_superby ON SupersededBy (UpdateId)"
+    Invoke-SqliteQuery -DataSource $db -Query "CREATE INDEX tag_uid_supers ON Supersedes (UpdateId)"
+    Invoke-SqliteQuery -DataSource $db -Query "CREATE INDEX tag_uid_link ON Link (UpdateId)"
+}
+
 function Update-Db {
     [CmdletBinding()]
     param()
