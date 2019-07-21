@@ -2,7 +2,9 @@ function new-db {
     Remove-Item -Path $db -ErrorAction Ignore
     $null = New-SQLiteConnection -DataSource $db
     # updateid is not uniqueidentifier cuz I can't figure out how to do WHERE
+    # and it gets in the way of the import
     Invoke-SqliteQuery -DataSource $db -Query "CREATE TABLE [kb](
+        [UpdateId] [nvarchar](36) PRIMARY KEY NOT NULL,
         [Title] [nvarchar](200) NOT NULL,
         [Id] int NULL,
         [Architecture] [nvarchar](5) NULL,
@@ -20,26 +22,24 @@ function new-db {
         [ExclusiveInstall] bit NULL,
         [NetworkRequired] bit NULL,
         [UninstallNotes] [nvarchar](1500) NULL,
-        [UninstallSteps] [nvarchar](1500) NULL,
-        [UpdateId] [nvarchar](36) NOT NULL
+        [UninstallSteps] [nvarchar](1500) NULL
     )"
 
     Invoke-SqliteQuery -DataSource $db -Query "CREATE TABLE [SupersededBy](
-        [UpdateId] [nvarchar](36) NULL,
+        [UpdateId] [nvarchar](36) NOT NULL,
         [Kb] int NULL,
         [Description] [nvarchar](200) NULL
     )"
 
     Invoke-SqliteQuery -DataSource $db -Query "CREATE TABLE [Supersedes](
-        [UpdateId] [nvarchar](36) NULL,
+        [UpdateId] [nvarchar](36) NOT NULL,
         [Kb] int NULL,
         [Description] [nvarchar](200) NULL
     )"
 
     Invoke-SqliteQuery -DataSource $db -Query "CREATE TABLE [Link](
-        [UpdateId] [nvarchar](36) NULL,
-        [Address] [nvarchar](512) NULL,
-        [Length] int NULL
+        [UpdateId] [nvarchar](36) NOT NULL,
+        [Link] [nvarchar](512) NULL
     )"
 }
 
@@ -58,11 +58,11 @@ function Update-Db {
     #$exists = $all -join "','"
 
     $query = "SELECT CAST(UpdateId AS VARCHAR(36)) as UpdateId FROM [SUSDB].[PUBLIC_VIEWS].[vUpdate] Where ArrivalDate >= DATEADD(hour,-4, GETDATE())"
-    $query = "SELECT TOP 10 CAST(UpdateId AS VARCHAR(36)) as UpdateId FROM [SUSDB].[PUBLIC_VIEWS].[vUpdate] Where ArrivalDate >= DATEADD(minute,-420, GETDATE())"
-    $new = (Invoke-DbaQuery -SqlInstance wsus -Database SUSDB -Query $query).UpdateId
+    $query = "SELECT TOP 10 CAST(UpdateId AS VARCHAR(36)) as UpdateId FROM [SUSDB].[PUBLIC_VIEWS].[vUpdate] Where ArrivalDate >= DATEADD(minute,-1420, GETDATE())"
 
+    $new = (Invoke-DbaQuery -SqlInstance wsus -Database SUSDB -Query $query).UpdateId
+    #$new = "9D442AA2-8250-4BCE-A4CB-D5C0F0E940C3"
     foreach ($guid in $new) {
-        write-warning $guid
         $query = "select updateid from kb where updateid = '$guid'"
         $exists = Invoke-SqliteQuery -DataSource $db -Query $query
 
@@ -73,20 +73,73 @@ function Update-Db {
             $Supersedes = $update.Supersedes
             $Link = $update.Link
 
-            foreach ($item in $kb) {
-                Invoke-SQLiteBulkCopy -DataTable ($item | ConvertTo-DbaDataTable) -DataSource $db -Table kb -Confirm:$false
-            }
-            foreach ($item in $SupersededBy) {
-                Invoke-SQLiteBulkCopy -DataTable ($item | ConvertTo-DbaDataTable) -DataSource $db -Table SupersededBy -Confirm:$false
-            }
-            foreach ($item in $Supersedes) {
-                Invoke-SQLiteBulkCopy -DataTable ($item | ConvertTo-DbaDataTable) -DataSource $db -Table Supersedes -Confirm:$false
-            }
-            foreach ($item in $Link) {
-                Invoke-SQLiteBulkCopy -DataTable ($item | ConvertTo-DbaDataTable) -DataSource $db -Table Link -Confirm:$false
+            try {
+                foreach ($item in $kb) {
+                    Invoke-SQLiteBulkCopy -DataTable ($item | ConvertTo-DbaDataTable) -DataSource $db -Table kb -Confirm:$false
+                }
+                foreach ($item in $SupersededBy) {
+                    Invoke-SQLiteBulkCopy -DataTable ([pscustomobject]@{ UpdateId = $guid; Kb = $item.Kb; Description = $item.Description } |
+                    ConvertTo-DbaDataTable) -DataSource $db -Table SupersededBy -Confirm:$false
+                }
+                foreach ($item in $Supersedes) {
+                    Invoke-SQLiteBulkCopy -DataTable ([pscustomobject]@{ UpdateId = $guid; Kb = $item.Kb; Description = $item.Description } |
+                    ConvertTo-DbaDataTable) -DataSource $db -Table Supersedes -Confirm:$false
+                }
+                foreach ($item in $Link) {
+                    Invoke-SQLiteBulkCopy -DataTable ([pscustomobject]@{UpdateId = $guid; Link = $item} |
+                    ConvertTo-DbaDataTable) -DataSource $db -Table Link -Confirm:$false
+                }
+            } catch {
+                Stop-PSFFunction -Message $guid -ErrorRecord $_ -Continue
             }
 
             $null = Add-Content -Value $guid -Path C:\Users\ctrlb\Desktop\guidsall.txt
+        }
+    }
+}
+
+function Update-DbFromFile {
+    [CmdletBinding()]
+    param()
+    new-db
+    $files = Get-ChildItem -Path C:\temp\kbs
+    $i = 0
+    foreach ($file in $files) {
+        $update = Import-CliXml $file.FullName
+        $guid = $update.UpdateId
+
+        #$query = "select updateid from kb where updateid = '$guid'"
+        #$exists = Invoke-SqliteQuery -DataSource $db -Query $query
+        $i++
+        if (($i % 100) -eq 0) { write-warning $i }
+        if (-not $exists) {
+            #write-warning $guid
+            $kb = $update | Select -Property * -ExcludeProperty SupersededBy, Supersedes, Link, InputObject
+            $SupersededBy = $update.SupersededBy
+            $Supersedes = $update.Supersedes
+            $Link = $update.Link
+
+            try {
+                foreach ($item in $kb) {
+                    Invoke-SQLiteBulkCopy -DataTable ($item | ConvertTo-DbaDataTable) -DataSource $db -Table kb -Confirm:$false
+                }
+                foreach ($item in $SupersededBy) {
+                    Invoke-SQLiteBulkCopy -DataTable ([pscustomobject]@{ UpdateId = $guid; Kb = $item.Kb; Description = $item.Description } |
+                    ConvertTo-DbaDataTable) -DataSource $db -Table SupersededBy -Confirm:$false
+                }
+                foreach ($item in $Supersedes) {
+                    Invoke-SQLiteBulkCopy -DataTable ([pscustomobject]@{ UpdateId = $guid; Kb = $item.Kb; Description = $item.Description } |
+                    ConvertTo-DbaDataTable) -DataSource $db -Table Supersedes -Confirm:$false
+                }
+                foreach ($item in $Link) {
+                    Invoke-SQLiteBulkCopy -DataTable ([pscustomobject]@{UpdateId = $guid; Link = $item} |
+                    ConvertTo-DbaDataTable) -DataSource $db -Table Link -Confirm:$false
+                }
+            } catch {
+                Stop-PSFFunction -Message $guid -ErrorRecord $_ -Continue
+            }
+
+            #$null = Add-Content -Value $guid -Path C:\Users\ctrlb\Desktop\guidsall.txt
         }
     }
 }
