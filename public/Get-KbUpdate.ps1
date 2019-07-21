@@ -103,24 +103,16 @@ function Get-KbUpdate {
             [CmdletBinding()]
             param($kb)
             process {
-                $results = @()
-                # webpage says it's good to do multiple queries to sqlite
-                $results += Invoke-SqliteQuery -DataSource $db -Query "select UpdateId from kb where UpdateId = '$kb'"
-                $results += Invoke-SqliteQuery -DataSource $db -Query "select UpdateId from kb where Title like '%$kb%'"
-                $results += Invoke-SqliteQuery -DataSource $db -Query "select UpdateId from kb where Id like '%$kb%'"
-                $results += Invoke-SqliteQuery -DataSource $db -Query "select UpdateId from kb where Description like '%$kb%'"
-                $results += Invoke-SqliteQuery -DataSource $db -Query "select UpdateId from kb where MSRCNumber like '%$kb%'"
-
-                if ($results) {
-                    $distinct = $results | Sort-Object -Unique
-                    $where = $distinct -join "','"
-                    $query = "select * from kb where UpdateId IN ('$where')"
-                }
+                $items = Invoke-SqliteQuery -DataSource $db -Query "select *, NULL AS SupersededBy, NULL AS Supersedes, NULL AS Link from kb where UpdateId in (select UpdateId from kb where UpdateId = '$kb' or Title like '%$kb%' or Id like '%$kb%' or Description like '%$kb%' or MSRCNumber like '%$kb%')"
 
                 foreach ($item in $items) {
-                    Add-Member -InputObject $item -NoteProperty SupersededBy -NotePropertyValue (Invoke-SqliteQuery -DataSource $db -Query "select * from SupersededBy guid = $kb") -Force
-                    Add-Member -InputObject $item -NoteProperty Supersedes -NotePropertyValue (Invoke-SqliteQuery -DataSource $db -Query "select * from Supersedes guid = $kb") -Force
-                    Add-Member -InputObject $item -NoteProperty Link -NotePropertyValue (Invoke-SqliteQuery -DataSource $db -Query "select * from Link guid = $kb") -Passthru -Force
+                    $item.SupersededBy = Invoke-SqliteQuery -DataSource $db -Query "select KB, Description from SupersededBy where UpdateId = '$($item.UpdateId)'"
+                    $item.Supersedes = Invoke-SqliteQuery -DataSource $db -Query "select KB, Description from Supersedes where UpdateId = '$($item.UpdateId)'"
+                    $item.Link = (Invoke-SqliteQuery -DataSource $db -Query "select Link from Link where UpdateId = '$($item.UpdateId)'").Link
+                    #$item
+                    #Add-Member -InputObject $item -NotePropertyName SupersededBy -NotePropertyValue (Invoke-SqliteQuery -DataSource $db -Query "select KB, Description from SupersededBy where UpdateId = '$($item.UpdateId)'") -Force
+                    #Add-Member -InputObject $item -NotePropertyName Supersedes -NotePropertyValue (Invoke-SqliteQuery -DataSource $db -Query "select KB, Description from Supersedes where UpdateId = '$($item.UpdateId)'") -Force
+                    #Add-Member -InputObject $item -NotePropertyName Link -NotePropertyValue (Invoke-SqliteQuery -DataSource $db -Query "select Link from Link where UpdateId = '$($item.UpdateId)'").Link -Passthru -Force
                 }
             }
         }
@@ -435,9 +427,9 @@ function Get-KbUpdate {
 
         foreach ($kb in $Pattern) {
             if ($Latest) {
-                $allkbs += Get-KbItemFromWeb $kb | Search-Kb @boundparams
+                $allkbs += Get-KbItemFromDbb $kb | Search-Kb @boundparams
             } else {
-                Get-KbItemFromWeb $kb | Search-Kb @boundparams | Select-DefaultView -Property $properties
+                Get-KbItemFromDb $kb | Search-Kb @boundparams | Select-DefaultView -Property $properties
             }
         }
     }
