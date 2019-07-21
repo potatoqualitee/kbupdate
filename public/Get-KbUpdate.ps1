@@ -99,25 +99,29 @@ function Get-KbUpdate {
     )
     begin {
 
-        function Get-KbItemFromDb ($kb) {
-            $results = @()
-            # webpage says it's good to do multiple queries to sqlite
-            $results += Invoke-SqliteQuery -DataSource $db -Query "select UpdateId from kb where UpdateId = '$kb'"
-            $results += Invoke-SqliteQuery -DataSource $db -Query "select UpdateId from kb where Title like '%$kb%'"
-            $results += Invoke-SqliteQuery -DataSource $db -Query "select UpdateId from kb where Id like '%$kb%'"
-            $results += Invoke-SqliteQuery -DataSource $db -Query "select UpdateId from kb where Description like '%$kb%'"
-            $results += Invoke-SqliteQuery -DataSource $db -Query "select UpdateId from kb where MSRCNumber like '%$kb%'"
+        function Get-KbItemFromDb {
+            [CmdletBinding()]
+            param($kb)
+            process {
+                $results = @()
+                # webpage says it's good to do multiple queries to sqlite
+                $results += Invoke-SqliteQuery -DataSource $db -Query "select UpdateId from kb where UpdateId = '$kb'"
+                $results += Invoke-SqliteQuery -DataSource $db -Query "select UpdateId from kb where Title like '%$kb%'"
+                $results += Invoke-SqliteQuery -DataSource $db -Query "select UpdateId from kb where Id like '%$kb%'"
+                $results += Invoke-SqliteQuery -DataSource $db -Query "select UpdateId from kb where Description like '%$kb%'"
+                $results += Invoke-SqliteQuery -DataSource $db -Query "select UpdateId from kb where MSRCNumber like '%$kb%'"
 
-            if ($results) {
-                $distinct = $results | Sort-Object -Unique
-                $where = $distinct -join "','"
-                $query = "select * from kb where UpdateId IN ('$where')"
-            }
+                if ($results) {
+                    $distinct = $results | Sort-Object -Unique
+                    $where = $distinct -join "','"
+                    $query = "select * from kb where UpdateId IN ('$where')"
+                }
 
-            foreach ($item in $items) {
-                Add-Member -InputObject $item -NoteProperty SupersededBy -NotePropertyValue (Invoke-SqliteQuery -DataSource $db -Query "select * from SupersededBy guid = $kb") -Force
-                Add-Member -InputObject $item -NoteProperty Supersedes -NotePropertyValue (Invoke-SqliteQuery -DataSource $db -Query "select * from Supersedes guid = $kb") -Force
-                Add-Member -InputObject $item -NoteProperty Link -NotePropertyValue (Invoke-SqliteQuery -DataSource $db -Query "select * from Link guid = $kb") -Passthru -Force
+                foreach ($item in $items) {
+                    Add-Member -InputObject $item -NoteProperty SupersededBy -NotePropertyValue (Invoke-SqliteQuery -DataSource $db -Query "select * from SupersededBy guid = $kb") -Force
+                    Add-Member -InputObject $item -NoteProperty Supersedes -NotePropertyValue (Invoke-SqliteQuery -DataSource $db -Query "select * from Supersedes guid = $kb") -Force
+                    Add-Member -InputObject $item -NoteProperty Link -NotePropertyValue (Invoke-SqliteQuery -DataSource $db -Query "select * from Link guid = $kb") -Passthru -Force
+                }
             }
         }
 
