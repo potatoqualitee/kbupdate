@@ -50,6 +50,13 @@ function new-db {
     Invoke-SqliteQuery -DataSource $db -Query "CREATE TABLE [notfound](
         [UpdateId] [nvarchar](36) NOT NULL
     )"
+
+
+    Invoke-SqliteQuery -DataSource $db -Query "CREATE INDEX tag_uid_kb ON Kb (UpdateId)"
+    Invoke-SqliteQuery -DataSource $db -Query "CREATE INDEX tag_uid_superby ON SupersededBy (UpdateId)"
+    Invoke-SqliteQuery -DataSource $db -Query "CREATE INDEX tag_uid_supers ON Supersedes (UpdateId)"
+    Invoke-SqliteQuery -DataSource $db -Query "CREATE INDEX tag_uid_link ON Link (UpdateId)"
+    Invoke-SqliteQuery -DataSource $db -Query "CREATE INDEX tag_uid_dupe ON KbDupe (Dupe)"
 }
 
 function Get-Info {
@@ -65,6 +72,7 @@ function New-Index {
     Invoke-SqliteQuery -DataSource $db -Query "CREATE INDEX tag_uid_superby ON SupersededBy (UpdateId)"
     Invoke-SqliteQuery -DataSource $db -Query "CREATE INDEX tag_uid_supers ON Supersedes (UpdateId)"
     Invoke-SqliteQuery -DataSource $db -Query "CREATE INDEX tag_uid_link ON Link (UpdateId)"
+    Invoke-SqliteQuery -DataSource $db -Query "CREATE INDEX tag_uid_dupe ON KbDupe (Dupe)"
 }
 
 function Update-Db {

@@ -103,16 +103,14 @@ function Get-KbUpdate {
             [CmdletBinding()]
             param($kb)
             process {
+                # Join to dupe and check dupe
                 $items = Invoke-SqliteQuery -DataSource $db -Query "select *, NULL AS SupersededBy, NULL AS Supersedes, NULL AS Link from kb where UpdateId in (select UpdateId from kb where UpdateId = '$kb' or Title like '%$kb%' or Id like '%$kb%' or Description like '%$kb%' or MSRCNumber like '%$kb%')"
 
                 foreach ($item in $items) {
                     $item.SupersededBy = Invoke-SqliteQuery -DataSource $db -Query "select KB, Description from SupersededBy where UpdateId = '$($item.UpdateId)'"
                     $item.Supersedes = Invoke-SqliteQuery -DataSource $db -Query "select KB, Description from Supersedes where UpdateId = '$($item.UpdateId)'"
                     $item.Link = (Invoke-SqliteQuery -DataSource $db -Query "select Link from Link where UpdateId = '$($item.UpdateId)'").Link
-                    #$item
-                    #Add-Member -InputObject $item -NotePropertyName SupersededBy -NotePropertyValue (Invoke-SqliteQuery -DataSource $db -Query "select KB, Description from SupersededBy where UpdateId = '$($item.UpdateId)'") -Force
-                    #Add-Member -InputObject $item -NotePropertyName Supersedes -NotePropertyValue (Invoke-SqliteQuery -DataSource $db -Query "select KB, Description from Supersedes where UpdateId = '$($item.UpdateId)'") -Force
-                    #Add-Member -InputObject $item -NotePropertyName Link -NotePropertyValue (Invoke-SqliteQuery -DataSource $db -Query "select Link from Link where UpdateId = '$($item.UpdateId)'").Link -Passthru -Force
+                    $item
                 }
             }
         }
