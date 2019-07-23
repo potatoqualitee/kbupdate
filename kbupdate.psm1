@@ -50,7 +50,8 @@ if (-not $script:compcollection) {
 
 
 $script:languages = . "$ModuleRoot\library\languages.ps1"
-
+$script:db = "$ModuleRoot\library\kb.sqlite"
+$script:db = "C:\github\kbupdate\library\kb.sqlite"
 
 # Register autocompleters
 Register-PSFTeppScriptblock -Name Architecture -ScriptBlock { "x64", "x86", "ia64", "ARM" }

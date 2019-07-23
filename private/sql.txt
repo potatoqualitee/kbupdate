@@ -1,0 +1,75 @@
+$connString = "Data Source=C:\temp\file.sqllite"
+$connection = New-Object System.Data.SQLite.SQLiteConnection($connString)
+$connection.Open()
+$command = $connection.CreateCommand()
+
+Invoke-SQLiteBulkCopy -DataTable $DataTable -DataSource $connString -Table Names -NotifyAfter 1000 -ConflictClause Ignore -Verbose
+
+
+    Invoke-SqliteQuery -DataSource "C:\temp\file.sqllite" -Query "CREATE TABLE [newtable](
+	[UpdateId] [char](36) NOT NULL,
+	[RevisionNumber] [int] NOT NULL,
+	[DefaultTitle] [nvarchar](200) NOT NULL,
+	[DefaultDescription] [nvarchar](1500) NULL,
+	[ClassificationId] [uniqueidentifier] NOT NULL,
+	[ArrivalDate] [datetime] NOT NULL,
+	[CreationDate] [datetime] NOT NULL,
+	[IsDeclined] [bit] NOT NULL,
+	[IsWsusInfrastructureUpdate] [bit] NOT NULL,
+	[MsrcSeverity] [nvarchar](20) NOT NULL,
+	[PublicationState] [nvarchar](9) NULL,
+	[UpdateType] [nvarchar](256) NOT NULL,
+	[UpdateSource] [nvarchar](15) NOT NULL,
+	[KnowledgebaseArticle] [nvarchar](15) NULL,
+	[SecurityBulletin] [nvarchar](15) NULL,
+	[InstallationCanRequestUserInput] [bit] NOT NULL,
+	[InstallationRequiresNetworkConnectivity] [bit] NOT NULL,
+	[InstallationImpact] [nvarchar](25) NOT NULL,
+	[InstallationRebootBehavior] [nvarchar](20) NOT NULL)"
+
+
+
+  Invoke-SQLiteBulkCopy -DataTable (Invoke-DbaQuery -SqlInstance sql2017 -Database susdb -Query "SELECT [UpdateId]
+      ,[RevisionNumber]
+      ,[DefaultTitle]
+      ,[DefaultDescription]
+      ,[ClassificationId]
+      ,[ArrivalDate]
+      ,[CreationDate]
+      ,[IsDeclined]
+      ,[IsWsusInfrastructureUpdate]
+      ,[MsrcSeverity]
+      ,[PublicationState]
+      ,[UpdateType]
+      ,[UpdateSource]
+      ,[KnowledgebaseArticle]
+      ,[SecurityBulletin]
+      ,[InstallationCanRequestUserInput]
+      ,[InstallationRequiresNetworkConnectivity]
+      ,[InstallationImpact]
+      ,[InstallationRebootBehavior]
+  FROM [SUSDB].[PUBLIC_VIEWS].[vUpdate]" -As DataTable) -DataSource "C:\temp\file.sqllite" -Table newtable -NotifyAfter 1000 -ConflictClause Ignore -Verbose
+
+
+  Invoke-SqliteQuery -DataSource "C:\temp\file.sqllite" -Query "SELECT [UpdateId]
+      ,[RevisionNumber]
+      ,[DefaultTitle]
+      ,[DefaultDescription]
+      ,[ClassificationId]
+      ,[ArrivalDate]
+      ,[CreationDate]
+      ,[IsDeclined]
+      ,[IsWsusInfrastructureUpdate]
+      ,[MsrcSeverity]
+      ,[PublicationState]
+      ,[UpdateType]
+      ,[UpdateSource]
+      ,[KnowledgebaseArticle]
+      ,[SecurityBulletin]
+      ,[InstallationCanRequestUserInput]
+      ,[InstallationRequiresNetworkConnectivity]
+      ,[InstallationImpact]
+      ,[InstallationRebootBehavior] from newtable
+       WHERE [UpdateId] = '15441c35-cd5f-4ea9-b067-7f50c7649e4f'
+      "
+

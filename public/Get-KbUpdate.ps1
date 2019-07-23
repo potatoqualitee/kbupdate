@@ -92,98 +92,124 @@ function Get-KbUpdate {
         [switch]$Simple,
         [switch]$Latest,
         [int]$MaxResults = 25,
+        [ValidateSet("Any", "Web", "Database")]
+        [string]$Source = "Any",
+        [string]$WsusComputerName,
         [switch]$EnableException
     )
     begin {
-        # Wishing Microsoft offered an RSS feed. Since they don't, we are forced to parse webpages.
-        function Get-Info ($Text, $Pattern) {
-            if ($Pattern -match "labelTitle") {
-                # this should work... not accounting for multiple divs however?
-                [regex]::Match($Text, $Pattern + '[\s\S]*?\s*(.*?)\s*<\/div>').Groups[1].Value
-            } elseif ($Pattern -match "span ") {
-                [regex]::Match($Text, $Pattern + '(.*?)<\/span>').Groups[1].Value
+
+        function Get-KbItemFromDb {
+            [CmdletBinding()]
+            param($kb)
+            process {
+                # Join to dupe and check dupe
+                $db = (Get-ChildItem -Path C:\github\kbupdate\library\db\*.sqlite).FullName
+                $items = Invoke-SqliteQuery -DataSource $db  -Query "select *, NULL AS SupersededBy, NULL AS Supersedes, NULL AS Link from kb where UpdateId in (select UpdateId from kb where UpdateId = '$kb' or Title like '%$kb%' or Id like '%$kb%' or Description like '%$kb%' or MSRCNumber like '%$kb%')"
+
+                foreach ($item in $items) {
+                    $item.SupersededBy = Invoke-SqliteQuery -DataSource $db -Query "select KB, Description from SupersededBy where UpdateId = '$($item.UpdateId)'"
+                    $item.Supersedes = Invoke-SqliteQuery -DataSource $db -Query "select KB, Description from Supersedes where UpdateId = '$($item.UpdateId)'"
+                    $item.Link = (Invoke-SqliteQuery -DataSource $db -Query "select Link from Link where UpdateId = '$($item.UpdateId)'").Link
+                    $item
+                }
+            }
+        }
+
+        function Get-Guids ($kb) {
+            Write-PSFMessage -Level Verbose -Message "$kb"
+            Write-Progress -Activity "Searching catalog for $kb" -Id 1 -Status "Contacting catalog.update.microsoft.com"
+            $results = Invoke-TlsWebRequest -Uri "https://www.catalog.update.microsoft.com/Search.aspx?q=$kb"
+            Write-Progress -Activity "Searching catalog for $kb" -Id 1 -Completed
+            $nextbutton = $results.InputFields | Where-Object id -match nextPageLinkButton
+            if ($nextbutton) {
+                Write-PSFMessage -Level Verbose -Message "Next button found"
             } else {
-                [regex]::Match($Text, $Pattern + "\s?'?(.*?)'?;").Groups[1].Value
-            }
-        }
-
-        function Get-SuperInfo ($Text, $Pattern) {
-            # this works, but may also summon cthulhu
-            $span = [regex]::match($Text, $pattern + '[\s\S]*?<div id')
-
-            switch -Wildcard ($span.Value) {
-                "*div style*" { $regex = '">\s*(.*?)\s*<\/div>' }
-                "*a href*" { $regex = "<div[\s\S]*?'>(.*?)<\/a" }
-                default { $regex = '"\s?>\s*(\S+?)\s*<\/div>' }
+                Write-PSFMessage -Level Verbose -Message "Next button not found"
             }
 
-            $spanMatches = [regex]::Matches($span, $regex).ForEach( { $_.Groups[1].Value })
-            if ($spanMatches -eq 'n/a') { $spanMatches = $null }
+            if ($MaxResults -gt 25 -and $nextbutton) {
+                # nothing yet, i cannot figure this out
+            } else {
+                $kbids = $results.InputFields |
+                    Where-Object { $_.type -eq 'Button' -and $_.Value -eq 'Download' } |
+                    Select-Object -ExpandProperty  ID
+            }
 
-            if ($spanMatches) {
-                foreach ($superMatch in $spanMatches) {
-                    $detailedMatches = [regex]::Matches($superMatch, '\b[kK][bB]([0-9]{6,})\b')
-                    # $null -ne $detailedMatches can throw cant index null errors, get more detailed
-                    if ($null -ne $detailedMatches.Groups) {
-                        [PSCustomObject] @{
-                            'KB'          = $detailedMatches.Groups[1].Value
-                            'Description' = $superMatch
-                        } | Add-Member -MemberType ScriptMethod -Name ToString -Value { $this.Description } -PassThru -Force
+            if (-not $kbids) {
+                try {
+                    $null = Invoke-TlsWebRequest -Uri "https://support.microsoft.com/app/content/api/content/help/en-us/$kb"
+                    Stop-PSFFunction -EnableException:$EnableException -Message "Matches were found for $kb, but the results no longer exist in the catalog"
+                    return
+                } catch {
+                    Stop-PSFFunction -EnableException:$EnableException -Message "No results found for $kb"
+                    return
+                }
+            }
+
+            Write-PSFMessage -Level Verbose -Message "$kbids"
+            # Thanks! https://keithga.wordpress.com/2017/05/21/new-tool-get-the-latest-windows-10-cumulative-updates/
+            $resultlinks = $results.Links |
+                Where-Object ID -match '_link' |
+                Where-Object { $_.OuterHTML -match ( "(?=.*" + ( $Filter -join ")(?=.*" ) + ")" ) }
+
+            # get the title too
+            $guids = @()
+            foreach ($resultlink in $resultlinks) {
+                $itemguid = $resultlink.id.replace('_link', '')
+                $itemtitle = ($resultlink.outerHTML -replace '<[^>]+>', '').Trim()
+                if ($itemguid -in $kbids) {
+                    $guids += [pscustomobject]@{
+                        Guid  = $itemguid
+                        Title = $itemtitle
                     }
                 }
             }
+            return $guids
         }
 
-        function Get-KbItem ($kb) {
-            try {
-                Write-PSFMessage -Level Verbose -Message "$kb"
-                Write-Progress -Activity "Searching catalog for $kb" -Id 1 -Status "Contacting catalog.update.microsoft.com"
-                $results = Invoke-TlsWebRequest -Uri "https://www.catalog.update.microsoft.com/Search.aspx?q=$kb"
-                Write-Progress -Activity "Searching catalog for $kb" -Id 1 -Completed
-                $nextbutton = $results.InputFields | Where-Object id -match nextPageLinkButton
-                if ($nextbutton) {
-                    Write-PSFMessage -Level Verbose -Message "Next button found"
+        function Get-KbItemFromWeb ($kb) {
+            # Wishing Microsoft offered an RSS feed. Since they don't, we are forced to parse webpages.
+            function Get-Info ($Text, $Pattern) {
+                if ($Pattern -match "labelTitle") {
+                    # this should work... not accounting for multiple divs however?
+                    [regex]::Match($Text, $Pattern + '[\s\S]*?\s*(.*?)\s*<\/div>').Groups[1].Value
+                } elseif ($Pattern -match "span ") {
+                    [regex]::Match($Text, $Pattern + '(.*?)<\/span>').Groups[1].Value
                 } else {
-                    Write-PSFMessage -Level Verbose -Message "Next button not found"
+                    [regex]::Match($Text, $Pattern + "\s?'?(.*?)'?;").Groups[1].Value
+                }
+            }
+
+            function Get-SuperInfo ($Text, $Pattern) {
+                # this works, but may also summon cthulhu
+                $span = [regex]::match($Text, $pattern + '[\s\S]*?<div id')
+
+                switch -Wildcard ($span.Value) {
+                    "*div style*" { $regex = '">\s*(.*?)\s*<\/div>' }
+                    "*a href*" { $regex = "<div[\s\S]*?'>(.*?)<\/a" }
+                    default { $regex = '"\s?>\s*(\S+?)\s*<\/div>' }
                 }
 
-                if ($MaxResults -gt 25 -and $nextbutton) {
-                    # nothing yet, i cannot figure this out
-                } else {
-                    $kbids = $results.InputFields |
-                        Where-Object { $_.type -eq 'Button' -and $_.Value -eq 'Download' } |
-                        Select-Object -ExpandProperty  ID
-                }
+                $spanMatches = [regex]::Matches($span, $regex).ForEach( { $_.Groups[1].Value })
+                if ($spanMatches -eq 'n/a') { $spanMatches = $null }
 
-                if (-not $kbids) {
-                    try {
-                        $null = Invoke-TlsWebRequest -Uri "https://support.microsoft.com/app/content/api/content/help/en-us/$kb"
-                        Stop-PSFFunction -EnableException:$EnableException -Message "Matches were found for $kb, but the results no longer exist in the catalog"
-                        return
-                    } catch {
-                        Stop-PSFFunction -EnableException:$EnableException -Message "No results found for $kb"
-                        return
-                    }
-                }
-
-                Write-PSFMessage -Level Verbose -Message "$kbids"
-                # Thanks! https://keithga.wordpress.com/2017/05/21/new-tool-get-the-latest-windows-10-cumulative-updates/
-                $resultlinks = $results.Links |
-                    Where-Object ID -match '_link' |
-                    Where-Object { $_.OuterHTML -match ( "(?=.*" + ( $Filter -join ")(?=.*" ) + ")" ) }
-
-                # get the title too
-                $guids = @()
-                foreach ($resultlink in $resultlinks) {
-                    $itemguid = $resultlink.id.replace('_link', '')
-                    $itemtitle = ($resultlink.outerHTML -replace '<[^>]+>', '').Trim()
-                    if ($itemguid -in $kbids) {
-                        $guids += [pscustomobject]@{
-                            Guid  = $itemguid
-                            Title = $itemtitle
+                if ($spanMatches) {
+                    foreach ($superMatch in $spanMatches) {
+                        $detailedMatches = [regex]::Matches($superMatch, '\b[kK][bB]([0-9]{6,})\b')
+                        # $null -ne $detailedMatches can throw cant index null errors, get more detailed
+                        if ($null -ne $detailedMatches.Groups) {
+                            [PSCustomObject] @{
+                                'KB'          = $detailedMatches.Groups[1].Value
+                                'Description' = $superMatch
+                            } | Add-Member -MemberType ScriptMethod -Name ToString -Value { $this.Description } -PassThru -Force
                         }
                     }
                 }
+            }
+
+            try {
+                $guids = Get-Guids -kb $kb
 
                 foreach ($item in $guids) {
                     $guid = $item.Guid
@@ -266,6 +292,7 @@ function Get-KbUpdate {
                         }
                     }
 
+                    $downloaddialog = $downloaddialog.Replace('www.download.windowsupdate', 'download.windowsupdate')
                     $links = $downloaddialog | Select-String -AllMatches -Pattern "(http[s]?\://download\.windowsupdate\.com\/[^\'\""]*)" | Select-Object -Unique
 
                     foreach ($link in $links) {
@@ -399,9 +426,9 @@ function Get-KbUpdate {
 
         foreach ($kb in $Pattern) {
             if ($Latest) {
-                $allkbs += Get-KbItem $kb | Search-Kb @boundparams
+                $allkbs += Get-KbItemFromDbb $kb | Search-Kb @boundparams
             } else {
-                Get-KbItem $kb | Search-Kb @boundparams | Select-DefaultView -Property $properties
+                Get-KbItemFromDb $kb | Search-Kb @boundparams | Select-DefaultView -Property $properties
             }
         }
     }
