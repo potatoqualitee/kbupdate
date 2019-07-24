@@ -54,7 +54,7 @@ $script:languages = . "$ModuleRoot\library\languages.ps1"
 
 $kblib = Split-Path -Path (Get-Module -Name kbupdate-library).Path
 $script:db = (Get-ChildItem -Path "$kblib\*.sqlite").FullName
-$dailydb = (Get-ChildItem -Path "$PSScriptRoot\library\db\*.sqlite").FullName
+$script:dailydb = (Get-ChildItem -Path "$PSScriptRoot\library\db\*.sqlite").FullName
 if ($dailydb.FullName) {
     $script:db += $dailydb
 }
