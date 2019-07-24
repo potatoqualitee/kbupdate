@@ -103,15 +103,15 @@ function Update-Db {
             }
             foreach ($item in $SupersededBy) {
                 Invoke-SQLiteBulkCopy -DataTable ([pscustomobject]@{ UpdateId = $guid; Kb = $item.Kb; Description = $item.Description } |
-                ConvertTo-DbaDataTable) -DataSource $db -Table SupersededBy -Confirm:$false
+                    ConvertTo-DbaDataTable) -DataSource $db -Table SupersededBy -Confirm:$false
             }
             foreach ($item in $Supersedes) {
                 Invoke-SQLiteBulkCopy -DataTable ([pscustomobject]@{ UpdateId = $guid; Kb = $item.Kb; Description = $item.Description } |
-                ConvertTo-DbaDataTable) -DataSource $db -Table Supersedes -Confirm:$false
+                    ConvertTo-DbaDataTable) -DataSource $db -Table Supersedes -Confirm:$false
             }
             foreach ($item in $Link) {
-                Invoke-SQLiteBulkCopy -DataTable ([pscustomobject]@{UpdateId = $guid; Link = $item} |
-                ConvertTo-DbaDataTable) -DataSource $db -Table Link -Confirm:$false
+                Invoke-SQLiteBulkCopy -DataTable ([pscustomobject]@{UpdateId = $guid; Link = $item } |
+                    ConvertTo-DbaDataTable) -DataSource $db -Table Link -Confirm:$false
             }
 
             $null = Add-Content -Value $guid -Path C:\Users\ctrlb\Desktop\guidsall.txt
@@ -122,19 +122,16 @@ function Update-Db {
 function Update-DbFromFile {
     [CmdletBinding()]
     param()
-    #new-db
     $files = Get-ChildItem -Path C:\temp\kbs\new\*.xml -Recurse
     $i = 0
     foreach ($file in $files) {
         $update = Import-CliXml $file.FullName
         $guid = $update.UpdateId
 
-        #$query = "select updateid from Kb where updateid = '$guid'"
-        #$exists = Invoke-SqliteQuery -DataSource $db -Query $query
         $i++
         if (($i % 100) -eq 0) { write-warning $i }
         if (-not $exists) {
-            $kb = $update | Select -Property * -ExcludeProperty SupersededBy, Supersedes, Link, InputObject
+            $kb = $update | Select-Object -Property * -ExcludeProperty SupersededBy, Supersedes, Link, InputObject
             $SupersededBy = $update.SupersededBy
             $Supersedes = $update.Supersedes
             $Link = $update.Link
@@ -143,7 +140,7 @@ function Update-DbFromFile {
                 Invoke-SQLiteBulkCopy -DataTable ($kb | ConvertTo-DbaDataTable) -DataSource $db -Table Kb -Confirm:$false
             } catch {
                 Invoke-SQLiteBulkCopy -DataTable ([pscustomobject]@{ UpdateId = $guid; Dupe = $file.BaseName } |
-                ConvertTo-DbaDataTable) -DataSource $db -Table KbDupe -Confirm:$false
+                    ConvertTo-DbaDataTable) -DataSource $db -Table KbDupe -Confirm:$false
                 #Add-Content -Path C:\temp\dupes.txt -Value $guid, $file.BaseName
 
                 Stop-PSFFunction -Message $guid -ErrorRecord $_ -Continue
@@ -151,15 +148,15 @@ function Update-DbFromFile {
             try {
                 foreach ($item in $SupersededBy) {
                     Invoke-SQLiteBulkCopy -DataTable ([pscustomobject]@{ UpdateId = $guid; Kb = $item.Kb; Description = $item.Description } |
-                    ConvertTo-DbaDataTable) -DataSource $db -Table SupersededBy -Confirm:$false
+                        ConvertTo-DbaDataTable) -DataSource $db -Table SupersededBy -Confirm:$false
                 }
                 foreach ($item in $Supersedes) {
                     Invoke-SQLiteBulkCopy -DataTable ([pscustomobject]@{ UpdateId = $guid; Kb = $item.Kb; Description = $item.Description } |
-                    ConvertTo-DbaDataTable) -DataSource $db -Table Supersedes -Confirm:$false
+                        ConvertTo-DbaDataTable) -DataSource $db -Table Supersedes -Confirm:$false
                 }
                 foreach ($item in $Link) {
-                    Invoke-SQLiteBulkCopy -DataTable ([pscustomobject]@{UpdateId = $guid; Link = $item} |
-                    ConvertTo-DbaDataTable) -DataSource $db -Table Link -Confirm:$false
+                    Invoke-SQLiteBulkCopy -DataTable ([pscustomobject]@{UpdateId = $guid; Link = $item } |
+                        ConvertTo-DbaDataTable) -DataSource $db -Table Link -Confirm:$false
                 }
             } catch {
                 Stop-PSFFunction -Message $guid -ErrorRecord $_ -Continue

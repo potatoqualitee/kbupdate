@@ -30,7 +30,8 @@
     # Modules that must be imported into the global environment prior to importing this module
     RequiredModules   = @(
         @{ ModuleName = 'PSFramework'; ModuleVersion = '1.0.19' },
-        @{ ModuleName = 'PSSQLite'; ModuleVersion = '1.0.3' }
+        @{ ModuleName = 'PSSQLite'; ModuleVersion = '1.0.3' },
+        @{ ModuleName = 'kbupdate-library'; ModuleVersion = '1.0.0' }
     )
 
     # Script module or binary module file associated with this manifest.
