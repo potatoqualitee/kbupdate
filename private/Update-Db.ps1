@@ -83,9 +83,9 @@ function Update-Db {
     param()
     Import-Module C:\github\dbatools
 
-    $query = "SELECT CAST(UpdateId AS VARCHAR(36)) as UpdateId FROM [SUSDB].[PUBLIC_VIEWS].[vUpdate] Where ArrivalDate >= DATEADD(hour,-4, GETDATE())"
+    #$query = "SELECT CAST(UpdateId AS VARCHAR(36)) as UpdateId FROM [SUSDB].[PUBLIC_VIEWS].[vUpdate] Where ArrivalDate >= DATEADD(hour,-4, GETDATE())"
     $query = "SELECT CAST(UpdateId AS VARCHAR(36)) as UpdateId FROM [SUSDB].[PUBLIC_VIEWS].[vUpdate] Where ArrivalDate >= DATEADD(hour,-24, GETDATE())"
-    $query = "SELECT CAST(UpdateId AS VARCHAR(36)) as UpdateId FROM [SUSDB].[PUBLIC_VIEWS].[vUpdate] Where ArrivalDate >= '2019-07-20 18:02:25.127' and ArrivalDate <= DATEADD(hour,-24, GETDATE())"
+    #$query = "SELECT CAST(UpdateId AS VARCHAR(36)) as UpdateId FROM [SUSDB].[PUBLIC_VIEWS].[vUpdate] Where ArrivalDate >= '2019-07-20 18:02:25.127' and ArrivalDate <= DATEADD(hour,-24, GETDATE())"
 
     $new = (Invoke-DbaQuery -SqlInstance wsus -Database SUSDB -Query $query).UpdateId
 
