@@ -10,6 +10,8 @@ if ($env:BUILD_BUILDURI -like "vstfs*") {
     Install-Module PSFramework -Force -SkipPublisherCheck
     Write-Host "Installing PSSQLite" -ForegroundColor Cyan
     Install-Module PSSQLite -Force -SkipPublisherCheck
+    Write-Host "Installing kbupdate-library" -ForegroundColor Cyan
+    Install-Module kbupdate-library -Force -SkipPublisherCheck
 }
 
 Write-Host "Loading constants"

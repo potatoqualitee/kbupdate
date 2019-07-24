@@ -17,6 +17,9 @@ Install-Module -Name PSFramework -Force -SkipPublisherCheck | Out-Null
 Write-Host -Object "appveyor.prep: Install PSSQLite" -ForegroundColor DarkGreen
 Install-Module -Name PSSQLite -Force -SkipPublisherCheck | Out-Null
 
+#Get kbupdate-library (dependency)
+Write-Host -Object "appveyor.prep: Install kbupdate-library" -ForegroundColor DarkGreen
+Install-Module -Name kbupdate-library -Force -SkipPublisherCheck | Out-Null
 
 $null = mkdir C:\temp
 
