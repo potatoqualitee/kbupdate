@@ -13,6 +13,11 @@ choco install pester | Out-Null
 Write-Host -Object "appveyor.prep: Install PSFramework" -ForegroundColor DarkGreen
 Install-Module -Name PSFramework -Force -SkipPublisherCheck | Out-Null
 
+#Get PSSQLite (dependency)
+Write-Host -Object "appveyor.prep: Install PSSQLite" -ForegroundColor DarkGreen
+Install-Module -Name PSSQLite -Force -SkipPublisherCheck | Out-Null
+
+
 $null = mkdir C:\temp
 
 $sw.Stop()

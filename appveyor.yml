@@ -7,6 +7,7 @@ cache:
 - C:\Program Files\WindowsPowerShell\Modules\PSScriptAnalyzer -> appveyor.yml
 - C:\Program Files\WindowsPowerShell\Modules\Pester -> appveyor.yml
 - C:\Program Files\WindowsPowerShell\Modules\PSFramework -> appveyor.yml
+- C:\Program Files\WindowsPowerShell\Modules\PSSQLite -> appveyor.yml
 
 shallow_clone: true
 

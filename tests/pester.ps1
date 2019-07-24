@@ -8,6 +8,8 @@ if ($env:BUILD_BUILDURI -like "vstfs*") {
     Install-Module Pester -Force -SkipPublisherCheck
     Write-Host "Installing PSFramework" -ForegroundColor Cyan
     Install-Module PSFramework -Force -SkipPublisherCheck
+    Write-Host "Installing PSSQLite" -ForegroundColor Cyan
+    Install-Module PSSQLite -Force -SkipPublisherCheck
 }
 
 Write-Host "Loading constants"
