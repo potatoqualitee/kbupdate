@@ -21,7 +21,7 @@ Describe "Integration Tests" -Tag "IntegrationTests" {
             $results.SupportedProducts | Should -Be "ASP.NET Web Frameworks"
             $results.MSRCNumber        | Should -Be "MS14-059"
             $results.MSRCSeverity      | Should -Be "Important"
-            $results.Hotfix            | Should -Be "True"
+            $results.Hotfix            | Should -Be $true
             $results.Size              | Should -Be "462 KB"
             $results.UpdateId          | Should -Be "0c84df7a-e685-466c-a545-a24de5ad2601"
             $results.RebootBehavior    | Should -Be "Can request restart"
