@@ -51,8 +51,13 @@ if (-not $script:compcollection) {
 
 
 $script:languages = . "$ModuleRoot\library\languages.ps1"
+
 $kblib = Split-Path -Path (Get-Module -Name kbupdate-library).Path
-$script:db = (Get-ChildItem -Path "$kblib\*.sqlite").FullName, (Get-ChildItem -Path "$PSScriptRoot\library\db\*.sqlite").FullName
+$script:db = (Get-ChildItem -Path "$kblib\*.sqlite").FullName
+$dailydb = (Get-ChildItem -Path "$PSScriptRoot\library\db\*.sqlite").FullName
+if ($dailydb.FullName) {
+    $script:db += $dailydb
+}
 
 # Register autocompleters
 Register-PSFTeppScriptblock -Name Architecture -ScriptBlock { "x64", "x86", "ia64", "ARM" }

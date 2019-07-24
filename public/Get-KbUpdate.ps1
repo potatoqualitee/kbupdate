@@ -104,8 +104,11 @@ function Get-KbUpdate {
             param($kb)
             process {
                 # Join to dupe and check dupe
-                $db = (Get-ChildItem -Path C:\github\kbupdate\library\db\*.sqlite).FullName
                 $items = Invoke-SqliteQuery -DataSource $db  -Query "select *, NULL AS SupersededBy, NULL AS Supersedes, NULL AS Link from kb where UpdateId in (select UpdateId from kb where UpdateId = '$kb' or Title like '%$kb%' or Id like '%$kb%' or Description like '%$kb%' or MSRCNumber like '%$kb%')"
+
+                if (-not $items -and $Source -eq "Database") {
+                    Stop-PSFFunction -EnableException:$EnableException -Message "No results found for $kb"
+                }
 
                 foreach ($item in $items) {
                     $item.SupersededBy = Invoke-SqliteQuery -DataSource $db -Query "select KB, Description from SupersededBy where UpdateId = '$($item.UpdateId)'"
@@ -116,7 +119,7 @@ function Get-KbUpdate {
             }
         }
 
-        function Get-Guids ($kb) {
+        function Get-GuidsFromWeb ($kb) {
             Write-PSFMessage -Level Verbose -Message "$kb"
             Write-Progress -Activity "Searching catalog for $kb" -Id 1 -Status "Contacting catalog.update.microsoft.com"
             $results = Invoke-TlsWebRequest -Uri "https://www.catalog.update.microsoft.com/Search.aspx?q=$kb"
@@ -132,8 +135,8 @@ function Get-KbUpdate {
                 # nothing yet, i cannot figure this out
             } else {
                 $kbids = $results.InputFields |
-                    Where-Object { $_.type -eq 'Button' -and $_.Value -eq 'Download' } |
-                    Select-Object -ExpandProperty  ID
+                Where-Object { $_.type -eq 'Button' -and $_.Value -eq 'Download' } |
+                Select-Object -ExpandProperty  ID
             }
 
             if (-not $kbids) {
@@ -150,8 +153,8 @@ function Get-KbUpdate {
             Write-PSFMessage -Level Verbose -Message "$kbids"
             # Thanks! https://keithga.wordpress.com/2017/05/21/new-tool-get-the-latest-windows-10-cumulative-updates/
             $resultlinks = $results.Links |
-                Where-Object ID -match '_link' |
-                Where-Object { $_.OuterHTML -match ( "(?=.*" + ( $Filter -join ")(?=.*" ) + ")" ) }
+            Where-Object ID -match '_link' |
+            Where-Object { $_.OuterHTML -match ( "(?=.*" + ( $Filter -join ")(?=.*" ) + ")" ) }
 
             # get the title too
             $guids = @()
@@ -209,7 +212,7 @@ function Get-KbUpdate {
             }
 
             try {
-                $guids = Get-Guids -kb $kb
+                $guids = Get-GuidsFromWeb -kb $kb
 
                 foreach ($item in $guids) {
                     $guid = $item.Guid
@@ -425,10 +428,18 @@ function Get-KbUpdate {
         }
 
         foreach ($kb in $Pattern) {
+            if ($Source -in "Any", "Database") {
+                $result = Get-KbItemFromDb $kb
+            }
+
+            if ((-not $result -and $Source -eq "Any") -or $Source -eq "Web") {
+                $result = Get-KbItemFromWeb $kb
+            }
+
             if ($Latest) {
-                $allkbs += Get-KbItemFromDbb $kb | Search-Kb @boundparams
+                $allkbs += $result | Search-Kb @boundparams
             } else {
-                Get-KbItemFromDb $kb | Search-Kb @boundparams | Select-DefaultView -Property $properties
+                $result | Search-Kb @boundparams | Select-DefaultView -Property $properties
             }
         }
     }

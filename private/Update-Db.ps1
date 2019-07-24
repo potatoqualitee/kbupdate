@@ -84,6 +84,7 @@ function Update-Db {
 
     $query = "SELECT CAST(UpdateId AS VARCHAR(36)) as UpdateId FROM [SUSDB].[PUBLIC_VIEWS].[vUpdate] Where ArrivalDate >= DATEADD(hour,-4, GETDATE())"
     $query = "SELECT TOP 10 CAST(UpdateId AS VARCHAR(36)) as UpdateId FROM [SUSDB].[PUBLIC_VIEWS].[vUpdate] Where ArrivalDate >= DATEADD(minute,-1420, GETDATE())"
+    $query = "SELECT TOP 10 CAST(UpdateId AS VARCHAR(36)) as UpdateId FROM [SUSDB].[PUBLIC_VIEWS].[vUpdate] Where ArrivalDate >= 2019-07-20 18:02:25.127'"
 
     $new = (Invoke-DbaQuery -SqlInstance wsus -Database SUSDB -Query $query).UpdateId
     #$new = "9D442AA2-8250-4BCE-A4CB-D5C0F0E940C3"
@@ -92,8 +93,8 @@ function Update-Db {
         $exists = Invoke-SqliteQuery -DataSource $db -Query $query
 
         if (-not $exists) {
-            $update = Get-KbUpdate -Pattern $guid
-            $Kb = $update | Select -Property * -ExcludeProperty SupersededBy, Supersedes, Link, InputObject
+            $update = Get-KbUpdate -Pattern $guid -Source Web
+            $Kb = $update | Select-Object -Property * -ExcludeProperty SupersededBy, Supersedes, Link, InputObject
             $SupersededBy = $update.SupersededBy
             $Supersedes = $update.Supersedes
             $Link = $update.Link
