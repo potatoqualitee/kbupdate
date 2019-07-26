@@ -308,6 +308,33 @@ function Get-KbUpdate {
                             $properties = $properties | Where-Object { $PSItem -notin "LastModified", "Description", "Size", "Classification", "SupportedProducts", "MSRCNumber", "MSRCSeverity", "RebootBehavior", "RequestsUserInput", "ExclusiveInstall", "NetworkRequired", "UninstallNotes", "UninstallSteps", "SupersededBy", "Supersedes" }
                         }
 
+                        $ishotfix = switch ($ishotfix) {
+                            'Yes' { $true }
+                            'No' { $false }
+                            default { $ishotfix }
+                        }
+
+                        $requestuserinput = switch ($requestuserinput) {
+                            'Yes' { $true }
+                            'No' { $false }
+                            default { $requestuserinput }
+                        }
+
+                        $exclusiveinstall = switch ($exclusiveinstall) {
+                            'Yes' { $true }
+                            'No' { $false }
+                            default { $exclusiveinstall }
+                        }
+
+                        $networkrequired = switch ($networkrequired) {
+                            'Yes' { $true }
+                            'No' { $false }
+                            default { $networkrequired }
+                        }
+
+                        if ('n/a' -eq $uninstallnotes) { $uninstallnotes = $null }
+                        if ('n/a' -eq $uninstallsteps) { $uninstallsteps = $null }
+
                         $null = $script:kbcollection.Add($hashkey, (
                                 [pscustomobject]@{
                                     Title             = $title

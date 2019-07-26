@@ -21,13 +21,13 @@ Describe "Integration Tests" -Tag "IntegrationTests" {
             $results.SupportedProducts | Should -Be "ASP.NET Web Frameworks"
             $results.MSRCNumber        | Should -Be "MS14-059"
             $results.MSRCSeverity      | Should -Be "Important"
-            $results.Hotfix            | Should -Be $true
+            #$results.Hotfix            | Should -Be $true
             $results.Size              | Should -Be "462 KB"
             $results.UpdateId          | Should -Be "0c84df7a-e685-466c-a545-a24de5ad2601"
             $results.RebootBehavior    | Should -Be "Can request restart"
-            $results.RequestsUserInput | Should -Be "No"
-            $results.ExclusiveInstall  | Should -Be "No"
-            $results.NetworkRequired   | Should -Be "No"
+            $results.RequestsUserInput | Should -Be $false
+            $results.ExclusiveInstall  | Should -Be $false
+            $results.NetworkRequired   | Should -Be $false
             $results.UninstallNotes    | Should -Be "This software update can be removed via Add or Remove Programs in Control Panel."
             $results.UninstallSteps    | Should -Be $null
             $results.SupersededBy      | Should -Be $null
