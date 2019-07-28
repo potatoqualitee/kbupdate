@@ -78,14 +78,17 @@ function Search-Kb {
 
             if ($Architecture) {
                 $match = @()
+                # turn x64 to 64 to accomodate for AMD64
+                if ("x64" -in $Architecture) {
+                    $Architecture += "AMD64"
+                }
                 foreach ($arch in $Architecture) {
                     $match += $object | Where-Object Title -match $arch
                     $match += $object | Where-Object Architecture -in $arch, $null, "All"
+                    $match += $object | Where-Object Architecture -match $arch
 
                     # if architecture from user is -ne all and then multiple files are listed? how to just get that link
                     # perhaps this is where we can check the pipeline, if save, then hardcore filter
-                    # turn x64 to 64 to accomodate for AMD64
-                    if ($arch -eq "x64") { $arch = "64" }
                     $match += $object | Where-Object Link -match "$($arch)_"
 
                     # if architecture from microsoft is all but then listed in the title without the others
