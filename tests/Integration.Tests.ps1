@@ -104,12 +104,12 @@ Describe "Integration Tests" -Tag "IntegrationTests" {
         }
 
         It "does not overwrite links" {
-            $results = Get-KbUpdate -Pattern KB3182545 -Latest -Language Japanese
-            $results.Link.Count | Should -Be 1
+            $results = Get-KbUpdate -Pattern "sql 2016 sp1" -Latest -Language Japanese -Source Web
+            $results.Link.Count | Should -Be 3
             "$($results.Link)" -match "jpn_"
             "$($results.Link)" -notmatch "kor_"
 
-            $results = Get-KbUpdate -Pattern KB3182545 -Latest
+            $results = Get-KbUpdate -Pattern "sql 2016 sp1" -Latest -Source Web
             $results.Link.Count | Should -BeGreaterThan 3
             "$($results.Link)" -match "jpn_"
             "$($results.Link)" -match "kor_"
