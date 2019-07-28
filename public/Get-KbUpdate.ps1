@@ -42,6 +42,9 @@ function Get-KbUpdate {
     .PARAMETER MaxResults
         The number of results. catalog.update.microsoft.com returns 25 per page.
 
+    .PARAMETER Source
+        Search source. By default, Database is searched first, then if no matches are found, it tries finding it on the web.
+
     .PARAMETER EnableException
         By default, when something goes wrong we try to catch it, interpret it and give you a friendly warning message.
         This avoids overwhelming you with "sea of red" exceptions, but is inconvenient because it basically disables advanced scripting.
@@ -59,19 +62,20 @@ function Get-KbUpdate {
         Gets detailed information about KB4057119. This works for SQL Server or any other KB.
 
     .EXAMPLE
-        PS C:\> Get-KbUpdate -Pattern MS15-101
+        PS C:\> Get-KbUpdate -Pattern KB4057119, 4057114 -Source Database
 
-        Downloads KBs related to MSRC MS15-101 to the current directory.
+        Gets detailed information about KB4057119 and KB4057114. Only searches the database (useful for offline enviornments)
+
 
     .EXAMPLE
-        PS C:\> Get-KbUpdate -Pattern KB4057119, 4057114
+        PS C:\> Get-KbUpdate -Pattern MS15-101 -Source Web
 
-        Gets detailed information about KB4057119 and KB4057114. This works for SQL Server or any other KB.
+        Downloads KBs related to MSRC MS15-101 to the current directory. Only searches the web and not the local db.
 
     .EXAMPLE
         PS C:\> Get-KbUpdate -Pattern KB4057119, 4057114 -Simple
 
-        A lil faster. Returns, at the very least: Title, Architecture, Language, Hotfix, UpdateId and Link
+        A lil faster when using web as a source. Returns, at the very least: Title, Architecture, Language, Hotfix, UpdateId and Link
 
     .EXAMPLE
         PS C:\> Get-KbUpdate -Pattern "KB2764916 Nederlands" -Simple
@@ -94,7 +98,6 @@ function Get-KbUpdate {
         [int]$MaxResults = 25,
         [ValidateSet("Any", "Web", "Database")]
         [string]$Source = "Any",
-        [string]$WsusComputerName,
         [switch]$EnableException
     )
     begin {
