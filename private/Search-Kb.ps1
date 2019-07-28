@@ -48,9 +48,10 @@ function Search-Kb {
                 foreach ($key in $script:languages.Keys) {
                     $shortname = $key.Split(" ")[0]
                     $code = $script:languages[$key]
-                    if ($object.Link -match '-.._' -or $object.Link -match "-$($code)_" -or ($object.Title -match $shortname -or $object.Description -match $shortname)) {
+                    if ($object.Link -match '-.._' -or $object.Link -match "-$($code)_" -or ($object.Language -match $shortname -or $object.Title -match $shortname -or $object.Description -match $shortname)) {
                         $languagespecific = $true
                     }
+
                 }
 
                 if ($languagespecific) {
@@ -59,7 +60,7 @@ function Search-Kb {
                     foreach ($item in $Language) {
                         $shortname = $item.Split(" ")[0]
                         $matches += $object.Link -match "$($script:languages[$item])_"
-                        if ($object.Title -match $shortname -or $object.Description -match $shortname) {
+                        if ($object.Language -match $shortname -or $object.Title -match $shortname -or $object.Description -match $shortname) {
                             $textmatch = $true
                         }
                     }
