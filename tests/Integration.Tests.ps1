@@ -115,6 +115,19 @@ Describe "Integration Tests" -Tag "IntegrationTests" {
             "$($results.Link)" -match "kor_"
         }
 
+        It "x64 should work when AMD64 is used (#52)" {
+            $results = Get-KbUpdate 2864dff9-d197-48b8-82e3-f36ad242928d -Architecture x64 -Source Web
+            $results.Architecture | Should -Be "IA64_AMD64_X86_ARM_ARM64"
+        }
+
+        It "should find langauge in langauge (#50)" {
+            $results = Get-KbUpdate 40B42C1B-086F-4E4A-B020-000ABCDC89C7 -Source Web -Language Slovenian
+            $results.Language | Should -match "Slovenian"
+
+            $results = Get-KbUpdate 40B42C1B-086F-4E4A-B020-000ABCDC89C7 -Source Web -Language Afrikaans
+            $results | Should -Be $null
+        }
+
         It "web and database results match" {
             $db = Get-KbUpdate -Pattern 4057113 -Source Database | Select-Object -First 1
             $web = Get-KbUpdate -Pattern 4057113 -Source Web | Select-Object -First 1
