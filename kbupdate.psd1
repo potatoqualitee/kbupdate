@@ -31,7 +31,7 @@
     RequiredModules   = @(
         @{ ModuleName = 'PSFramework'; ModuleVersion = '1.0.19' },
         @{ ModuleName = 'PSSQLite'; ModuleVersion = '1.0.3' },
-        @{ ModuleName = 'kbupdate-library'; ModuleVersion = '1.0.0' }
+        @{ ModuleName = 'kbupdate-library'; ModuleVersion = '1.0.1' }
     )
 
     # Script module or binary module file associated with this manifest.
