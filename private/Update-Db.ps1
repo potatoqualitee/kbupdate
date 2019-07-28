@@ -85,8 +85,7 @@ function Update-Db {
 
     #$query = "SELECT CAST(UpdateId AS VARCHAR(36)) as UpdateId FROM [SUSDB].[PUBLIC_VIEWS].[vUpdate] Where ArrivalDate >= DATEADD(hour,-4, GETDATE())"
     $query = "SELECT CAST(UpdateId AS VARCHAR(36)) as UpdateId FROM [SUSDB].[PUBLIC_VIEWS].[vUpdate] Where ArrivalDate >= DATEADD(hour,-24, GETDATE())"
-
-    $query = "SELECT CAST(UpdateId AS VARCHAR(36)) as UpdateId FROM [SUSDB].[PUBLIC_VIEWS].[vUpdate] Where ArrivalDate >= DATEADD(hour,-120, GETDATE())"
+    #$query = "SELECT CAST(UpdateId AS VARCHAR(36)) as UpdateId FROM [SUSDB].[PUBLIC_VIEWS].[vUpdate] Where ArrivalDate >= DATEADD(hour,-120, GETDATE())"
     #$query = "SELECT CAST(UpdateId AS VARCHAR(36)) as UpdateId FROM [SUSDB].[PUBLIC_VIEWS].[vUpdate] Where ArrivalDate >= '2019-07-20 18:02:25.127' and ArrivalDate <= DATEADD(hour,-24, GETDATE())"
 
     $new = (Invoke-DbaQuery -SqlInstance wsus -Database SUSDB -Query $query).UpdateId
@@ -114,6 +113,7 @@ function Update-Db {
         }
 
         foreach ($item in $Kb) {
+            $null = Add-Member -InputObject $item -NotePropertyName DateAdded -NotePropertyValue (Get-Date) -Force
             try {
                 Invoke-SQLiteBulkCopy -DataTable ($item | ConvertTo-DbaDataTable) -DataSource $dailydb -Table Kb -Confirm:$false
             } catch {
@@ -222,6 +222,7 @@ function Add-Kb {
         }
 
         foreach ($item in $Kb) {
+            $null = Add-Member -InputObject $item -NotePropertyName DateAdded -NotePropertyValue (Get-Date) -Force
             try {
                 Invoke-SQLiteBulkCopy -DataTable ($item | ConvertTo-DbaDataTable) -DataSource $dailydb -Table Kb -Confirm:$false
             } catch {

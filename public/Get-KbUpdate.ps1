@@ -429,7 +429,8 @@ function Get-KbUpdate {
                         }
                     } -ErrorAction Stop
                 } catch {
-                    Stop-PSFFunction -Message "Failure" -ErrorRecord $_ -Continue
+                    Stop-PSFFunction -Message "Failure" -ErrorRecord $_
+                    return
                 }
                 $null = $script:compcollection.Add($computer, $results)
             }
