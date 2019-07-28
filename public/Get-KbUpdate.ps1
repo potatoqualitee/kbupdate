@@ -335,6 +335,8 @@ function Get-KbUpdate {
                         if ('n/a' -eq $uninstallnotes) { $uninstallnotes = $null }
                         if ('n/a' -eq $uninstallsteps) { $uninstallsteps = $null }
 
+                        # may fix later
+                        $ishotfix = $null
                         $null = $script:kbcollection.Add($hashkey, (
                                 [pscustomobject]@{
                                     Title             = $title
@@ -378,7 +380,6 @@ function Get-KbUpdate {
         "SupportedProducts",
         "MSRCNumber",
         "MSRCSeverity",
-        "Hotfix",
         "Size",
         "UpdateId",
         "RebootBehavior",

@@ -85,6 +85,8 @@ function Update-Db {
 
     #$query = "SELECT CAST(UpdateId AS VARCHAR(36)) as UpdateId FROM [SUSDB].[PUBLIC_VIEWS].[vUpdate] Where ArrivalDate >= DATEADD(hour,-4, GETDATE())"
     $query = "SELECT CAST(UpdateId AS VARCHAR(36)) as UpdateId FROM [SUSDB].[PUBLIC_VIEWS].[vUpdate] Where ArrivalDate >= DATEADD(hour,-24, GETDATE())"
+
+    $query = "SELECT CAST(UpdateId AS VARCHAR(36)) as UpdateId FROM [SUSDB].[PUBLIC_VIEWS].[vUpdate] Where ArrivalDate >= DATEADD(hour,-120, GETDATE())"
     #$query = "SELECT CAST(UpdateId AS VARCHAR(36)) as UpdateId FROM [SUSDB].[PUBLIC_VIEWS].[vUpdate] Where ArrivalDate >= '2019-07-20 18:02:25.127' and ArrivalDate <= DATEADD(hour,-24, GETDATE())"
 
     $new = (Invoke-DbaQuery -SqlInstance wsus -Database SUSDB -Query $query).UpdateId
@@ -187,6 +189,68 @@ function Update-DbFromFile {
             } catch {
                 Stop-PSFFunction -Message $guid -ErrorRecord $_ -Continue
             }
+        }
+    }
+}
+
+function Add-Kb {
+    [CmdletBinding()]
+    param(
+        [string[]]$Name
+    )
+
+    foreach ($guid in $Name) {
+        $update = Get-KbUpdate -Pattern $guid -Source Web
+        $Kb = $update | Select-Object -Property * -ExcludeProperty SupersededBy, Supersedes, Link, InputObject
+        $SupersededBy = $update.SupersededBy
+        $Supersedes = $update.Supersedes
+        $Link = $update.Link
+
+        if ($update.UpdateId) {
+            # delete old entries
+            Invoke-SqliteQuery -DataSource $script:db -Query "delete from Kb where UpdateId = '$($update.UpdateId)'"
+            Invoke-SqliteQuery -DataSource $dailydb -Query "delete from Kb where UpdateId = '$($update.UpdateId)'"
+
+            Invoke-SqliteQuery -DataSource $script:db -Query "delete from SupersededBy where UpdateId = '$($update.UpdateId)'"
+            Invoke-SqliteQuery -DataSource $dailydb -Query "delete from SupersededBy where UpdateId = '$($update.UpdateId)'"
+
+            Invoke-SqliteQuery -DataSource $script:db -Query "delete from Supersedes where UpdateId = '$($update.UpdateId)'"
+            Invoke-SqliteQuery -DataSource $dailydb -Query "delete from Supersedes where UpdateId = '$($update.UpdateId)'"
+
+            Invoke-SqliteQuery -DataSource $script:db -Query "delete from Link where UpdateId = '$($update.UpdateId)'"
+            Invoke-SqliteQuery -DataSource $dailydb -Query "delete from Link where UpdateId = '$($update.UpdateId)'"
+        }
+
+        foreach ($item in $Kb) {
+            try {
+                Invoke-SQLiteBulkCopy -DataTable ($item | ConvertTo-DbaDataTable) -DataSource $dailydb -Table Kb -Confirm:$false
+            } catch {
+                $null = Add-Content -Value $guid -Path C:\updates\Dupes.txt
+                Stop-PSFFunction -Message $guid -ErrorRecord $_ -Continue
+            }
+        }
+        try {
+            foreach ($item in $SupersededBy) {
+                if ($null -ne $item.Kb -and '' -ne $item.Kb) {
+                    Invoke-SQLiteBulkCopy -DataTable ([pscustomobject]@{ UpdateId = $guid; Kb = $item.Kb; Description = $item.Description } |
+                        ConvertTo-DbaDataTable) -DataSource $dailydb -Table SupersededBy -Confirm:$false
+                }
+            }
+            foreach ($item in $Supersedes) {
+                if ($null -ne $item.Kb -and '' -ne $item.Kb) {
+                    Invoke-SQLiteBulkCopy -DataTable ([pscustomobject]@{ UpdateId = $guid; Kb = $item.Kb; Description = $item.Description } |
+                        ConvertTo-DbaDataTable) -DataSource $dailydb -Table Supersedes -Confirm:$false
+                }
+            }
+            foreach ($item in $Link) {
+                Invoke-SQLiteBulkCopy -DataTable ([pscustomobject]@{UpdateId = $guid; Link = $item } |
+                    ConvertTo-DbaDataTable) -DataSource $dailydb -Table Link -Confirm:$false
+            }
+
+            $update
+            $null = Add-Content -Value $guid -Path C:\updates\NewAll.txt
+        } catch {
+            Stop-PSFFunction -Message $guid -ErrorRecord $_ -Continue
         }
     }
 }
