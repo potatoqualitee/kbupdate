@@ -42,15 +42,16 @@ function Search-Kb {
             }
 
             if ($Language) {
-                # object.Language cannot be trusted
                 # are there any language matches at all? if not just skip.
                 $languagespecific = $false
                 foreach ($key in $script:languages.Keys) {
                     $shortname = $key.Split(" ")[0]
                     $code = $script:languages[$key]
-                    if ($object.Link -match '-.._' -or $object.Link -match "-$($code)_" -or ($object.Title -match $shortname -or $object.Description -match $shortname)) {
+                    # object.Language cannot be trusted unless an underscore is there ‾\_(ツ)_/‾
+                    if ($object.Link -match '-.._' -or $object.Link -match "-$($code)_" -or (($object.Language -match '_' -and $object.Language -match $shortname) -or $object.Title -match $shortname -or $object.Description -match $shortname)) {
                         $languagespecific = $true
                     }
+
                 }
 
                 if ($languagespecific) {
@@ -59,7 +60,7 @@ function Search-Kb {
                     foreach ($item in $Language) {
                         $shortname = $item.Split(" ")[0]
                         $matches += $object.Link -match "$($script:languages[$item])_"
-                        if ($object.Title -match $shortname -or $object.Description -match $shortname) {
+                        if (($object.Language -match '_' -and $object.Language -match $shortname) -or $object.Title -match $shortname -or $object.Description -match $shortname) {
                             $textmatch = $true
                         }
                     }
@@ -77,14 +78,17 @@ function Search-Kb {
 
             if ($Architecture) {
                 $match = @()
+                # turn x64 to 64 to accomodate for AMD64
+                if ("x64" -in $Architecture) {
+                    $Architecture += "AMD64"
+                }
                 foreach ($arch in $Architecture) {
                     $match += $object | Where-Object Title -match $arch
                     $match += $object | Where-Object Architecture -in $arch, $null, "All"
+                    $match += $object | Where-Object Architecture -match $arch
 
                     # if architecture from user is -ne all and then multiple files are listed? how to just get that link
                     # perhaps this is where we can check the pipeline, if save, then hardcore filter
-                    # turn x64 to 64 to accomodate for AMD64
-                    if ($arch -eq "x64") { $arch = "64" }
                     $match += $object | Where-Object Link -match "$($arch)_"
 
                     # if architecture from microsoft is all but then listed in the title without the others
