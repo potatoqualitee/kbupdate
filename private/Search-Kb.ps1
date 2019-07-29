@@ -23,7 +23,12 @@ function Search-Kb {
         foreach ($object in $InputObject) {
             if ($WsusComputerName) {
                 try {
-                    $object.Link = (Invoke-WsusDbQuery -ComputerName $WsusComputerName -Credential $Credential -UpdateId $object.UpdateId -EnableException:$EnableException)
+                    $link = Invoke-WsusDbQuery -ComputerName $WsusComputerName -Credential $Credential -UpdateId $object.UpdateId -EnableException:$EnableException
+                    if (-not $link) {
+                        Write-PSFMessage -Level Verbose -Message "Link not found for $($object.UpdateId), setting link to default"
+                    } else {
+                        $object.Link = $link
+                    }
                 } catch {
                     Stop-PSFFunction -EnableException:$EnableException -Message "No WSUS link results found for $kb" -Continue
                 }

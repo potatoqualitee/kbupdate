@@ -78,14 +78,18 @@ Function Invoke-WsusDbQuery {
 
                 foreach ($item in $items) {
                     $updateid = $item.UpdateID
-                    $links = Invoke-DbQuery -Connstring $connstring -Query "SELECT distinct F.MUURL as Links
-                    FROM dbo.tbUpdate u INNER JOIN
-                    dbo.tbRevision r ON u.LocalUpdateID = r.LocalUpdateID INNER JOIN
-                    dbo.tbFileForRevision FFR ON FFR.RevisionID= r.RevisionID INNER JOIN
-                    dbo.tbFile F ON FFR.FileDigest = F.FileDigest
-                    INNER JOIN tbRevisionLanguage ON ( tbRevisionLanguage.RevisionID = FFR.RevisionID)
-                    where u.updateid = '$updateid' group by UpdateID, MUURL"
-                    $item.Links = $links.Links
+                    $links = Invoke-DbQuery -Connstring $connstring -Query "select u.UpdateID,
+                    COALESCE (NULLIF(USSURL, ''), MUURL) as Link from dbo.tbfile as f
+                    inner join dbo.tbfileforrevision as fr on
+                    f.filedigest=fr.filedigest
+                    inner join dbo.tbrevision as r on
+                    fr.revisionid=r.revisionid
+                    inner join dbo.tbupdate as u on
+                    r.localupdateid=u.localupdateid
+                    inner join dbo.tbLocalizedPropertyforRevision as lr on
+                    r.revisionid=lr.revisionid
+                    where u.UpdateID = '$updateid'"
+                    $item.Link = $links.Link
                 }
             }
 
