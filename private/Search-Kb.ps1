@@ -10,15 +10,25 @@ function Search-Kb {
         [string[]]$OperatingSystem,
         [string[]]$Product,
         [string[]]$Language,
+        [string]$WsusComputerName,
+        [pscredential]$Credential,
         [parameter(ValueFromPipeline)]
         [pscustomobject[]]$InputObject
     )
     process {
-        if (-not $OperatingSystem -and -not $Architecture -and -not $Product -and -not $Language) {
+        if (-not $OperatingSystem -and -not $Architecture -and -not $Product -and -not $Language -and -not $WsusComputerName) {
             return $InputObject
         }
 
         foreach ($object in $InputObject) {
+            if ($WsusComputerName) {
+                try {
+                    $object.Link = (Invoke-WsusDbQuery -ComputerName $WsusComputerName -Credential $Credential -UpdateId $object.UpdateId -EnableException:$EnableException)
+                } catch {
+                    Stop-PSFFunction -EnableException:$EnableException -Message "No WSUS link results found for $kb" -Continue
+                }
+            }
+
             if ($OperatingSystem) {
                 $match = @()
                 foreach ($os in $OperatingSystem) {

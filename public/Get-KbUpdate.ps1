@@ -45,6 +45,9 @@ function Get-KbUpdate {
     .PARAMETER Source
         Search source. By default, Database is searched first, then if no matches are found, it tries finding it on the web.
 
+    .PARAMETER WsusComputerName
+        Use Wsus server for file locations.
+
     .PARAMETER EnableException
         By default, when something goes wrong we try to catch it, interpret it and give you a friendly warning message.
         This avoids overwhelming you with "sea of red" exceptions, but is inconvenient because it basically disables advanced scripting.
@@ -98,6 +101,7 @@ function Get-KbUpdate {
         [int]$MaxResults = 25,
         [ValidateSet("Any", "Web", "Database")]
         [string]$Source = "Any",
+        [string]$WsusComputerName,
         [switch]$EnableException
     )
     begin {
@@ -111,6 +115,7 @@ function Get-KbUpdate {
 
                 if (-not $items -and $Source -eq "Database") {
                     Stop-PSFFunction -EnableException:$EnableException -Message "No results found for $kb"
+                    return
                 }
 
                 foreach ($item in $items) {
@@ -432,7 +437,7 @@ function Get-KbUpdate {
                         }
                     } -ErrorAction Stop
                 } catch {
-                    Stop-PSFFunction -Message "Failure" -ErrorRecord $_
+                    Stop-PSFFunction -Message "Failure" -ErrorRecord $_ -EnableException:$EnableException
                     return
                 }
                 $null = $script:compcollection.Add($computer, $results)
@@ -453,10 +458,12 @@ function Get-KbUpdate {
         }
 
         $boundparams = @{
-            Architecture    = $Architecture
-            OperatingSystem = $OperatingSystem
-            Product         = $PSBoundParameters.Product
-            Language        = $PSBoundParameters.Language
+            Architecture     = $Architecture
+            OperatingSystem  = $OperatingSystem
+            Product          = $PSBoundParameters.Product
+            Language         = $PSBoundParameters.Language
+            WsusComputerName = $WsusComputerName
+            Credential       = $Credential
         }
 
         foreach ($kb in $Pattern) {
@@ -464,7 +471,12 @@ function Get-KbUpdate {
                 $result = Get-KbItemFromDb $kb
             }
 
-            if ((-not $result -and $Source -eq "Any") -or $Source -eq "Web") {
+            if ($WsusComputerName -and -not $result) {
+                $Simple = $true
+                $result = Invoke-WsusDbQuery -ComputerName $WsusComputerName -Credential $Credential -Pattern $kb -EnableException:$EnableException -Verbose:$Verbose
+            }
+
+            if ((-not $result -and $Source -eq "Any" -and -not $WsusComputerName) -or $Source -eq "Web") {
                 $result = Get-KbItemFromWeb $kb
             }
 
