@@ -46,7 +46,7 @@ function Get-KbUpdate {
         Search source. By default, Database is searched first, then if no matches are found, it tries finding it on the web.
 
     .PARAMETER WsusComputerName
-        Use Wsus server for file locations.
+        Use Wsus server for file locations. If a link is not found on the server, it will default to the link found in the sqlite database source.
 
     .PARAMETER EnableException
         By default, when something goes wrong we try to catch it, interpret it and give you a friendly warning message.
