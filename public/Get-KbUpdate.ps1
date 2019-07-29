@@ -45,7 +45,7 @@ function Get-KbUpdate {
     .PARAMETER Source
         Search source. By default, Database is searched first, then if no matches are found, it tries finding it on the web.
 
-    .PARAMETER WsusComputerName
+    .PARAMETER WsusServer
         Use Wsus server for file locations. If a link is not found on the server, it will default to the link found in the sqlite database source.
 
     .PARAMETER EnableException
@@ -101,7 +101,7 @@ function Get-KbUpdate {
         [int]$MaxResults = 25,
         [ValidateSet("Any", "Web", "Database")]
         [string]$Source = "Any",
-        [string]$WsusComputerName,
+        [string]$WsusServer,
         [switch]$EnableException
     )
     begin {
@@ -458,12 +458,12 @@ function Get-KbUpdate {
         }
 
         $boundparams = @{
-            Architecture     = $Architecture
-            OperatingSystem  = $OperatingSystem
-            Product          = $PSBoundParameters.Product
-            Language         = $PSBoundParameters.Language
-            WsusComputerName = $WsusComputerName
-            Credential       = $Credential
+            Architecture    = $Architecture
+            OperatingSystem = $OperatingSystem
+            Product         = $PSBoundParameters.Product
+            Language        = $PSBoundParameters.Language
+            WsusServer      = $WsusServer
+            Credential      = $Credential
         }
 
         foreach ($kb in $Pattern) {
@@ -471,12 +471,12 @@ function Get-KbUpdate {
                 $result = Get-KbItemFromDb $kb
             }
 
-            if ($WsusComputerName -and -not $result) {
+            if ($WsusServer -and -not $result) {
                 $Simple = $true
-                $result = Invoke-WsusDbQuery -ComputerName $WsusComputerName -Credential $Credential -Pattern $kb -EnableException:$EnableException -Verbose:$Verbose
+                $result = Invoke-WsusDbQuery -ComputerName $WsusServer -Credential $Credential -Pattern $kb -EnableException:$EnableException -Verbose:$Verbose
             }
 
-            if ((-not $result -and $Source -eq "Any" -and -not $WsusComputerName) -or $Source -eq "Web") {
+            if ((-not $result -and $Source -eq "Any" -and -not $WsusServer) -or $Source -eq "Web") {
                 $result = Get-KbItemFromWeb $kb
             }
 

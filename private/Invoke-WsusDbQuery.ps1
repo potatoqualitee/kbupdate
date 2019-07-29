@@ -105,13 +105,3 @@ Function Invoke-WsusDbQuery {
         }
     }
 }
-
-<#
-if ($results) {
-    foreach ($result in $results) {
-        $result.Link = (Invoke-WsusDbQuery -ComputerName $WsusComputerName -Credential $Credential -UpdateId $result.UpdateId -EnableException:$EnableException -Verbose:$Verbose)
-    }
-} else {
-    Stop-PSFFunction -EnableException:$EnableException -Message "No results found for $kb" -Continue
-}
-#>

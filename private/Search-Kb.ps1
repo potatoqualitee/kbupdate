@@ -10,20 +10,20 @@ function Search-Kb {
         [string[]]$OperatingSystem,
         [string[]]$Product,
         [string[]]$Language,
-        [string]$WsusComputerName,
+        [string]$WsusServer,
         [pscredential]$Credential,
         [parameter(ValueFromPipeline)]
         [pscustomobject[]]$InputObject
     )
     process {
-        if (-not $OperatingSystem -and -not $Architecture -and -not $Product -and -not $Language -and -not $WsusComputerName) {
+        if (-not $OperatingSystem -and -not $Architecture -and -not $Product -and -not $Language -and -not $WsusServer) {
             return $InputObject
         }
 
         foreach ($object in $InputObject) {
-            if ($WsusComputerName) {
+            if ($WsusServer) {
                 try {
-                    $link = Invoke-WsusDbQuery -ComputerName $WsusComputerName -Credential $Credential -UpdateId $object.UpdateId -EnableException:$EnableException
+                    $link = Invoke-WsusDbQuery -ComputerName $WsusServer -Credential $Credential -UpdateId $object.UpdateId -EnableException:$EnableException
                     if (-not $link) {
                         Write-PSFMessage -Level Verbose -Message "Link not found for $($object.UpdateId), setting link to default"
                     } else {

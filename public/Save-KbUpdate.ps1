@@ -44,11 +44,11 @@ function Save-KbUpdate {
 
         Use Strict to download ONLY the language and not universal KBs.
 
-    .PARAMETER WsusComputerName
+    .PARAMETER WsusServer
         Use Wsus server for file locations. If a link is not found on the server, it will default to the link found in the sqlite database source.
 
     .PARAMETER Credential
-        The optional alternative credential to be used when connecting to WsusComputerName.
+        The optional alternative credential to be used when connecting to WsusServer.
 
     .PARAMETER EnableException
         By default, when something goes wrong we try to catch it, interpret it and give you a friendly warning message.
@@ -102,7 +102,7 @@ function Save-KbUpdate {
         [switch]$AllowClobber,
         [ValidateSet("Any", "Web", "Database")]
         [string]$Source = "Any",
-        [string]$WsusComputerName,
+        [string]$WsusServer,
         [pscredential]$Credential,
         [switch]$Strict,
         [switch]$EnableException
@@ -133,17 +133,17 @@ function Save-KbUpdate {
                 $simple = $true
             }
             $params = @{
-                Pattern          = $kb
-                Architecture     = $Architecture
-                OperatingSystem  = $OperatingSystem
-                Product          = $Product
-                Language         = $Language
-                EnableException  = $EnableException
-                Simple           = $Simple
-                Latest           = $Latest
-                Source           = $Source
-                WsusComputerName = $WsusComputerName
-                Credential       = $Credential
+                Pattern         = $kb
+                Architecture    = $Architecture
+                OperatingSystem = $OperatingSystem
+                Product         = $Product
+                Language        = $Language
+                EnableException = $EnableException
+                Simple          = $Simple
+                Latest          = $Latest
+                Source          = $Source
+                WsusServer      = $WsusServer
+                Credential      = $Credential
             }
             $InputObject += Get-KbUpdate @params
         }
