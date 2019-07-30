@@ -19,16 +19,29 @@ function Search-Kb {
         }
 
         foreach ($object in $InputObject) {
-            if ($script:WsusServer) {
-                try {
-                    $link = Invoke-WsusDbQuery -UpdateId $object.UpdateId -EnableException:$EnableException
-                    if (-not $link) {
-                        Write-PSFMessage -Level Verbose -Message "Link not found for $($object.UpdateId), setting link to default"
-                    } else {
-                        $object.Link = $link
+            if ($script:WsusServer -or $script:ConnectedWsus) {
+                if ($script:WsusServer) {
+                    try {
+                        $link = Invoke-WsusDbQuery -UpdateId $object.UpdateId -EnableException:$EnableException
+                        if (-not $link) {
+                            Write-PSFMessage -Level Verbose -Message "Link not found for $($object.UpdateId), setting link to default"
+                        } else {
+                            $object.Link = $link
+                        }
+                    } catch {
+                        Stop-PSFFunction -EnableException:$EnableException -Message "No WSUS link results found for $kb" -Continue
                     }
-                } catch {
-                    Stop-PSFFunction -EnableException:$EnableException -Message "No WSUS link results found for $kb" -Continue
+                } else {
+                    if ($object.Id) {
+                        $result = Get-PSWSUSUpdate -Update $object.Id | Select-Object -First 1
+                    } else {
+                        $result = Get-PSWSUSUpdate -Update $objet.Title | Select-Object -First 1
+                    }
+                    # gotta keep going and also implement in get-kbupdate
+                    $link = $result.FileUri
+                    if (-not $lnk) {
+                        $link = $result.OriginUri
+                    }
                 }
             }
 

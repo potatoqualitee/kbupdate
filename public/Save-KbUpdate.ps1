@@ -134,8 +134,6 @@ function Save-KbUpdate {
                 Simple          = $Simple
                 Latest          = $Latest
                 Source          = $Source
-                WsusServer      = $WsusServer
-                Credential      = $Credential
             }
             $InputObject += Get-KbUpdate @params
         }

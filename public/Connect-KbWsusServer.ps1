@@ -96,11 +96,13 @@ function Connect-KbWsusServer {
         }
         try {
             if ($Type -eq "Web") {
-                Connect-PSWSUSServer -WSUSserver $ComputerName -SecureConnection:$SecureConnection -Port $Port -WarningAction SilentlyContinue -WarningVariable warning
+                $script:ConnectedWsus = Connect-PSWSUSServer -WSUSserver $ComputerName -SecureConnection:$SecureConnection -Port $Port -WarningAction SilentlyContinue -WarningVariable warning
                 if ($warning) {
                     $currenterror = Get-Variable -Name Error -Scope 2 -ValueOnly
                     $currenterror = $currenterror | Select-Object -First 1
                     throw $currenterror
+                } else {
+                    $script:ConnectedWsus
                 }
             } else {
                 $script:WsusServer = $ComputerName
