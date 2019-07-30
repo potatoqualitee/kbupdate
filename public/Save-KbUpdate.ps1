@@ -44,12 +44,6 @@ function Save-KbUpdate {
 
         Use Strict to download ONLY the language and not universal KBs.
 
-    .PARAMETER WsusServer
-        Use Wsus server for file locations. If a link is not found on the server, it will default to the link found in the sqlite database source.
-
-    .PARAMETER Credential
-        The optional alternative credential to be used when connecting to WsusServer.
-
     .PARAMETER EnableException
         By default, when something goes wrong we try to catch it, interpret it and give you a friendly warning message.
         This avoids overwhelming you with "sea of red" exceptions, but is inconvenient because it basically disables advanced scripting.
@@ -100,10 +94,8 @@ function Save-KbUpdate {
         [pscustomobject[]]$InputObject,
         [switch]$Latest,
         [switch]$AllowClobber,
-        [ValidateSet("Any", "Web", "Database")]
-        [string]$Source = "Any",
-        [string]$WsusServer,
-        [pscredential]$Credential,
+        [ValidateSet("Wsus", "Web", "Database")]
+        [string[]]$Source = @("Web", "Database"),
         [switch]$Strict,
         [switch]$EnableException
     )

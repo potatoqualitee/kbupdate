@@ -99,19 +99,17 @@ function Get-KbUpdate {
         [switch]$Simple,
         [switch]$Latest,
         [int]$MaxResults = 25,
-        [ValidateSet("Any", "Web", "Database")]
-        [string]$Source = "Any",
-        [string]$WsusServer,
+        [ValidateSet("Wsus", "Web", "Database")]
+        [string[]]$Source = @("Web", "Database"),
         [switch]$EnableException
     )
     begin {
-
         function Get-KbItemFromDb {
             [CmdletBinding()]
             param($kb)
             process {
                 # Join to dupe and check dupe
-                $items = Invoke-SqliteQuery -DataSource $db  -Query "select *, NULL AS SupersededBy, NULL AS Supersedes, NULL AS Link from kb where UpdateId in (select UpdateId from kb where UpdateId = '$kb' or Title like '%$kb%' or Id like '%$kb%' or Description like '%$kb%' or MSRCNumber like '%$kb%')"
+                $items = Invoke-SqliteQuery -DataSource $db -Query "select *, NULL AS SupersededBy, NULL AS Supersedes, NULL AS Link from kb where UpdateId in (select UpdateId from kb where UpdateId = '$kb' or Title like '%$kb%' or Id like '%$kb%' or Description like '%$kb%' or MSRCNumber like '%$kb%')"
 
                 if (-not $items -and $Source -eq "Database") {
                     Stop-PSFFunction -EnableException:$EnableException -Message "No results found for $kb"
@@ -462,21 +460,19 @@ function Get-KbUpdate {
             OperatingSystem = $OperatingSystem
             Product         = $PSBoundParameters.Product
             Language        = $PSBoundParameters.Language
-            WsusServer      = $WsusServer
-            Credential      = $Credential
         }
 
         foreach ($kb in $Pattern) {
-            if ($Source -in "Any", "Database") {
+            if ($Source -in "Database") {
                 $result = Get-KbItemFromDb $kb
             }
 
-            if ($WsusServer -and -not $result) {
+            if ($script:WsusServer -and -not $result) {
                 $Simple = $true
-                $result = Invoke-WsusDbQuery -ComputerName $WsusServer -Credential $Credential -Pattern $kb -EnableException:$EnableException -Verbose:$Verbose
+                $result = Invoke-WsusDbQuery -Pattern $kb -EnableException:$EnableException -Verbose:$Verbose
             }
 
-            if ((-not $result -and $Source -eq "Any" -and -not $WsusServer) -or $Source -eq "Web") {
+            if ((-not $result -and $Source -in "Web" -and -not $script:WsusServer) -or $Source -eq "Web") {
                 $result = Get-KbItemFromWeb $kb
             }
 

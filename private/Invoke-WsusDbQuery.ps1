@@ -1,8 +1,8 @@
 Function Invoke-WsusDbQuery {
     [CmdletBinding()]
     param (
-        [string]$ComputerName,
-        [PSCredential]$Credential,
+        [string]$ComputerName = $script:WsusServer,
+        [PSCredential]$Credential = $script:WsusServerCredential,
         [string]$Pattern,
         [string]$UpdateId,
         [switch]$EnableException
@@ -58,13 +58,18 @@ Function Invoke-WsusDbQuery {
             }
 
             if ($Pattern) {
-                $items = Invoke-DbQuery -Connstring $connstring -Query "SELECT DefaultTitle as Title
-                ,UpdateId
-                ,NULL as Architecture
-                ,NULL as Language
-                ,NULL as Link
-                FROM [SUSDB].[PUBLIC_VIEWS].[vUpdate]
-                WHERE KnowledgebaseArticle like '%$pattern%' or DefaultTitle like '%$pattern%' or DefaultDescription like '%$pattern%'"
+                if ($Pattern -eq "Test-Connection") {
+                    Invoke-DbQuery -Connstring $connstring -Query "SELECT HOST_NAME() as Name, NULL as Version, ServerPortNumber as PortNumber, NULL as ServerProtocolVersion from tbConfigurationA"
+                    return
+                } else {
+                    $items = Invoke-DbQuery -Connstring $connstring -Query "SELECT DefaultTitle as Title
+                        ,UpdateId
+                        ,NULL as Architecture
+                        ,NULL as Language
+                        ,NULL as Link
+                        FROM [SUSDB].[PUBLIC_VIEWS].[vUpdate]
+                        WHERE KnowledgebaseArticle like '%$pattern%' or DefaultTitle like '%$pattern%' or DefaultDescription like '%$pattern%'"
+                }
             }
 
             if ($UpdateId) {
@@ -98,7 +103,7 @@ Function Invoke-WsusDbQuery {
         }
 
         try {
-            $results = Invoke-PSFCommand -ComputerName $computer -Credential $Credential -ScriptBlock $scriptblock -ArgumentList @{ Pattern = $Pattern; UpdateId = $UpdateId } -ErrorAction Stop
+            Invoke-PSFCommand -ComputerName $ComputerName -Credential $Credential -ScriptBlock $scriptblock -ArgumentList @{ Pattern = $Pattern; UpdateId = $UpdateId } -ErrorAction Stop
         } catch {
             Stop-PSFFunction -Message "Failure" -ErrorRecord $_ -EnableException:$EnableException
             return
