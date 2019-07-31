@@ -10,6 +10,7 @@ function Search-Kb {
         [string[]]$OperatingSystem,
         [string[]]$Product,
         [string[]]$Language,
+        [string[]]$Source,
         [parameter(ValueFromPipeline)]
         [pscustomobject[]]$InputObject
     )
@@ -19,7 +20,7 @@ function Search-Kb {
         }
 
         foreach ($object in $InputObject) {
-            if ($script:WsusServer -or $script:ConnectedWsus) {
+            if (($script:WsusServer -or $script:ConnectedWsus) -and $Source -contains "WSUS") {
                 if ($script:WsusServer) {
                     try {
                         $link = Invoke-WsusDbQuery -UpdateId $object.UpdateId -EnableException:$EnableException
@@ -35,7 +36,7 @@ function Search-Kb {
                     if ($object.Id) {
                         $result = Get-PSWSUSUpdate -Update $object.Id | Select-Object -First 1
                     } else {
-                        $result = Get-PSWSUSUpdate -Update $objet.Title | Select-Object -First 1
+                        $result = Get-PSWSUSUpdate -Update $object.Title | Select-Object -First 1
                     }
                     # gotta keep going and also implement in get-kbupdate
                     $link = $result.FileUri

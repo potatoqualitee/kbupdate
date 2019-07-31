@@ -106,11 +106,10 @@ function Get-KbUpdate {
             param($kb)
             process {
                 # Join to dupe and check dupe
-                $items = Invoke-SqliteQuery -DataSource $db -Query "select *, NULL AS SupersededBy, NULL AS Supersedes, NULL AS Link from kb where UpdateId in (select UpdateId from kb where UpdateId = '$kb' or Title like '%$kb%' or Id like '%$kb%' or Description like '%$kb%' or MSRCNumber like '%$kb%')"
+                $items = Invoke-SqliteQuery -DataSource $db  -Query "select *, NULL AS SupersededBy, NULL AS Supersedes, NULL AS Link from kb where UpdateId in (select UpdateId from kb where UpdateId = '$kb' or Title like '%$kb%' or Id like '%$kb%' or Description like '%$kb%' or MSRCNumber like '%$kb%')"
 
                 if (-not $items -and $Source -eq "Database") {
                     Stop-PSFFunction -EnableException:$EnableException -Message "No results found for $kb"
-                    return
                 }
 
                 foreach ($item in $items) {
@@ -122,6 +121,63 @@ function Get-KbUpdate {
             }
         }
 
+        function Get-KbItemFromWsusApi ($kb) {
+            $results = Get-PSWSUSUpdate -Update $kb
+            foreach ($wsuskb in $results) {
+                # cacher
+                $guid = $wsuskb.UpdateID
+                $hashkey = "$guid-$Simple"
+                if ($script:kbcollection.ContainsKey($hashkey)) {
+                    $script:kbcollection[$hashkey]
+                    continue
+                }
+                $severity = $wsuskb.MsrcSeverity | Select-Object -First 1
+                $alert = $wsuskb.SecurityBulletins | Select-Object -First 1
+                if ($severity -eq "MsrcSeverity") {
+                    $severity = $null
+                }
+                if ($alert -eq "") {
+                    $alert = $null
+                }
+
+                $file = $wsuskb | Get-PSWSUSInstallableItem | Get-PSWSUSUpdateFile
+                $link = $file.FileURI
+                if ($null -ne $link -and "" -ne $link) {
+                    $link = $file.OriginUri
+                }
+                if ($link -eq "") {
+                    $link = $null
+                }
+
+                $null = $script:kbcollection.Add($hashkey, (
+                        [pscustomobject]@{
+                            Title             = $wsuskb.Title
+                            Id                = ($wsuskb.KnowledgebaseArticles | Select-Object -First 1)
+                            Architecture      = $null
+                            Language          = $null
+                            Hotfix            = $null
+                            Description       = $wsuskb.Description
+                            LastModified      = $wsuskb.ArrivalDate
+                            Size              = $wsuskb.Size
+                            Classification    = $wsuskb.UpdateClassificationTitle
+                            SupportedProducts = $wsuskb.ProductTitles
+                            MSRCNumber        = $alert
+                            MSRCSeverity      = $severity
+                            RebootBehavior    = $wsuskb.InstallationBehavior.RebootBehavior
+                            RequestsUserInput = $wsuskb.InstallationBehavior.CanRequestUserInput
+                            ExclusiveInstall  = $null
+                            NetworkRequired   = $wsuskb.InstallationBehavior.RequiresNetworkConnectivity
+                            UninstallNotes    = $null # $wsuskb.uninstallnotes
+                            UninstallSteps    = $null # $wsuskb.uninstallsteps
+                            UpdateId          = $guid
+                            Supersedes        = $null #TODO
+                            SupersededBy      = $null #TODO
+                            Link              = $link
+                            InputObject       = $kb
+                        }))
+                $script:kbcollection[$hashkey]
+            }
+        }
         function Get-GuidsFromWeb ($kb) {
             Write-PSFMessage -Level Verbose -Message "$kb"
             Write-Progress -Activity "Searching catalog for $kb" -Id 1 -Status "Contacting catalog.update.microsoft.com"
@@ -400,6 +456,9 @@ function Get-KbUpdate {
             $properties = $properties | Where-Object { $PSItem -notin "ID", "LastModified", "Description", "Size", "Classification", "SupportedProducts", "MSRCNumber", "MSRCSeverity", "RebootBehavior", "RequestsUserInput", "ExclusiveInstall", "NetworkRequired", "UninstallNotes", "UninstallSteps", "SupersededBy", "Supersedes" }
         }
 
+        if ($Source -eq "WSUS") {
+            $properties = $properties | Where-Object { $PSItem -notin "Architecture", "Language", "Size", "ExclusiveInstall", "UninstallNotes", "UninstallSteps" }
+        }
         # if latest is used, needs a collection
         $allkbs = @()
 
@@ -409,6 +468,12 @@ function Get-KbUpdate {
             Stop-PSFFunction -Message "Sorry! MaxResults greater than 25 is not supported yet. Try a stricter search for now." -EnableException:$EnableException
             return
         }
+
+        if ($Source -contains "Wsus" -and -not $script:ConnectedWsus -and -not $script:WsusServer) {
+            Stop-Function -Message "Please use Connect-KbWsusServer before selecting WSUS as a Source" -EnableException:$EnableException
+            return
+        }
+
         if ($Latest -and $Simple) {
             Write-PSFMessage -Level Warning -Message "Simple is ignored when Latest is specified, as latest requires detailed data"
             $Simple = $false
@@ -457,19 +522,24 @@ function Get-KbUpdate {
             OperatingSystem = $OperatingSystem
             Product         = $PSBoundParameters.Product
             Language        = $PSBoundParameters.Language
+            Source          = $Source
         }
 
         foreach ($kb in $Pattern) {
-            if ($Source -in "Database") {
+            if ($Source -contains "Wsus") {
+                if ($script:ConnectedWsus) {
+                    $result = Get-KbItemFromWsusApi $kb
+                } else {
+                    $Simple = $true
+                    $result = Invoke-WsusDbQuery -Pattern $kb -EnableException:$EnableException -Verbose:$Verbose
+                }
+            }
+
+            if (-not $result -and $Source -contains "Database") {
                 $result = Get-KbItemFromDb $kb
             }
 
-            if ($script:WsusServer -and -not $result) {
-                $Simple = $true
-                $result = Invoke-WsusDbQuery -Pattern $kb -EnableException:$EnableException -Verbose:$Verbose
-            }
-
-            if ((-not $result -and $Source -in "Web" -and -not $script:WsusServer) -or $Source -eq "Web") {
+            if (-not $result -and $Source -contains "Web") {
                 $result = Get-KbItemFromWeb $kb
             }
 
@@ -481,6 +551,7 @@ function Get-KbUpdate {
         }
     }
     end {
+        if (Test-PSFFunctionInterrupt) { return }
         # I'm not super awesome with the pipeline, and am open to suggestions if this is not the best way
         if ($Latest -and $allkbs) {
             $allkbs | Select-Latest | Select-DefaultView -Property $properties

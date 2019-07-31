@@ -1,13 +1,13 @@
 function Connect-KbWsusServer {
     <#
     .SYNOPSIS
-        Make the initial connection to a WSUS Server.
+        Creates a reusable connection to a WSUS Server.
 
     .DESCRIPTION
-        Make the initial connection to a WSUS Server. Only one concurrent connection is allowed.
+        Creates a reusable connection to a WSUS Server. Only one concurrent connection is allowed.
 
     .PARAMETER ComputerName
-        Name of WSUS server to connect to. If not value is given, an attempt to read the value from registry will occur.
+        Name of WSUS server. If not value is given, an attempt to read the value from registry will occur.
 
     .PARAMETER SecureConnection
         Determines if a secure connection will be used to connect to the WSUS server. If not used, then a non-secure
@@ -39,8 +39,11 @@ function Connect-KbWsusServer {
 
     .EXAMPLE
         PS C:\> Connect-KbWsusServer -ComputerName server1 -SecureConnection
+        PS C:\> Get-KbUpdate -Pattern KB2764916 -Source Wsus
 
         This command will make a secure connection (Default: 443) to a WSUS server.
+
+        Then use Wsus as a source for Get-KbUpdate.
 
     .EXAMPLE
         PS C:\> Connect-KbWsusServer -ComputerName server1 -port 8530
@@ -50,7 +53,7 @@ function Connect-KbWsusServer {
     .EXAMPLE
         PS C:\> Connect-KbWsusServer -ComputerName server1 -Type Database
 
-        Connect to WSUS' database
+        Connect to WSUS' database via PowerShell Remoting
 
     #>
     [cmdletbinding()]
@@ -67,7 +70,7 @@ function Connect-KbWsusServer {
         [switch]$EnableException
     )
     begin {
-        # load that shit, does not load properly by default
+        # load the DLLs, does not load properly by default
         if ($Type -eq "Web") {
             Import-Module -Name PoshWSUS
             $path = Split-Path -Path (Get-Module -Name PoshWSUS).Path
@@ -97,9 +100,9 @@ function Connect-KbWsusServer {
         try {
             if ($Type -eq "Web") {
                 $script:ConnectedWsus = Connect-PSWSUSServer -WSUSserver $ComputerName -SecureConnection:$SecureConnection -Port $Port -WarningAction SilentlyContinue -WarningVariable warning
+                # Handle the way PoshWSUS deals with errors
                 if ($warning) {
-                    $currenterror = Get-Variable -Name Error -Scope 2 -ValueOnly
-                    $currenterror = $currenterror | Select-Object -First 1
+                    $currenterror = (Get-Variable -Name Error -Scope 2 -ValueOnly) | Select-Object -First 1
                     throw $currenterror
                 } else {
                     $script:ConnectedWsus
