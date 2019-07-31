@@ -39,9 +39,6 @@ function Get-KbUpdate {
     .PARAMETER Simple
         A lil faster. Returns, at the very least: Title, Architecture, Language, Hotfix, UpdateId and Link
 
-    .PARAMETER MaxResults
-        The number of results. catalog.update.microsoft.com returns 25 per page.
-
     .PARAMETER Source
         Search source. By default, Database is searched first, then if no matches are found, it tries finding it on the web.
 
@@ -95,7 +92,6 @@ function Get-KbUpdate {
         [string[]]$Language,
         [switch]$Simple,
         [switch]$Latest,
-        [int]$MaxResults = 25,
         [ValidateSet("Wsus", "Web", "Database")]
         [string[]]$Source = @("Web", "Database"),
         [switch]$EnableException
@@ -183,20 +179,10 @@ function Get-KbUpdate {
             Write-Progress -Activity "Searching catalog for $kb" -Id 1 -Status "Contacting catalog.update.microsoft.com"
             $results = Invoke-TlsWebRequest -Uri "https://www.catalog.update.microsoft.com/Search.aspx?q=$kb"
             Write-Progress -Activity "Searching catalog for $kb" -Id 1 -Completed
-            $nextbutton = $results.InputFields | Where-Object id -match nextPageLinkButton
-            if ($nextbutton) {
-                Write-PSFMessage -Level Verbose -Message "Next button found"
-            } else {
-                Write-PSFMessage -Level Verbose -Message "Next button not found"
-            }
 
-            if ($MaxResults -gt 25 -and $nextbutton) {
-                # nothing yet, i cannot figure this out
-            } else {
-                $kbids = $results.InputFields |
-                Where-Object { $_.type -eq 'Button' -and $_.Value -eq 'Download' } |
-                Select-Object -ExpandProperty  ID
-            }
+            $kbids = $results.InputFields |
+            Where-Object { $_.type -eq 'Button' -and $_.Value -eq 'Download' } |
+            Select-Object -ExpandProperty  ID
 
             if (-not $kbids) {
                 try {
@@ -464,11 +450,6 @@ function Get-KbUpdate {
 
     }
     process {
-        if ($MaxResults -gt 25) {
-            Stop-PSFFunction -Message "Sorry! MaxResults greater than 25 is not supported yet. Try a stricter search for now." -EnableException:$EnableException
-            return
-        }
-
         if ($Source -contains "Wsus" -and -not $script:ConnectedWsus -and -not $script:WsusServer) {
             Stop-Function -Message "Please use Connect-KbWsusServer before selecting WSUS as a Source" -EnableException:$EnableException
             return
