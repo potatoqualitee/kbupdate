@@ -1,16 +1,15 @@
 function Get-KbUpdate {
     <#
     .SYNOPSIS
-        Gets download links and detailed information for KB files (SPs/hotfixes/CUs, etc)
+        Gets download links and detailed information for KB files (SPs/hotfixes/CUs, etc) from local db, catalog.update.microsoft.com or WSUS.
 
     .DESCRIPTION
-        Parses catalog.update.microsoft.com and grabs details for KB files (SPs/hotfixes/CUs, etc)
+        Gets detailed information including download links for KB files (SPs/hotfixes/CUs, etc) from local db, catalog.update.microsoft.com or WSUS.
 
-        Because Microsoft's RSS feed does not work, the command has to parse a few webpages which can result in slowness.
+        By default, the local sqlite database (updated regularly) is searched first and if no result is found, the catalog will be searched as a failback.
+        Because Microsoft's RSS feed does not work, this can result in slowness. Use the Simple parameter for simplified output and faster results when using the web option.
 
-        Use the Simple parameter for simplified output and faster results.
-
-        The upside is that you can use this command to search the same way you'd use the search bar at catalog.update.microsoft.com.
+        If you'd prefer searching and downloading from a local WSUS source, this is an option as well. See the examples for more information.
 
     .PARAMETER Pattern
         Any pattern. Can be the KB name, number or even MSRC numbrer. For example, KB4057119, 4057119, or MS15-101.
@@ -56,18 +55,32 @@ function Get-KbUpdate {
     .EXAMPLE
         PS C:\> Get-KbUpdate KB4057119
 
-        Gets detailed information about KB4057119. This works for SQL Server or any other KB.
+        Gets detailed information about KB4057119.
 
     .EXAMPLE
         PS C:\> Get-KbUpdate -Pattern KB4057119, 4057114 -Source Database
 
-        Gets detailed information about KB4057119 and KB4057114. Only searches the database (useful for offline enviornments)
+        Gets detailed information about KB4057119 and KB4057114. Only searches the database (useful for offline enviornments).
 
 
     .EXAMPLE
         PS C:\> Get-KbUpdate -Pattern MS15-101 -Source Web
 
-        Downloads KBs related to MSRC MS15-101 to the current directory. Only searches the web and not the local db.
+        Downloads KBs related to MSRC MS15-101 to the current directory. Only searches the web and not the local db or WSUS.
+
+    .EXAMPLE
+        PS C:\> Connect-KbWsusServer -ComputerName server1 -SecureConnection
+        PS C:\> Get-KbUpdate -Pattern KB2764916
+
+        This command will make a secure connection (Default: 443) to a WSUS server.
+
+        Then use Wsus as a source for Get-KbUpdate.
+
+    .EXAMPLE
+        PS C:\> Connect-KbWsusServer -ComputerName server1 -SecureConnection
+        PS C:\> Get-KbUpdate -Pattern KB2764916 -Source Database
+
+        Search the database even if you've connected to WSUS in the same session.
 
     .EXAMPLE
         PS C:\> Get-KbUpdate -Pattern KB4057119, 4057114 -Simple
@@ -93,7 +106,13 @@ function Get-KbUpdate {
         [switch]$Simple,
         [switch]$Latest,
         [ValidateSet("Wsus", "Web", "Database")]
-        [string[]]$Source = @("Web", "Database"),
+        [string[]]$Source = [scriptblock] {
+            if ($script:ConnectedWsus) {
+                "WSUS"
+            } else {
+                @("Web", "Database")
+            }
+        },
         [switch]$EnableException
     )
     begin {
