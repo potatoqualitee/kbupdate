@@ -36,7 +36,7 @@ function Connect-KbWsusServer {
 
     .EXAMPLE
         PS C:\> Connect-KbWsusServer -ComputerName server1 -SecureConnection
-        PS C:\> Get-KbUpdate -Pattern KB2764916 -Source Wsus
+        PS C:\> Get-KbUpdate -Pattern KB2764916
 
         This command will make a secure connection (Default: 443) to a WSUS server.
 
