@@ -1,4 +1,5 @@
-Function Invoke-WsusDbQuery {
+# No longer used but didn't want to throw it away.
+function Invoke-WsusDbQuery {
     [CmdletBinding()]
     param (
         [string]$ComputerName = $script:WsusServer,

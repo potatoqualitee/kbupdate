@@ -16,9 +16,6 @@ function Connect-KbWsusServer {
     .PARAMETER Port
         Port number to connect to. Default is Port "80" if not used. Accepted values are "80","443","8350" and "8351"
 
-    .PARAMETER Type
-        Use the Web API or Database. Defaults to Web. Database is a bit faster but may not be as accurate.
-
     .PARAMETER Credential
         The optional alternative credential to be used when connecting to ComputerName.
 
@@ -49,12 +46,6 @@ function Connect-KbWsusServer {
         PS C:\> Connect-KbWsusServer -ComputerName server1 -port 8530
 
         This command will make the connection to the WSUS using a defined port 8530.
-
-    .EXAMPLE
-        PS C:\> Connect-KbWsusServer -ComputerName server1 -Type Database
-
-        Connect to WSUS' database via PowerShell Remoting
-
     #>
     [cmdletbinding()]
     param(
@@ -65,52 +56,33 @@ function Connect-KbWsusServer {
         [switch]$SecureConnection,
         [ValidateSet("80", "443", "8530", "8531" )]
         [int]$Port = 80,
-        [ValidateSet("Web", "Database")]
-        [string]$Type = "Web",
         [switch]$EnableException
     )
     begin {
         # load the DLLs, does not load properly by default
-        if ($Type -eq "Web") {
-            Import-Module -Name PoshWSUS
-            $path = Split-Path -Path (Get-Module -Name PoshWSUS).Path
-            $arch = "$env:PROCESSOR_ARCHITECTURE".Replace("AMD", "")
-            $dir = "$path\Libraries\x$($arch)"
-            if (Test-Path -Path $dir) {
-                foreach ($file in Get-ChildItem -Path $dir) {
-                    try {
-                        Add-Type -Path $file.Fullname -ErrorAction Stop
-                    } catch {
-                        # nbd
-                    }
+        Import-Module -Name PoshWSUS
+        $path = Split-Path -Path (Get-Module -Name PoshWSUS).Path
+        $arch = "$env:PROCESSOR_ARCHITECTURE".Replace("AMD", "")
+        $dir = "$path\Libraries\x$($arch)"
+        if (Test-Path -Path $dir) {
+            foreach ($file in Get-ChildItem -Path $dir) {
+                try {
+                    Add-Type -Path $file.Fullname -ErrorAction Stop
+                } catch {
+                    # nbd
                 }
             }
         }
     }
     process {
-        if ($ComputerName.Count -gt 0 -and $PSBoundParameters.FilePath) {
-            Stop-PSFFunction -EnableException:$EnableException -Message "You can only specify one KB when using FilePath"
-            return
-        }
-
-        if (-not $PSBoundParameters.InputObject -and -not $PSBoundParameters.ComputerName) {
-            Stop-PSFFunction -EnableException:$EnableException -Message "You must specify a KB name or pipe in results from Get-KbUpdate"
-            return
-        }
         try {
-            if ($Type -eq "Web") {
-                $script:ConnectedWsus = Connect-PSWSUSServer -WSUSserver $ComputerName -SecureConnection:$SecureConnection -Port $Port -WarningAction SilentlyContinue -WarningVariable warning
-                # Handle the way PoshWSUS deals with errors
-                if ($warning) {
-                    $currenterror = (Get-Variable -Name Error -Scope 2 -ValueOnly) | Select-Object -First 1
-                    throw $currenterror
-                } else {
-                    $script:ConnectedWsus
-                }
+            $script:ConnectedWsus = Connect-PSWSUSServer -WSUSserver $ComputerName -SecureConnection:$SecureConnection -Port $Port -WarningAction SilentlyContinue -WarningVariable warning
+            # Handle the way PoshWSUS deals with errors
+            if ($warning) {
+                $currenterror = (Get-Variable -Name Error -Scope 2 -ValueOnly) | Select-Object -First 1
+                throw $currenterror
             } else {
-                $script:WsusServer = $ComputerName
-                $script:WsusServerCredential = $Credential
-                Invoke-WsusDbQuery -Pattern "Test-Connection" -EnableException:$EnableException -Verbose:$Verbose
+                $script:ConnectedWsus
             }
         } catch {
             Stop-Function -Message "Failure" -EnableException:$EnableException -ErrorRecord $_

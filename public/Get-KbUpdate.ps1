@@ -508,12 +508,7 @@ function Get-KbUpdate {
 
         foreach ($kb in $Pattern) {
             if ($Source -contains "Wsus") {
-                if ($script:ConnectedWsus) {
-                    $result = Get-KbItemFromWsusApi $kb
-                } else {
-                    $Simple = $true
-                    $result = Invoke-WsusDbQuery -Pattern $kb -EnableException:$EnableException -Verbose:$Verbose
-                }
+                $result = Get-KbItemFromWsusApi $kb
             }
 
             if (-not $result -and $Source -contains "Database") {
