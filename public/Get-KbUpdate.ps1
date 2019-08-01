@@ -1,16 +1,15 @@
 function Get-KbUpdate {
     <#
     .SYNOPSIS
-        Gets download links and detailed information for KB files (SPs/hotfixes/CUs, etc)
+        Gets download links and detailed information for KB files (SPs/hotfixes/CUs, etc) from local db, catalog.update.microsoft.com or WSUS.
 
     .DESCRIPTION
-        Parses catalog.update.microsoft.com and grabs details for KB files (SPs/hotfixes/CUs, etc)
+        Gets detailed information including download links for KB files (SPs/hotfixes/CUs, etc) from local db, catalog.update.microsoft.com or WSUS.
 
-        Because Microsoft's RSS feed does not work, the command has to parse a few webpages which can result in slowness.
+        By default, the local sqlite database (updated regularly) is searched first and if no result is found, the catalog will be searched as a failback.
+        Because Microsoft's RSS feed does not work, this can result in slowness. Use the Simple parameter for simplified output and faster results when using the web option.
 
-        Use the Simple parameter for simplified output and faster results.
-
-        The upside is that you can use this command to search the same way you'd use the search bar at catalog.update.microsoft.com.
+        If you'd prefer searching and downloading from a local WSUS source, this is an option as well. See the examples for more information.
 
     .PARAMETER Pattern
         Any pattern. Can be the KB name, number or even MSRC numbrer. For example, KB4057119, 4057119, or MS15-101.
@@ -37,10 +36,7 @@ function Get-KbUpdate {
         Filters out any patches that have been superseded by other patches in the batch
 
     .PARAMETER Simple
-        A lil faster. Returns, at the very least: Title, Architecture, Language, Hotfix, UpdateId and Link
-
-    .PARAMETER MaxResults
-        The number of results. catalog.update.microsoft.com returns 25 per page.
+        A lil faster. Returns, at the very least: Title, Architecture, Language, UpdateId and Link
 
     .PARAMETER Source
         Search source. By default, Database is searched first, then if no matches are found, it tries finding it on the web.
@@ -59,23 +55,37 @@ function Get-KbUpdate {
     .EXAMPLE
         PS C:\> Get-KbUpdate KB4057119
 
-        Gets detailed information about KB4057119. This works for SQL Server or any other KB.
+        Gets detailed information about KB4057119.
 
     .EXAMPLE
         PS C:\> Get-KbUpdate -Pattern KB4057119, 4057114 -Source Database
 
-        Gets detailed information about KB4057119 and KB4057114. Only searches the database (useful for offline enviornments)
+        Gets detailed information about KB4057119 and KB4057114. Only searches the database (useful for offline enviornments).
 
 
     .EXAMPLE
         PS C:\> Get-KbUpdate -Pattern MS15-101 -Source Web
 
-        Downloads KBs related to MSRC MS15-101 to the current directory. Only searches the web and not the local db.
+        Downloads KBs related to MSRC MS15-101 to the current directory. Only searches the web and not the local db or WSUS.
+
+    .EXAMPLE
+        PS C:\> Connect-KbWsusServer -ComputerName server1 -SecureConnection
+        PS C:\> Get-KbUpdate -Pattern KB2764916
+
+        This command will make a secure connection (Default: 443) to a WSUS server.
+
+        Then use Wsus as a source for Get-KbUpdate.
+
+    .EXAMPLE
+        PS C:\> Connect-KbWsusServer -ComputerName server1 -SecureConnection
+        PS C:\> Get-KbUpdate -Pattern KB2764916 -Source Database
+
+        Search the database even if you've connected to WSUS in the same session.
 
     .EXAMPLE
         PS C:\> Get-KbUpdate -Pattern KB4057119, 4057114 -Simple
 
-        A lil faster when using web as a source. Returns, at the very least: Title, Architecture, Language, Hotfix, UpdateId and Link
+        A lil faster when using web as a source. Returns, at the very least: Title, Architecture, Language, UpdateId and Link
 
     .EXAMPLE
         PS C:\> Get-KbUpdate -Pattern "KB2764916 Nederlands" -Simple
@@ -95,12 +105,14 @@ function Get-KbUpdate {
         [string[]]$Language,
         [switch]$Simple,
         [switch]$Latest,
-        [int]$MaxResults = 25,
-        [ValidateSet("Any", "Web", "Database")]
-        [string]$Source = "Any",
+        [ValidateSet("Wsus", "Web", "Database")]
+        [string[]]$Source = @("Web", "Database"),
         [switch]$EnableException
     )
     begin {
+        if ($script:ConnectedWsus -and -not $PSBoundParameters.Source) {
+            $Source = "Wsus"
+        }
 
         function Get-KbItemFromDb {
             [CmdletBinding()]
@@ -122,25 +134,72 @@ function Get-KbUpdate {
             }
         }
 
+        function Get-KbItemFromWsusApi ($kb) {
+            $results = Get-PSWSUSUpdate -Update $kb
+            foreach ($wsuskb in $results) {
+                # cacher
+                $guid = $wsuskb.UpdateID
+                $hashkey = "$guid-$Simple"
+                if ($script:kbcollection.ContainsKey($hashkey)) {
+                    $script:kbcollection[$hashkey]
+                    continue
+                }
+                $severity = $wsuskb.MsrcSeverity | Select-Object -First 1
+                $alert = $wsuskb.SecurityBulletins | Select-Object -First 1
+                if ($severity -eq "MsrcSeverity") {
+                    $severity = $null
+                }
+                if ($alert -eq "") {
+                    $alert = $null
+                }
+
+                $file = $wsuskb | Get-PSWSUSInstallableItem | Get-PSWSUSUpdateFile
+                $link = $file.FileURI
+                if ($null -ne $link -and "" -ne $link) {
+                    $link = $file.OriginUri
+                }
+                if ($link -eq "") {
+                    $link = $null
+                }
+
+                $null = $script:kbcollection.Add($hashkey, (
+                        [pscustomobject]@{
+                            Title             = $wsuskb.Title
+                            Id                = ($wsuskb.KnowledgebaseArticles | Select-Object -First 1)
+                            Architecture      = $null
+                            Language          = $null
+                            Hotfix            = $null
+                            Description       = $wsuskb.Description
+                            LastModified      = $wsuskb.ArrivalDate
+                            Size              = $wsuskb.Size
+                            Classification    = $wsuskb.UpdateClassificationTitle
+                            SupportedProducts = $wsuskb.ProductTitles
+                            MSRCNumber        = $alert
+                            MSRCSeverity      = $severity
+                            RebootBehavior    = $wsuskb.InstallationBehavior.RebootBehavior
+                            RequestsUserInput = $wsuskb.InstallationBehavior.CanRequestUserInput
+                            ExclusiveInstall  = $null
+                            NetworkRequired   = $wsuskb.InstallationBehavior.RequiresNetworkConnectivity
+                            UninstallNotes    = $null # $wsuskb.uninstallnotes
+                            UninstallSteps    = $null # $wsuskb.uninstallsteps
+                            UpdateId          = $guid
+                            Supersedes        = $null #TODO
+                            SupersededBy      = $null #TODO
+                            Link              = $link
+                            InputObject       = $kb
+                        }))
+                $script:kbcollection[$hashkey]
+            }
+        }
         function Get-GuidsFromWeb ($kb) {
             Write-PSFMessage -Level Verbose -Message "$kb"
             Write-Progress -Activity "Searching catalog for $kb" -Id 1 -Status "Contacting catalog.update.microsoft.com"
             $results = Invoke-TlsWebRequest -Uri "https://www.catalog.update.microsoft.com/Search.aspx?q=$kb"
             Write-Progress -Activity "Searching catalog for $kb" -Id 1 -Completed
-            $nextbutton = $results.InputFields | Where-Object id -match nextPageLinkButton
-            if ($nextbutton) {
-                Write-PSFMessage -Level Verbose -Message "Next button found"
-            } else {
-                Write-PSFMessage -Level Verbose -Message "Next button not found"
-            }
 
-            if ($MaxResults -gt 25 -and $nextbutton) {
-                # nothing yet, i cannot figure this out
-            } else {
-                $kbids = $results.InputFields |
-                Where-Object { $_.type -eq 'Button' -and $_.Value -eq 'Download' } |
-                Select-Object -ExpandProperty  ID
-            }
+            $kbids = $results.InputFields |
+            Where-Object { $_.type -eq 'Button' -and $_.Value -eq 'Download' } |
+            Select-Object -ExpandProperty  ID
 
             if (-not $kbids) {
                 try {
@@ -400,15 +459,19 @@ function Get-KbUpdate {
             $properties = $properties | Where-Object { $PSItem -notin "ID", "LastModified", "Description", "Size", "Classification", "SupportedProducts", "MSRCNumber", "MSRCSeverity", "RebootBehavior", "RequestsUserInput", "ExclusiveInstall", "NetworkRequired", "UninstallNotes", "UninstallSteps", "SupersededBy", "Supersedes" }
         }
 
+        if ($Source -eq "WSUS") {
+            $properties = $properties | Where-Object { $PSItem -notin "Architecture", "Language", "Size", "ExclusiveInstall", "UninstallNotes", "UninstallSteps" }
+        }
         # if latest is used, needs a collection
         $allkbs = @()
 
     }
     process {
-        if ($MaxResults -gt 25) {
-            Stop-PSFFunction -Message "Sorry! MaxResults greater than 25 is not supported yet. Try a stricter search for now." -EnableException:$EnableException
+        if ($Source -contains "Wsus" -and -not $script:ConnectedWsus) {
+            Stop-Function -Message "Please use Connect-KbWsusServer before selecting WSUS as a Source" -EnableException:$EnableException
             return
         }
+
         if ($Latest -and $Simple) {
             Write-PSFMessage -Level Warning -Message "Simple is ignored when Latest is specified, as latest requires detailed data"
             $Simple = $false
@@ -432,7 +495,7 @@ function Get-KbUpdate {
                         }
                     } -ErrorAction Stop
                 } catch {
-                    Stop-PSFFunction -Message "Failure" -ErrorRecord $_
+                    Stop-PSFFunction -Message "Failure" -ErrorRecord $_ -EnableException:$EnableException
                     return
                 }
                 $null = $script:compcollection.Add($computer, $results)
@@ -457,14 +520,19 @@ function Get-KbUpdate {
             OperatingSystem = $OperatingSystem
             Product         = $PSBoundParameters.Product
             Language        = $PSBoundParameters.Language
+            Source          = $Source
         }
 
         foreach ($kb in $Pattern) {
-            if ($Source -in "Any", "Database") {
+            if ($Source -contains "Wsus") {
+                $result = Get-KbItemFromWsusApi $kb
+            }
+
+            if (-not $result -and $Source -contains "Database") {
                 $result = Get-KbItemFromDb $kb
             }
 
-            if ((-not $result -and $Source -eq "Any") -or $Source -eq "Web") {
+            if (-not $result -and $Source -contains "Web") {
                 $result = Get-KbItemFromWeb $kb
             }
 

@@ -9,6 +9,8 @@ cache:
 - C:\Program Files\WindowsPowerShell\Modules\PSFramework -> appveyor.yml
 - C:\Program Files\WindowsPowerShell\Modules\PSSQLite -> appveyor.yml
 - C:\Program Files\WindowsPowerShell\Modules\kbupdate-library -> appveyor.yml
+- C:\Program Files\WindowsPowerShell\Modules\PoshWSUS -> appveyor.yml
+
 
 shallow_clone: true
 

@@ -94,8 +94,8 @@ function Save-KbUpdate {
         [pscustomobject[]]$InputObject,
         [switch]$Latest,
         [switch]$AllowClobber,
-        [ValidateSet("Any", "Web", "Database")]
-        [string]$Source = "Any",
+        [ValidateSet("Wsus", "Web", "Database")]
+        [string[]]$Source = @("Web", "Database"),
         [switch]$Strict,
         [switch]$EnableException
     )

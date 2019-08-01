@@ -10,15 +10,30 @@ function Search-Kb {
         [string[]]$OperatingSystem,
         [string[]]$Product,
         [string[]]$Language,
+        [string[]]$Source,
         [parameter(ValueFromPipeline)]
         [pscustomobject[]]$InputObject
     )
     process {
-        if (-not $OperatingSystem -and -not $Architecture -and -not $Product -and -not $Language) {
+        if (-not $OperatingSystem -and -not $Architecture -and -not $Product -and -not $Language -and -not $script:ConnectedWsus) {
             return $InputObject
         }
 
         foreach ($object in $InputObject) {
+            if ($script:ConnectedWsus -and $Source -contains "WSUS") {
+                if ($object.Id) {
+                    $result = Get-PSWSUSUpdate -Update $object.Id | Select-Object -First 1
+                } else {
+                    $result = Get-PSWSUSUpdate -Update $object.Title | Select-Object -First 1
+                }
+                # gotta keep going and also implement in get-kbupdate
+                $link = $result.FileUri
+                if (-not $lnk) {
+                    $link = $result.OriginUri
+                }
+                $object.Link = $link
+            }
+
             if ($OperatingSystem) {
                 $match = @()
                 foreach ($os in $OperatingSystem) {
