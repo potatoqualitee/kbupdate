@@ -30,7 +30,7 @@ function Search-Kb {
                             $object.Link = $link
                         }
                     } catch {
-                        Stop-PSFFunction -EnableException:$EnableException -Message "No WSUS link results found for $kb" -Continue
+                        Write-PSFMessage -Level Verbose -Message "No WSUS link results found for $kb"
                     }
                 } else {
                     if ($object.Id) {

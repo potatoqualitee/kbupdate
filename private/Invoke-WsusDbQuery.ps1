@@ -7,7 +7,7 @@ Function Invoke-WsusDbQuery {
         [string]$UpdateId,
         [switch]$EnableException
     )
-    process {
+    begin {
         $scriptblock = {
             Function Invoke-DbQuery {
                 [CmdletBinding()]
@@ -77,13 +77,14 @@ Function Invoke-WsusDbQuery {
                 ,UpdateId
                 ,NULL as Architecture
                 ,NULL as Language
-                ,NULL as Link
+                ,'' as Link
                 FROM [SUSDB].[PUBLIC_VIEWS].[vUpdate]
                 WHERE UpdateId = '$updateid'"
+            }
 
-                foreach ($item in $items) {
-                    $updateid = $item.UpdateID
-                    $links = Invoke-DbQuery -Connstring $connstring -Query "select u.UpdateID,
+            foreach ($item in $items) {
+                $updateid = $item.UpdateID
+                $links = Invoke-DbQuery -Connstring $connstring -Query "select u.UpdateID,
                     COALESCE (NULLIF(USSURL, ''), MUURL) as Link from dbo.tbfile as f
                     inner join dbo.tbfileforrevision as fr on
                     f.filedigest=fr.filedigest
@@ -93,15 +94,16 @@ Function Invoke-WsusDbQuery {
                     r.localupdateid=u.localupdateid
                     inner join dbo.tbLocalizedPropertyforRevision as lr on
                     r.revisionid=lr.revisionid
-                    where u.UpdateID = '$updateid'"
-                    $item.Link = $links.Link
+                    where CAST(u.UpdateId AS VARCHAR(36)) = '$updateid'"
+                if ($links.Link) {
+                    # no idea why it's suddenly requring this
+                    Add-Member -InputObject $item -NotePropertyName Link -NotePropertyValue $links.Link -Force
                 }
+                $item
             }
-
-            # Get results from sqlite then add links
-            # If no matches, get results from WSUS
         }
-
+    }
+    process {
         try {
             Invoke-PSFCommand -ComputerName $ComputerName -Credential $Credential -ScriptBlock $scriptblock -ArgumentList @{ Pattern = $Pattern; UpdateId = $UpdateId } -ErrorAction Stop
         } catch {
