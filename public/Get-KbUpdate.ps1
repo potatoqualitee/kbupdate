@@ -106,16 +106,14 @@ function Get-KbUpdate {
         [switch]$Simple,
         [switch]$Latest,
         [ValidateSet("Wsus", "Web", "Database")]
-        [string[]]$Source = [scriptblock] {
-            if ($script:ConnectedWsus) {
-                "WSUS"
-            } else {
-                @("Web", "Database")
-            }
-        },
+        [string[]]$Source = @("Web", "Database"),
         [switch]$EnableException
     )
     begin {
+        if ($script:ConnectedWsus -and -not $PSBoundParameters.Source) {
+            $Source = "Wsus"
+        }
+
         function Get-KbItemFromDb {
             [CmdletBinding()]
             param($kb)
