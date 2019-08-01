@@ -15,12 +15,12 @@ function Search-Kb {
         [pscustomobject[]]$InputObject
     )
     process {
-        if (-not $OperatingSystem -and -not $Architecture -and -not $Product -and -not $Language -and -not $script:WsusServer) {
+        if (-not $OperatingSystem -and -not $Architecture -and -not $Product -and -not $Language -and -not $script:ConnectedWsus) {
             return $InputObject
         }
 
         foreach ($object in $InputObject) {
-            if (($script:WsusServer -or $script:ConnectedWsus) -and $Source -contains "WSUS") {
+            if ($script:ConnectedWsus -and $Source -contains "WSUS") {
                 if ($object.Id) {
                     $result = Get-PSWSUSUpdate -Update $object.Id | Select-Object -First 1
                 } else {

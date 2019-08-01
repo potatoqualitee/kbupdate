@@ -37,7 +37,7 @@ function Get-KbUpdate {
         Filters out any patches that have been superseded by other patches in the batch
 
     .PARAMETER Simple
-        A lil faster. Returns, at the very least: Title, Architecture, Language, Hotfix, UpdateId and Link
+        A lil faster. Returns, at the very least: Title, Architecture, Language, UpdateId and Link
 
     .PARAMETER Source
         Search source. By default, Database is searched first, then if no matches are found, it tries finding it on the web.
@@ -72,7 +72,7 @@ function Get-KbUpdate {
     .EXAMPLE
         PS C:\> Get-KbUpdate -Pattern KB4057119, 4057114 -Simple
 
-        A lil faster when using web as a source. Returns, at the very least: Title, Architecture, Language, Hotfix, UpdateId and Link
+        A lil faster when using web as a source. Returns, at the very least: Title, Architecture, Language, UpdateId and Link
 
     .EXAMPLE
         PS C:\> Get-KbUpdate -Pattern "KB2764916 Nederlands" -Simple
@@ -450,7 +450,7 @@ function Get-KbUpdate {
 
     }
     process {
-        if ($Source -contains "Wsus" -and -not $script:ConnectedWsus -and -not $script:WsusServer) {
+        if ($Source -contains "Wsus" -and -not $script:ConnectedWsus) {
             Stop-Function -Message "Please use Connect-KbWsusServer before selecting WSUS as a Source" -EnableException:$EnableException
             return
         }
@@ -527,7 +527,6 @@ function Get-KbUpdate {
         }
     }
     end {
-        if (Test-PSFFunctionInterrupt) { return }
         # I'm not super awesome with the pipeline, and am open to suggestions if this is not the best way
         if ($Latest -and $allkbs) {
             $allkbs | Select-Latest | Select-DefaultView -Property $properties
