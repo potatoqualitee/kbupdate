@@ -51,3 +51,8 @@ Get more help
 ```powershell
 Get-Help Get-KbUpdate -Detailed
 ```
+## Dependencies
+
+- kbupdate-library - a sqlite db
+- PSFramework - for PowerShell goodness
+- PSSQLite - to query the included db

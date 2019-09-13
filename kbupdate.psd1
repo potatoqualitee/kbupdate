@@ -7,7 +7,7 @@
 #
 @{
     # Version number of this module.
-    ModuleVersion     = '1.0.12'
+    ModuleVersion     = '1.1.3'
 
     # ID used to uniquely identify this module
     GUID              = 'f292e190-ed32-4232-b9f3-b50b42a5655f'
@@ -29,7 +29,10 @@
 
     # Modules that must be imported into the global environment prior to importing this module
     RequiredModules   = @(
-        @{ ModuleName = 'PSFramework'; ModuleVersion = '1.0.19' }
+        @{ ModuleName = 'PSFramework'; ModuleVersion = '1.0.19' },
+        @{ ModuleName = 'PSSQLite'; ModuleVersion = '1.0.3' },
+        @{ ModuleName = 'kbupdate-library'; ModuleVersion = '1.0.1' },
+        @{ ModuleName = 'PoshWSUS'; ModuleVersion = '2.3.1.6' }
     )
 
     # Script module or binary module file associated with this manifest.
@@ -37,7 +40,8 @@
 
     FunctionsToExport = @(
         'Get-KbUpdate',
-        'Save-KbUpdate'
+        'Save-KbUpdate',
+        'Connect-KbWsusServer'
     )
 
     PrivateData       = @{

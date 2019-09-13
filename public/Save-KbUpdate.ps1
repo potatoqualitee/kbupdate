@@ -30,6 +30,9 @@ function Save-KbUpdate {
     .PARAMETER Latest
         Filters out any patches that have been superseded by other patches in the batch
 
+    .PARAMETER Source
+        Search source. By default, Database is searched first, then if no matches are found, it tries finding it on the web.
+
     .PARAMETER InputObject
         Enables piping from Get-KbUpdate
 
@@ -91,6 +94,8 @@ function Save-KbUpdate {
         [pscustomobject[]]$InputObject,
         [switch]$Latest,
         [switch]$AllowClobber,
+        [ValidateSet("Wsus", "Web", "Database")]
+        [string[]]$Source = @("Web", "Database"),
         [switch]$Strict,
         [switch]$EnableException
     )
@@ -128,6 +133,7 @@ function Save-KbUpdate {
                 EnableException = $EnableException
                 Simple          = $Simple
                 Latest          = $Latest
+                Source          = $Source
             }
             $InputObject += Get-KbUpdate @params
         }
