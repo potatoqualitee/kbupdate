@@ -89,3 +89,6 @@ function Connect-KbWsusServer {
         }
     }
 }
+
+
+

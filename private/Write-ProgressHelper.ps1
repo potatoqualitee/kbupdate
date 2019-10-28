@@ -58,3 +58,6 @@ function Write-ProgressHelper {
         Write-Progress -Activity $Activity -Status $Message -PercentComplete $percentComplete
     }
 }
+
+
+
