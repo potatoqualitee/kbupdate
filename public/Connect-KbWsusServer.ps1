@@ -85,7 +85,7 @@ function Connect-KbWsusServer {
                 $script:ConnectedWsus
             }
         } catch {
-            Stop-Function -Message "Failure" -EnableException:$EnableException -ErrorRecord $_
+            Stop-PSFunction -Message "Failure" -EnableException:$EnableException -ErrorRecord $_
         }
     }
 }
