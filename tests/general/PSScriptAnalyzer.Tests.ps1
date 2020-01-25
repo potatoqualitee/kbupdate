@@ -37,3 +37,6 @@ Describe 'Invoking PSScriptAnalyzer against commandbase' {
 }
 
 $list | Out-Default
+
+
+
