@@ -122,7 +122,7 @@ function Get-KbUpdate {
                 $items = Invoke-SqliteQuery -DataSource $db  -Query "select *, NULL AS SupersededBy, NULL AS Supersedes, NULL AS Link from kb where UpdateId in (select UpdateId from kb where UpdateId = '$kb' or Title like '%$kb%' or Id like '%$kb%' or Description like '%$kb%' or MSRCNumber like '%$kb%')"
 
                 if (-not $items -and $Source -eq "Database") {
-                    Stop-PSFFunction -EnableException:$EnableException -Message "No results found for $kb"
+                    Stop-PSFFunction -EnableException:$EnableException -Message "No results found for $kb in the local database"
                 }
 
                 foreach ($item in $items) {
@@ -198,8 +198,8 @@ function Get-KbUpdate {
             Write-Progress -Activity "Searching catalog for $kb" -Id 1 -Completed
 
             $kbids = $results.InputFields |
-                Where-Object { $_.type -eq 'Button' -and $_.Value -eq 'Download' } |
-                Select-Object -ExpandProperty  ID
+            Where-Object { $_.type -eq 'Button' -and $_.Value -eq 'Download' } |
+            Select-Object -ExpandProperty  ID
 
             if (-not $kbids) {
                 try {
@@ -207,7 +207,7 @@ function Get-KbUpdate {
                     Stop-PSFFunction -EnableException:$EnableException -Message "Matches were found for $kb, but the results no longer exist in the catalog"
                     return
                 } catch {
-                    Stop-PSFFunction -EnableException:$EnableException -Message "No results found for $kb"
+                    Stop-PSFFunction -EnableException:$EnableException -Message "No results found for $kb at microsoft.com"
                     return
                 }
             }
@@ -215,8 +215,8 @@ function Get-KbUpdate {
             Write-PSFMessage -Level Verbose -Message "$kbids"
             # Thanks! https://keithga.wordpress.com/2017/05/21/new-tool-get-the-latest-windows-10-cumulative-updates/
             $resultlinks = $results.Links |
-                Where-Object ID -match '_link' |
-                Where-Object { $_.OuterHTML -match ( "(?=.*" + ( $Filter -join ")(?=.*" ) + ")" ) }
+            Where-Object ID -match '_link' |
+            Where-Object { $_.OuterHTML -match ( "(?=.*" + ( $Filter -join ")(?=.*" ) + ")" ) }
 
             # get the title too
             $guids = @()
