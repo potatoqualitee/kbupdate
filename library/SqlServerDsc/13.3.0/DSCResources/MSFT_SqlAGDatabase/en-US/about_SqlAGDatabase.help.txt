@@ -1,0 +1,51 @@
+SYNOPSIS
+    Adds or removes databases to the specified availability group.
+
+PARAMETER DatabaseName
+    The name of the database(s) to add to the availability group. This accepts wildcards.
+
+PARAMETER ServerName
+    Hostname of the SQL Server where the primary replica of the availability group lives. If the
+    availability group is not currently on this server, the resource will attempt to connect to the
+    server where the primary replica lives.
+
+PARAMETER InstanceName
+    Name of the SQL instance where the primary replica of the availability group lives. If the
+    availability group is not currently on this instance, the resource will attempt to connect to
+    the instance where the primary replica lives.
+
+PARAMETER AvailabilityGroupName
+    The name of the availability group in which to manage the database membership(s).
+
+PARAMETER BackupPath
+    The path used to seed the availability group replicas. This should be a path that is accessible
+    by all of the replicas.
+
+PARAMETER Ensure
+    Specifies the membership of the database(s) in the availability group. The options are:
+
+        - Present:  The defined database(s) are added to the availability group. All other
+                    databases that may be a member of the availability group are ignored.
+        - Absent:   The defined database(s) are removed from the availability group. All other
+                    databases that may be a member of the availability group are ignored.
+
+    The default is 'Present'.
+
+PARAMETER Force
+    When used with "Ensure = 'Present'" it ensures the specified database(s) are the only databases
+    that are a member of the specified Availability Group.
+
+    This parameter is ignored when 'Ensure' is 'Absent'.
+
+PARAMETER MatchDatabaseOwner
+    If set to $true, this ensures the database owner of the database on the primary replica is the
+    owner of the database on all secondary replicas. This requires the database owner is available
+    as a login on all replicas and that the PsDscRunAsCredential has impersonate any login, control
+    server, impersonate login, or control login permissions.
+
+    If set to $false, the owner of the database will be the PsDscRunAsCredential.
+
+    The default is '$false'.
+
+.PARAMETER ProcessOnlyOnActiveNode
+        Specifies that the resource will only determine if a change is needed if the target node is the active host of the SQL Server Instance.

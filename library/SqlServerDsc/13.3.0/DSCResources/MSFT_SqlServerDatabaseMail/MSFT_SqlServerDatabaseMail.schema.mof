@@ -1,0 +1,16 @@
+[ClassVersion("1.0.0.0"), FriendlyName("SqlServerDatabaseMail")]
+class MSFT_SqlServerDatabaseMail : OMI_BaseResource
+{
+    [Key, Description("The name of the Database Mail account.")] String AccountName;
+    [Key, Description("The name of the SQL instance to be configured.")] String InstanceName;
+    [Required, Description("The e-mail address from which mail will originate.")] String EmailAddress;
+    [Required, Description("The fully qualified domain name of the mail server name to which e-mail are sent.")] String MailServerName;
+    [Required, Description("The name of the Database Mail profile.")] String ProfileName;
+    [Write, Description("Specifies the desired state of the Database Mail. When set to 'Present', the Database Mail will be created. When set to 'Absent', the Database Mail will be removed. Default value is 'Present'."), ValueMap{"Present","Absent"}, Values{"Present","Absent"}] String Ensure;
+    [Write, Description("The hostname of the SQL Server to be configured. Defaults to $env:COMPUTERNAME.")] String ServerName;
+    [Write, Description("The display name of the originating email address. Default value is the same value assigned to the EmailAddress parameter.")] String DisplayName;
+    [Write, Description("The e-mail address to which the receiver of e-mails will reply to. Default value is the same e-mail address assigned to parameter EmailAddress.")] String ReplyToAddress;
+    [Write, Description("The description for the Database Mail profile and account.")] String Description;
+    [Write, Description("The logging level that the Database Mail will use. If not specified the default logging level is 'Extended'."), ValueMap{"Normal","Extended","Verbose"}, Values{"Normal","Extended","Verbose"}] String LoggingLevel;
+    [Write, Description("The TCP port used for communication. Default value is port 25.")] UInt16 TcpPort;
+};

@@ -1,0 +1,11 @@
+[ClassVersion("1.0.0.0"), FriendlyName("SqlServerMaxDop")]
+class MSFT_SqlServerMaxDop : OMI_BaseResource
+{
+    [Write, Description("When set to 'Present' then max degree of parallelism will be set to either the value in parameter MaxDop or dynamically configured when parameter DynamicAlloc is set to $true. When set to 'Absent' max degree of parallelism will be set to 0 which means no limit in number of processors used in parallel plan execution."), ValueMap{"Present","Absent"}, Values{"Present","Absent"}] String Ensure;
+    [Write, Description("If set to $true then max degree of parallelism will be dynamically configured. When this is set parameter is set to $true, the parameter MaxDop must be set to $null or not be configured.")] Boolean DynamicAlloc;
+    [Write, Description("A numeric value to limit the number of processors used in parallel plan execution.")] SInt32 MaxDop;
+    [Write, Description("The host name of the SQL Server to be configured. Default value is $env:COMPUTERNAME.")] String ServerName;
+    [Key, Description("The name of the SQL instance to be configured.")] String InstanceName;
+    [Write, Description("Specifies that the resource will only determine if a change is needed if the target node is the active host of the SQL Server instance.")] Boolean ProcessOnlyOnActiveNode;
+    [Read, Description("Determines if the current node is actively hosting the SQL Server instance.")] Boolean IsActiveNode;
+};

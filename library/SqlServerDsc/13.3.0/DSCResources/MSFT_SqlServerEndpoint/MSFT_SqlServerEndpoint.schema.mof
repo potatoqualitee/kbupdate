@@ -1,0 +1,11 @@
+[ClassVersion("1.0.0.0"), FriendlyName("SqlServerEndpoint")]
+class MSFT_SqlServerEndpoint : OMI_BaseResource
+{
+    [Key, Description("The name of the endpoint.")] String EndpointName;
+    [Write, Description("If the endpoint should be present or absent. Default values is 'Present'."), ValueMap{"Present","Absent"}, Values{"Present","Absent"}] String Ensure;
+    [Write, Description("The network port the endpoint is listening on. Default value is 5022.")] Uint16 Port;
+    [Write, Description("The host name of the SQL Server to be configured. Default value is $env:COMPUTERNAME.")] String ServerName;
+    [Key, Description("The name of the SQL instance to be configured.")] String InstanceName;
+    [Write, Description("The network IP address the endpoint is listening on. Default the endpoint will listen on any valid IP address.")] String IpAddress;
+    [Write, Description("The owner of the endpoint. Default is the login used for the creation.")] String Owner;
+};

@@ -1,0 +1,13 @@
+[ClassVersion("1.0.0.0"), FriendlyName("SqlDatabaseRole")]
+class MSFT_SqlDatabaseRole : OMI_BaseResource
+{
+    [Key, Description("The host name of the SQL Server to be configured.")] String ServerName;
+    [Key, Description("The name of the SQL instance to be configured.")] String InstanceName;
+    [Key, Description("The name of the database in which the role should be configured.")] String Database;
+    [Key, Description("The name of the database role to be added or removed.")] String Name;
+    [Write, Description("The members the database role should have. This parameter will replace all the current database role members with the specified members. Can only be used when parameter Ensure is set to 'Present'.")] String Members[];
+    [Write, Description("The members the database role should include. This parameter will only add members to a database role. Can only be used when parameter Ensure is set to 'Present'. Can not be used at the same time as parameter Members.")] String MembersToInclude[];
+    [Write, Description("The members the database role should exclude. This parameter will only remove members from a database role. Can only be used when parameter Ensure is set to 'Present'. Can not be used at the same time as parameter Members.")] String MembersToExclude[];
+    [Read, Description("Indicates whether the database role members are in the desired state.")] Boolean MembersInDesiredState;
+    [Write, Description("If 'Present' (the default value) then the role will be added to the database and the role membership will be set. If 'Absent' then the role will be removed from the database."), ValueMap{"Present","Absent"}, Values{"Present","Absent"}] String Ensure;
+};

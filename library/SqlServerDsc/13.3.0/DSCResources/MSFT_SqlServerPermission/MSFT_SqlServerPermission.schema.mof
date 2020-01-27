@@ -1,0 +1,9 @@
+[ClassVersion("1.0.0.0"), FriendlyName("SqlServerPermission")]
+class MSFT_SqlServerPermission : OMI_BaseResource
+{
+    [Key, Description("The name of the SQL instance to be configured.")] String InstanceName;
+    [Write, Description("The host name of the SQL Server to be configured. Default value is $env:COMPUTERNAME.")] String ServerName;
+    [Write, Description("If the permission should be present or absent. Default value is 'Present'."), ValueMap{"Present","Absent"}, Values{"Present","Absent"}] String Ensure;
+    [Key, Description("The login to which permission will be set.")] String Principal;
+    [Write, Description("The permission to set for the login. Valid values are ConnectSql, AlterAnyAvailabilityGroup, ViewServerState or AlterAnyEndPoint."), ValueMap{"ConnectSql","AlterAnyAvailabilityGroup","ViewServerState","AlterAnyEndPoint"}, Values{"ConnectSql","AlterAnyAvailabilityGroup","ViewServerState","AlterAnyEndPoint"}] String Permission[];
+};

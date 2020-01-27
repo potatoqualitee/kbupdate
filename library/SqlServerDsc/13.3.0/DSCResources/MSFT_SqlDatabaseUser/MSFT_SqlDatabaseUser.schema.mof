@@ -1,0 +1,16 @@
+[ClassVersion("1.0.0.0"), FriendlyName("SqlDatabaseUser")]
+class MSFT_SqlDatabaseUser : OMI_BaseResource
+{
+    [Key, Description("Specifies the name of the database user to be added or removed.")] String Name;
+    [Key, Description("Specifies the host name of the SQL Server on which the instance exist.")] String ServerName;
+    [Key, Description("Specifies the SQL instance in which the database exist.")] String InstanceName;
+    [Key, Description("Specifies the name of the database in which to configure the database user.")] String DatabaseName;
+    [Write, Description("Specifies the name of the SQL login to associate with the database user. This must be specified if parameter UserType is set to 'Login'.")] String LoginName;
+    [Write, Description("Specifies the name of the asymmetric key to associate with the database user. This must be specified if parameter UserType is set to 'AsymmetricKey'.")] String AsymmetricKeyName;
+    [Write, Description("Specifies the name of the certificate to associate with the database user. This must be specified if parameter UserType is set to 'Certificate'.")] String CertificateName;
+    [Write, Description("Specifies the type of the database user. Valid values are 'Login', 'NoLogin', 'Certificate', or 'AsymmetricKey'. Defaults to 'NoLogin'."), ValueMap{"Login", "NoLogin", "Certificate", "AsymmetricKey"}, Values{"Login", "NoLogin", "Certificate", "AsymmetricKey"}] String UserType;
+    [Write, Description("Specifies if the database user should be present or absent. If 'Present' then the database user will be added to the database and, if needed, the login mapping will be updated. If 'Absent' then the database user will be removed from the database. Defaults to 'Present'."), ValueMap{"Present", "Absent"}, Values{"Present", "Absent"}] String Ensure;
+    [Write, Description("Specifies if it is allowed to re-create the database user if either the user type, the asymmetric key, or the certificate changes. Defaults to $false not allowing database users to be re-created.")] Boolean Force;
+    [Read, Description("Returns the authentication type of the SQL login connected to the database user. This will return either 'Windows', 'Instance' or 'None'. The value 'Windows' means the SQL login is using Windows Authentication, 'Instance' means that the SQL login is using SQL authentication, and 'None' means that the database user have no SQL login connected to it.")] String AuthenticationType;
+    [Read, Description("Returns the login type of the SQL login connected to the database user. If no SQL login is connected to the database user this returns $null.")] String LoginType;
+};

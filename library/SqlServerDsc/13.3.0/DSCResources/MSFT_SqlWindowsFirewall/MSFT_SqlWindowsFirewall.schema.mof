@@ -1,0 +1,14 @@
+[ClassVersion("1.0.0.0"), FriendlyName("SqlWindowsFirewall")]
+class MSFT_SqlWindowsFirewall : OMI_BaseResource
+{
+    [Write, Description("An enumerated value that describes if the SQL firewall rules are is expected to be enabled on the machine.\nPresent {default}  \nAbsent   \n"), ValueMap{"Present","Absent"}, Values{"Present","Absent"}] String Ensure;
+    [Write, Description("UNC path to the root of the source files for installation.")] String SourcePath;
+    [Key, Description("SQL features to enable firewall rules for.")] String Features;
+    [Key, Description("SQL instance to enable firewall rules for.")] String InstanceName;
+    [Read, Description("Is the firewall rule for the Database Engine enabled?")] Boolean DatabaseEngineFirewall;
+    [Read, Description("Is the firewall rule for the Browser enabled?")] Boolean BrowserFirewall;
+    [Read, Description("Is the firewall rule for Reporting Services enabled?")] Boolean ReportingServicesFirewall;
+    [Read, Description("Is the firewall rule for Analysis Services enabled?")] Boolean AnalysisServicesFirewall;
+    [Read, Description("Is the firewall rule for the Integration Services enabled?")] Boolean IntegrationServicesFirewall;
+    [Write, EmbeddedInstance("MSFT_Credential"), Description("Credentials used to access the path set in the parameter 'SourcePath'.")] String SourceCredential;
+ };

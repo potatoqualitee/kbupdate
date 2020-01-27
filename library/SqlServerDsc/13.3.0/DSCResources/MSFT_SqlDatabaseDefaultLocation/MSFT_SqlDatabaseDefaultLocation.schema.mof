@@ -1,0 +1,11 @@
+[ClassVersion("1.0.0.0"), FriendlyName("SqlDatabaseDefaultLocation")]
+class MSFT_SqlDatabaseDefaultLocation : OMI_BaseResource
+{
+    [Key, Description("The host name of the SQL Server to be configured.")] String ServerName;
+    [Key, Description("The name of the SQL instance to be configured.")] String InstanceName;
+    [Key, Description("The type of database default location to be configured. { Data | Log | Backup }"), ValueMap{"Data","Log","Backup"}, Values{"Data","Log","Backup"}] String Type;
+    [Required, Description("The path to the default directory to be configured.")] String Path;
+    [Write, Description("If set to $true then SQL Server and dependent services will be restarted if a change to the default location is made.  The defaul value is $false.")] Boolean RestartService;
+    [Write, Description("Specifies that the resource will only determine if a change is needed if the target node is the active host of the SQL Server Instance.")] Boolean ProcessOnlyOnActiveNode;
+    [Read, Description("Determines if the current node is actively hosting the SQL Server instance.")] Boolean IsActiveNode;
+};

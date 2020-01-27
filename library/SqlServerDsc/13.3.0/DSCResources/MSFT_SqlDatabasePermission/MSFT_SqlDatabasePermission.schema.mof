@@ -1,0 +1,11 @@
+[ClassVersion("1.0.0.0"), FriendlyName("SqlDatabasePermission")]
+class MSFT_SqlDatabasePermission : OMI_BaseResource
+{
+    [Write, Description("If the values should be present or absent. Valid values are 'Present' or 'Absent'."), ValueMap{"Present","Absent"}, Values{"Present","Absent"}] String Ensure;
+    [Key, Description("The name of the database.")] String Database;
+    [Key, Description("The name of the user that should be granted or denied the permission.")] String Name;
+    [Key, Description("The state of the permission. Valid values are 'Grant' or 'Deny'."), ValueMap{"Grant","Deny","GrantWithGrant"}, Values{"Grant","Deny","GrantWithGrant"}] String PermissionState;
+    [Required, Description("The set of permissions for the SQL database.")] String Permissions[];
+    [Key, Description("The host name of the SQL Server to be configured.")] String ServerName;
+    [Key, Description("The name of the SQL instance to be configured.")] String InstanceName;
+};

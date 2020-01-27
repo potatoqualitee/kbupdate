@@ -1,0 +1,9 @@
+[ClassVersion("1.0.0.0"), FriendlyName("SqlAlwaysOnService")]
+class MSFT_SqlAlwaysOnService : OMI_BaseResource
+{
+    [Required, Description("An enumerated value that describes if the SQL Server should have Always On high availability and disaster recovery (HADR) property enabled ('Present') or disabled ('Absent')."), ValueMap{"Present","Absent"}, Values{"Present","Absent"}] String Ensure;
+    [Key, Description("The hostname of the SQL Server to be configured.")] String ServerName;
+    [Key, Description("The name of the SQL instance to be configured.")] String InstanceName;
+    [Write, Description("The length of time, in seconds, to wait for the service to restart. Default is 120 seconds.")] UInt32 RestartTimeout;
+    [Read, Description("Returns the status of AlwaysOn high availability and disaster recovery (HADR).")] Boolean IsHadrEnabled;
+};

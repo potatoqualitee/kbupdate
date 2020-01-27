@@ -1,0 +1,11 @@
+[ClassVersion("1.0.0.0"), FriendlyName("SqlServerRole")]
+class MSFT_SqlServerRole : OMI_BaseResource
+{
+    [Key, Description("The name of of SQL role to add or remove.")] String ServerRoleName;
+    [Key, Description("The host name of the SQL Server to be configured.")] String ServerName;
+    [Key, Description("The name of the SQL instance to be configured.")] String InstanceName;
+    [Write, Description("An enumerated value that describes if the server role is added (Present) or dropped (Absent). Default value is 'Present'."), ValueMap{"Present","Absent"}, Values{"Present","Absent"}] String Ensure;
+    [Write, Description("The members the server role should have. This parameter will replace all the current server role members with the specified members.")] String Members[];
+    [Write, Description("The members the server role should include. This parameter will only add members to a server role. Can not be used at the same time as parameter Members.")] String MembersToInclude[];
+    [Write, Description("The members the server role should exclude. This parameter will only remove members from a server role. Can only be used when parameter Ensure is set to 'Present'. Can not be used at the same time as parameter Members.")] String MembersToExclude[];
+};

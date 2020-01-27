@@ -1,0 +1,16 @@
+[ClassVersion("1.0.0.0"), FriendlyName("SqlServerLogin")]
+class MSFT_SqlServerLogin : OMI_BaseResource
+{
+    [Write, Description("The specified login is Present or Absent. Default is Present."), ValueMap{"Present","Absent"}, Values{"Present","Absent"}] String Ensure;
+    [Key, Description("The name of the login.")] String Name;
+    [Write, Description("The type of login to be created. If LoginType is 'WindowsUser' or 'WindowsGroup' then provide the name in the format DOMAIN\name. Default is WindowsUser. Unsupported login types are Certificate, AsymmetricKey, ExternalUser, and ExternalGroup."),
+        ValueMap{"WindowsUser","WindowsGroup","SqlLogin","Certificate","AsymmetricKey","ExternalUser","ExternalGroup"},
+        Values{"WindowsUser","WindowsGroup","SqlLogin","Certificate","AsymmetricKey","ExternalUser","ExternalGroup"}] String LoginType;
+    [Key, Description("The hostname of the SQL Server to be configured.")] String ServerName;
+    [Key, Description("Name of the SQL instance to be configured.")] String InstanceName;
+    [Write, EmbeddedInstance("MSFT_Credential"), Description("If LoginType is 'SqlLogin' then a PSCredential is needed for the password to the login.")] String LoginCredential;
+    [Write, Description("Specifies if the login is required to have its password change on the next login. Only applies to SQL Logins. Default is $true.")] Boolean LoginMustChangePassword;
+    [Write, Description("Specifies if the login password is required to expire in accordance to the operating system security policy. Only applies to SQL Logins. Default is $true.")] Boolean LoginPasswordExpirationEnabled;
+    [Write, Description("Specifies if the login password is required to conform to the password policy specified in the system security policy. Only applies to SQL Logins. Default is $true.")] Boolean LoginPasswordPolicyEnforced;
+    [Write, Description("Specifies if the login is disabled. Default is $false.")] Boolean Disabled;
+};

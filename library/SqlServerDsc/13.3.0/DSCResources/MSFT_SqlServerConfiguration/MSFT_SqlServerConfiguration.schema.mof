@@ -1,0 +1,10 @@
+[ClassVersion("1.0.0.0"), FriendlyName("SqlServerConfiguration")]
+class MSFT_SqlServerConfiguration : OMI_BaseResource
+{
+    [Key, Description("The hostname of the SQL Server to be configured.")] String ServerName;
+    [Key, Description("Name of the SQL instance to be configured.")] String InstanceName;
+    [Key, Description("The name of the SQL configuration option to be checked.")] String OptionName;
+    [Required, Description("The desired value of the SQL configuration option.")] SInt32 OptionValue;
+    [Write, Description("Determines whether the instance should be restarted after updating the configuration option.")] Boolean RestartService;
+    [Write, Description("The length of time, in seconds, to wait for the service to restart. Default is 120 seconds.")] UInt32 RestartTimeout;
+};

@@ -1,0 +1,8 @@
+[ClassVersion("1.0.0.0"), FriendlyName("SqlServerEndpointState")]
+class MSFT_SqlServerEndpointState : OMI_BaseResource
+{
+    [Key, Description("The name of the SQL instance to be configured.")] String InstanceName;
+    [Write, Description("The host name of the SQL Server to be configured. Default value is $env:COMPUTERNAME.")] String ServerName;
+    [Key, Description("The name of the endpoint.")] String Name;
+    [Write, Description("The state of the endpoint. Valid states are Started, Stopped or Disabled. Default value is 'Started'."), ValueMap{"Started","Stopped","Disabled"}, Values{"Started","Stopped","Disabled"}] String State;
+};
