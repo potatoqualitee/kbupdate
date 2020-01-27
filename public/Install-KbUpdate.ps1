@@ -53,13 +53,13 @@ function Install-KbUpdate {
         [string[]]$ComputerName = $env:ComputerName,
         [PSCredential]$Credential,
         [PSCredential]$PSDscRunAsCredential,
+        [Parameter(ValueFromPipelineByPropertyName)]
+        [Alias("Id")]
         [string]$HotfixId,
         [string]$FilePath,
         [Parameter(ValueFromPipelineByPropertyName)]
         [Alias("UpdateId")]
         [string]$Guid,
-        [ValidateSet("General", "SQL")]
-        [string]$Type = "General",
         [Parameter(ValueFromPipelineByPropertyName)]
         [string]$Title,
         [switch]$NoDelete,
@@ -68,28 +68,30 @@ function Install-KbUpdate {
         [switch]$Force,
         [switch]$EnableException
     )
-    begin {
-        if (-not $HotfixId.ToUpper().StartsWith("KB") -and $PSBoundParameters.HotfixId) {
-            $HotfixId = "KB$HotfixId"
-        }
-    }
     process {
         if (-not $PSBoundParameters.HotfixId -and -not $PSBoundParameters.FilePath -and -not $PSBoundParameters.InputObject) {
             Stop-Function -EnableException:$EnableException -Message "You must specify either HotfixId or FilePath or pipe in the results from Get-KbUpdate"
             return
         }
 
+        # moved this from begin because it can be piped in which can only be seen in process
+        if (-not $HotfixId.ToUpper().StartsWith("KB") -and $PSBoundParameters.HotfixId) {
+            $HotfixId = "KB$HotfixId"
+        }
+
         foreach ($computer in $ComputerName) {
             #null out a couple things to be safe
             $remoteexists = $remotehome = $remotesession = $null
+
             if ($HotFixId) {
                 $exists = Invoke-PSFCommand -ComputerName $computer -Credential $Credential -ArgumentList $HotfixId -ScriptBlock {
-                    Get-HotFix -Id $args -ErrorAction SilentlyContinue
+                    # props https://blog.dbi-services.com/sql-server-change-management-list-all-updates/
+                    # all other methods are incomplete, boo
+                    Get-ChildItem -Path HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall -ErrorAction SilentlyContinue | Get-ItemProperty -ErrorAction SilentlyContinue | Where-Object DisplayName -match $args
                 }
-            }
-
-            if ($exists) {
-                Stop-Function -EnableException:$EnableException -Message "$hotfixid is already installed on $computer" -Continue
+                if ($exists) {
+                    Stop-Function -EnableException:$EnableException -Message "$hotfixid is already installed on $computer" -Continue
+                }
             }
 
             # a lot of the file copy work will be done in the remote $home dir
@@ -101,15 +103,10 @@ function Install-KbUpdate {
             }
 
             # Copy every time even if remote computer has xWindowsUpdate because this version has Jess' fix
+            $oldpref = $ProgressPreference
+            $ProgressPreference = 'SilentlyContinue'
             $null = Copy-Item -Path "$script:ModuleRoot\library\xWindowsUpdate" -Destination "$remotehome\kbupdatetemp\xWindowsUpdate" -ToSession $remotesession -Recurse -Force
-
-            # Give them SqlServerDsc if they need it
-            $sqldscexists = Invoke-PSFCommand -ComputerName $computer -Credential $Credential -ArgumentList $HotfixId -ScriptBlock {
-                Get-Module -Listavailable -Name SqlServerDsc
-            }
-            if (-not $sqldscexists -and $Type -eq "SQL") {
-                #$null = Copy-Item -Path "$script:ModuleRoot\library\sqlserverdsc" -Destination "$remotehome\kbupdatetemp\sqlserverdsc" -ToSession $remotesession -Recurse -Force
-            }
+            $ProgressPreference = $oldpref
 
             if ($PSBoundParameters.FilePath) {
                 $remoteexists = Invoke-PSFCommand -ComputerName $computer -Credential $Credential -ArgumentList $FilePath -ScriptBlock { Get-ChildItem -Path $args -ErrorAction SilentlyContinue }
@@ -152,7 +149,6 @@ function Install-KbUpdate {
 
             # if user doesnt add kb, try to find it for them from the provided filename
             if (-not $PSBoundParameters.HotfixId) {
-                #windows10.0-kb4516115-x64
                 $HotfixId = $FilePath.ToUpper() -split "\-" | Where-Object { $psitem.Startswith("KB") }
                 if (-not $HotfixId) {
                     Stop-Function -EnableException:$EnableException -Message "Could not determine KB from $FilePath. Looked for '-kbnumber-'. Please provide a HotfixId."
@@ -160,8 +156,14 @@ function Install-KbUpdate {
                 }
             }
 
-            switch ($Type) {
-                "General" {
+            if ($FilePath.EndsWith("exe")) {
+                $type = "exe"
+            } else {
+                $type = "msu"
+            }
+
+            switch ($type) {
+                "msu" {
                     if ($PSDscRunAsCredential) {
                         $hotfix = @{
                             Name       = 'xHotFix'
@@ -185,14 +187,14 @@ function Install-KbUpdate {
                         }
                     }
                 }
-                "SQL" {
+                "exe" {
                     $hotfix = @{
                         Name       = 'Package'
                         ModuleName = 'PSDesiredStateConfiguration'
                         Property   = @{
                             Ensure     = 'Present'
-                            Name       = $Title
                             ProductId  = $Guid
+                            Name       = $Title
                             Path       = $FilePath
                             Arguments  = "/action=patch /AllInstances /quiet /IAcceptSQLServerLicenseTerms"
                             ReturnCode = 0, 3010
@@ -224,18 +226,34 @@ function Install-KbUpdate {
                                 Invoke-DscResource @hotfix -Method Set -ErrorAction Stop
                             }
                         } catch {
-                            # sometimes there's a "Serialized XML" issue that can be ignored because
-                            # the patch installs successfully anyway. so throw only if there's a real issue
-                            # Serialized XML is nested too deeply. Line 1, position 3507.
-                            if ("$_" -match "Serialized XML is nested too deeply") {
-                                continue
-                            } elseif ("$_" -match "2042429437") {
-                                throw "The return code -2042429437 was not expected. Configuration is likely not correct. The requested features may not be installed or features are already at a higher patch level."
-                            } else {
-                                throw
+                            switch ($message = "$_") {
+                                # sometimes there's a "Serialized XML" issue that can be ignored because
+                                # the patch installs successfully anyway. so throw only if there's a real issue
+                                # Serialized XML is nested too deeply. Line 1, position 3507."
+                                { $message -match "Serialized XML is nested too deeply" -or $message -match "Name does not match package details" } {
+                                    # nothing
+                                }
+                                { $message -match "2042429437" } {
+                                    throw "The return code -2042429437 was not expected. Configuration is likely not correct. The requested features may not be installed or features are already at a higher patch level."
+                                }
+                                { $message -match "2067919934" } {
+                                    throw "The return code -2067919934 was not expected. You likely need to reboot $env:ComputerName."
+                                }
+                                default {
+                                    Remove-Module xWindowsUpdate -ErrorAction SilentlyContinue
+                                    if (-not $NoDelete -and -not $ManualFileName) {
+                                        Remove-Item -Recurse -Force -ErrorAction SilentlyContinue -Path "$home\kbupdatetemp"
+                                    }
+                                    throw
+                                }
                             }
                         }
-                        Remove-Module SqlServerDsc -ErrorAction SilentlyContinue
+
+                        [pscustomobject]@{
+                            ComputerName = $env:ComputerName
+                            HotfixID     = $hotfix.property.id
+                            Status       = "Success"
+                        }
                         Remove-Module xWindowsUpdate -ErrorAction SilentlyContinue
                         if (-not $NoDelete -and -not $ManualFileName) {
                             Remove-Item -Recurse -Force -ErrorAction SilentlyContinue -Path "$home\kbupdatetemp"
