@@ -80,17 +80,15 @@ function Install-KbUpdate {
             # a lot of the file copy work will be done in the remote $home dir
             $remotehome = Invoke-PSFCommand -ComputerName $computer -Credential $Credential -ScriptBlock { $home }
 
-            $sqldscexists = Invoke-PSFCommand -ComputerName $computer -Credential $Credential -ArgumentList $HotfixId -ScriptBlock {
-                Get-Module -Listavailable -Name SqlServerDsc
-            }
-
-
             # Copy every time even if remote computer has xWindowsUpdate because this version has Jess' fix
             $null = Copy-Item -Path "$script:ModuleRoot\library\xWindowsUpdate" -Destination "$remotehome\kbupdatetemp\xWindowsUpdate" -ToSession $remotesession -Recurse -Force
 
-            if (-not $sqldscexists) {
+            # Give them SqlServerDsc if they need it
+            $sqldscexists = Invoke-PSFCommand -ComputerName $computer -Credential $Credential -ArgumentList $HotfixId -ScriptBlock {
+                Get-Module -Listavailable -Name SqlServerDsc
+            }
+            if (-not $sqldscexists -and $Type -eq "SQL") {
                 $null = Copy-Item -Path "$script:ModuleRoot\library\sqlserverdsc" -Destination "$remotehome\kbupdatetemp\sqlserverdsc" -ToSession $remotesession -Recurse -Force
-
             }
 
             if ($PSBoundParameters.FilePath) {
@@ -169,12 +167,13 @@ function Install-KbUpdate {
                             Invoke-DscResource @hotfix -Method Set -Verbose
                         }
                     } catch {
-                        # sometimes there's a "Serialized XML" issue that can be ignored becuase
+                        # sometimes there's a "Serialized XML" issue that can be ignored because
                         # the patch installs successfully anyway. so throw only if there's a real issue
                         if ($_.Exception.Message -notmatch "Serialized XML is nested too deeply") {
                             throw
                         }
                     }
+                    Remove-Module SqlServerDsc -ErrorAction SilentlyContinue
                     Remove-Module xWindowsUpdate -ErrorAction SilentlyContinue
                     Remove-Item -Recurse -Force -ErrorAction SilentlyContinue -Path "$home\kbupdatetemp"
                 } -ArgumentList $hotfix, $PSBoundParameters.Verbose
