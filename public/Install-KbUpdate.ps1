@@ -150,6 +150,7 @@ function Install-KbUpdate {
                 }
             }
 
+            ## could also use xPendingReboot to look for pending reboots and handle?
             if ($PSCmdlet.ShouldProcess($computer, "Installing Hotfix $HotfixId from $FilePath")) {
                 Invoke-PSFCommand -ComputerName $computer -Credential $Credential -ScriptBlock {
                     param (
@@ -169,6 +170,7 @@ function Install-KbUpdate {
                     } catch {
                         # sometimes there's a "Serialized XML" issue that can be ignored because
                         # the patch installs successfully anyway. so throw only if there's a real issue
+                        # Serialized XML is nested too deeply. Line 1, position 3507.
                         if ($_.Exception.Message -notmatch "Serialized XML is nested too deeply") {
                             throw
                         }
@@ -185,15 +187,3 @@ function Install-KbUpdate {
         }
     }
 }
-
-## could also use xPendingReboot to look for pending reboots and handle?
-
-<#
-Error - installs the hotfix successfully then :
-
-Serialized XML is nested too deeply. Line 1, position 3507.
-    + CategoryInfo          : OperationStopped: (dscsvr2:String) [], PSRemotingTransportException
-    + FullyQualifiedErrorId : JobFailure
-    + PSComputerName        : dscsvr2
-
-#>
