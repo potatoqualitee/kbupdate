@@ -101,12 +101,11 @@ function Uninstall-KbUpdate {
                 if ($update.ProviderName -eq "Programs") {
                     $path = $update.UninstallString -match '^(".+") (/.+) (/.+)'
                     $program = $matches[1]
-                    $argumentlist = "$($matches[2, 3, 4, 5, 6, 7])".Trim()
                     if (-not $path) {
                         $program = Split-Path $update.UninstallString
-                        if (-not $PSBoundParameters.ArgumentList) {
-                            $ArgumentList = $update.UninstallString.Replace($program, "")
-                        }
+                    }
+                    if (-not $PSBoundParameters.ArgumentList) {
+                        $ArgumentList = $update.UninstallString.Replace($program, "")
                     }
                 }
 
@@ -114,7 +113,7 @@ function Uninstall-KbUpdate {
                     $ArgumentList = "$ArgumentList /quiet"
                 }
 
-                # I tried to get this working using DSC but in end end, Start-Process was it
+                # I tried to get this working using DSC but in end end, a Start-Process equivalent was it
                 if ($PSCmdlet.ShouldProcess($computer, "Uninstalling Hotfix $hotfix by executing $program $ArgumentList")) {
                     try {
                         Invoke-PSFCommand -ComputerName $computer -Credential $Credential -ScriptBlock {
