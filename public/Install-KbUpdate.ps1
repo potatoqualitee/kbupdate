@@ -33,7 +33,6 @@ function Install-KbUpdate {
         Using this switch turns this "nice by default" feature off and enables you to catch exceptions with your own try/catch.
 
     .NOTES
-        Tags: Update
         Author: Jess Pomfret (@jpomfret)
         Copyright: (c) licensed under MIT
         License: MIT https://opensource.org/licenses/MIT
@@ -248,7 +247,16 @@ function Install-KbUpdate {
                                 }
                             }
                         }
-
+                        <#
+                        ComputerName : SQL2017
+                        HotfixID     : KB4498951
+                        Results      : SQL Server 2017 transmits information about your installation experience, as well as other usage and performance data, to
+                                    Microsoft to help improve the product. To learn more about SQL Server 2017 data processing and privacy controls, please see the
+                                    Privacy Statement.
+                                    Microsoft (R) SQL Server 2017 14.00.3162.01
+                                    Copyright (c) 2017 Microsoft.  All rights reserved.
+                        ExitCode     : 0
+                        #>
                         [pscustomobject]@{
                             ComputerName = $env:ComputerName
                             HotfixID     = $hotfix.property.id
