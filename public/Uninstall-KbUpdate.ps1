@@ -97,10 +97,16 @@ function Uninstall-KbUpdate {
                 if (-not $update.UninstallString) {
                     Stop-Function -Message "Uninstall string cannot be found, skipping $($update.Name) on $computername" -Continue -EnableException:$EnableException
                 }
+
                 if ($update.ProviderName -eq "Programs") {
-                    $program = Split-Path $update.UninstallString
-                    if (-not $PSBoundParameters.ArgumentList) {
-                        $ArgumentList = $update.UninstallString.Replace($program, "")
+                    $path = $update.UninstallString -match '^(".+") (/.+) (/.+)'
+                    $program = $matches[1]
+                    $argumentlist = "$($matches[2, 3, 4, 5, 6, 7])".Trim()
+                    if (-not $path) {
+                        $program = Split-Path $update.UninstallString
+                        if (-not $PSBoundParameters.ArgumentList) {
+                            $ArgumentList = $update.UninstallString.Replace($program, "")
+                        }
                     }
                 }
 

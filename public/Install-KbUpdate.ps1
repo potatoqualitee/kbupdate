@@ -43,7 +43,7 @@ function Install-KbUpdate {
         Installs KB4534273 from the C:\temp directory on sql2017
 
     .EXAMPLE
-        PS C:\> Get-KbUpdate -Pattern 4498951 | Install-KbUpdate -Type SQL -ComputerName sql2017
+        PS C:\> Get-KbUpdate -Pattern 4498951 | Install-KbUpdate -ComputerName sql2017 -NoDelete -FilePath \\dc\sql\sqlserver2017-kb4498951-x64_b143d28a48204eb6ebab62394ce45df53d73f286.exe
 
         Installs KB4534273 from the C:\temp directory on sql2017
 #>
@@ -79,16 +79,11 @@ function Install-KbUpdate {
         }
 
         foreach ($computer in $ComputerName) {
-            #null out a couple things to be safe
+            # null out a couple things to be safe
             $remoteexists = $remotehome = $remotesession = $null
 
             if ($HotFixId) {
-                $exists = Invoke-PSFCommand -ComputerName $computer -Credential $Credential -ArgumentList $HotfixId -ScriptBlock {
-                    # props https://blog.dbi-services.com/sql-server-change-management-list-all-updates/
-                    # all other methods are incomplete, boo
-                    Get-ChildItem -Path HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall -ErrorAction SilentlyContinue | Get-ItemProperty -ErrorAction SilentlyContinue | Where-Object DisplayName -match $args
-                }
-                if ($exists) {
+                if (Get-KbInstalledUpdate -ComputerName $computer -Credential $Credential -Pattern $HotFixId) {
                     Stop-Function -EnableException:$EnableException -Message "$hotfixid is already installed on $computer" -Continue
                 }
             }
@@ -137,7 +132,7 @@ function Install-KbUpdate {
                     try {
                         $null = Copy-Item -Path $updatefile -Destination $FilePath -ToSession $remotesession -ErrrorAction Stop
                     } catch {
-                        $exists = Invoke-PSFCommand -ComputerName $computer -Credential $Credential -ArgumentList $FilePath -ScriptBlock {
+                        $null = Invoke-PSFCommand -ComputerName $computer -Credential $Credential -ArgumentList $FilePath -ScriptBlock {
                             Remove-Item $args -Force -ErrorAction SilentlyContinue
                         }
                     }
@@ -195,7 +190,7 @@ function Install-KbUpdate {
                             ProductId  = $Guid
                             Name       = $Title
                             Path       = $FilePath
-                            Arguments  = "/action=patch /AllInstances /quiet /IAcceptSQLServerLicenseTerms"
+                            Arguments  = $ArgumentList
                             ReturnCode = 0, 3010
                         }
                     }
@@ -225,10 +220,12 @@ function Install-KbUpdate {
                                 Invoke-DscResource @hotfix -Method Set -ErrorAction Stop
                             }
                         } catch {
+                            Remove-Module xWindowsUpdate -ErrorAction SilentlyContinue
+                            if (-not $NoDelete -and -not $ManualFileName) {
+                                Remove-Item -Recurse -Force -ErrorAction SilentlyContinue -Path "$home\kbupdatetemp"
+                            }
                             switch ($message = "$_") {
-                                # sometimes there's a "Serialized XML" issue that can be ignored because
-                                # the patch installs successfully anyway. so throw only if there's a real issue
-                                # Serialized XML is nested too deeply. Line 1, position 3507."
+                                # some things can be ignored
                                 { $message -match "Serialized XML is nested too deeply" -or $message -match "Name does not match package details" } {
                                     # nothing
                                 }
@@ -239,10 +236,7 @@ function Install-KbUpdate {
                                     throw "The return code -2067919934 was not expected. You likely need to reboot $env:ComputerName."
                                 }
                                 default {
-                                    Remove-Module xWindowsUpdate -ErrorAction SilentlyContinue
-                                    if (-not $NoDelete -and -not $ManualFileName) {
-                                        Remove-Item -Recurse -Force -ErrorAction SilentlyContinue -Path "$home\kbupdatetemp"
-                                    }
+
                                     throw
                                 }
                             }
