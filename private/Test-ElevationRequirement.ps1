@@ -23,7 +23,7 @@ function Test-ElevationRequirement {
             When using the native capability to terminate on fail, this will call continue in EnableException mode.
 
         .PARAMETER NoStop
-            Does not call stop-function when the test fails, rather only returns $false instead
+            Does not call Stop-PSFFunction when the test fails, rather only returns $false instead
 
         .PARAMETER EnableException
             By default, when something goes wrong we try to catch it, interpret it and give you a friendly warning message.
@@ -77,7 +77,7 @@ function Test-ElevationRequirement {
         if (Test-Bound "ContinueLabel") { $splatStopFunction["ContinueLabel"] = $ContinueLabel }
         if (Test-Bound "SilentlyContinue") { $splatStopFunction["SilentlyContinue"] = $SilentlyContinue }
 
-        . Stop-Function @splatStopFunction -FunctionName (Get-PSCallStack)[1].Command
+        . Stop-PSFFunction @splatStopFunction -FunctionName (Get-PSCallStack)[1].Command
         return $testResult
     }
 }

@@ -467,7 +467,7 @@ function Get-KbUpdate {
     }
     process {
         if ($Source -contains "Wsus" -and -not $script:ConnectedWsus) {
-            Stop-Function -Message "Please use Connect-KbWsusServer before selecting WSUS as a Source" -EnableException:$EnableException
+            Stop-PSFFunction -Message "Please use Connect-KbWsusServer before selecting WSUS as a Source" -EnableException:$EnableException
             return
         }
 

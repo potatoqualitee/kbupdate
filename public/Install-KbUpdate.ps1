@@ -70,7 +70,7 @@ function Install-KbUpdate {
     )
     process {
         if (-not $PSBoundParameters.HotfixId -and -not $PSBoundParameters.FilePath -and -not $PSBoundParameters.InputObject) {
-            Stop-Function -EnableException:$EnableException -Message "You must specify either HotfixId or FilePath or pipe in the results from Get-KbUpdate"
+            Stop-PSFFunction -EnableException:$EnableException -Message "You must specify either HotfixId or FilePath or pipe in the results from Get-KbUpdate"
             return
         }
 
@@ -84,7 +84,7 @@ function Install-KbUpdate {
 
             if ($HotFixId) {
                 if (Get-KbInstalledUpdate -ComputerName $computer -Credential $Credential -Pattern $HotFixId) {
-                    Stop-Function -EnableException:$EnableException -Message "$HotFixId is already installed on $computer" -Continue
+                    Stop-PSFFunction -EnableException:$EnableException -Message "$HotFixId is already installed on $computer" -Continue
                 }
             }
 
@@ -97,7 +97,7 @@ function Install-KbUpdate {
             $remotesession = Get-PSSession -ComputerName $computer | Where-Object { $PsItem.Availability -eq 'Available' -and $PsItem.Name -match 'WinRM' } | Select-Object -First 1
 
             if (-not $remotesession) {
-                Stop-Function -EnableException:$EnableException -Message "Session for $computer can't be found or no runspaces are available. Please file an issue on the GitHub repo at https://github.com/potatoqualitee/kbupdate/issues" -Continue
+                Stop-PSFFunction -EnableException:$EnableException -Message "Session for $computer can't be found or no runspaces are available. Please file an issue on the GitHub repo at https://github.com/potatoqualitee/kbupdate/issues" -Continue
             }
 
             if (-not $hasxhotfix) {
@@ -113,7 +113,7 @@ function Install-KbUpdate {
                     $null = Invoke-PSFCommand -ComputerName $computer -Credential $Credential -ArgumentList "$remotehome\kbupdatetemp" -ScriptBlock {
                         Remove-Item $args -Force -ErrorAction SilentlyContinue -Recurse
                     }
-                    Stop-Function -EnableException:$EnableException -Message "Couldn't auto-install xHotfix on $computer. Please Install-Module xWindowsUpdate on $computer to continue." -Continue
+                    Stop-PSFFunction -EnableException:$EnableException -Message "Couldn't auto-install xHotfix on $computer. Please Install-Module xWindowsUpdate on $computer to continue." -Continue
                 }
             }
 
@@ -152,7 +152,7 @@ function Install-KbUpdate {
                         }
                     }
                 } else {
-                    Stop-Function -EnableException:$EnableException -Message "Could not find $HotfixId and no file was specified" -Continue
+                    Stop-PSFFunction -EnableException:$EnableException -Message "Could not find $HotfixId and no file was specified" -Continue
                 }
             }
 
@@ -160,7 +160,7 @@ function Install-KbUpdate {
             if (-not $PSBoundParameters.HotfixId) {
                 $HotfixId = $FilePath.ToUpper() -split "\-" | Where-Object { $psitem.Startswith("KB") }
                 if (-not $HotfixId) {
-                    Stop-Function -EnableException:$EnableException -Message "Could not determine KB from $FilePath. Looked for '-kbnumber-'. Please provide a HotfixId."
+                    Stop-PSFFunction -EnableException:$EnableException -Message "Could not determine KB from $FilePath. Looked for '-kbnumber-'. Please provide a HotfixId."
                     return
                 }
             }
@@ -223,6 +223,7 @@ function Install-KbUpdate {
                             $ManualFileName
                         )
                         $PSDefaultParameterValues['*:ErrorAction'] = 'SilentlyContinue'
+                        $env:PSModulePath = "$env:PSModulePath;$home\kbupdatetemp\"
                         if (-not (Get-Command Invoke-DscResource)) {
                             throw "Invoke-DscResource not found on $env:ComputerName"
                         }
@@ -235,7 +236,7 @@ function Install-KbUpdate {
                         Get-DscResource -Module xWindowsUpdate -Name xHotFix | Select-Object *
                         return
                         # Extract exes, cabs? exe = /extract
-                        Write-Verbose -Message ("Installing {0} from {1}" -f $hotfix.property.id, $hotfix.property.path)
+                        Write-Verbose -Message ("Installing { 0 } from { 1 }" -f $hotfix.property.id, $hotfix.property.path)
                         try {
                             if (-not (Invoke-DscResource @hotfix -Method Test)) {
                                 Invoke-DscResource @hotfix -Method Set -ErrorAction Stop
@@ -272,7 +273,7 @@ function Install-KbUpdate {
                         }
                     } -ArgumentList $hotfix, $VerbosePreference, $NoDelete, $PSBoundParameters.FileName -ErrorAction Stop
                 } catch {
-                    Stop-Function -Message "Failure on $computer" -ErrorRecord $_ -EnableException:$EnableException
+                    Stop-PSFFunction -Message "Failure on $computer" -ErrorRecord $_ -EnableException:$EnableException
                 }
             }
         }
