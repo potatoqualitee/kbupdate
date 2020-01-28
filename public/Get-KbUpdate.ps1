@@ -24,7 +24,7 @@ function Get-KbUpdate {
         Specify one or more operating systems. Tab complete to see what's available. If anything is missing, please file an issue.
 
     .PARAMETER ComputerName
-        Get the Operating System and architecture information automatically
+        Used to connect to a remote host - gets the Operating System and architecture information automatically
 
     .PARAMETER Credential
         The optional alternative credential to be used when connecting to ComputerName

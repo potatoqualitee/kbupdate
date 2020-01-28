@@ -7,7 +7,7 @@ function Install-KbUpdate {
         Installs etc
 
     .PARAMETER ComputerName
-        Get the Operating System and architecture information automatically
+        Used to connect to a remote host
 
     .PARAMETER Credential
         The optional alternative credential to be used when connecting to ComputerName

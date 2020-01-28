@@ -1,16 +1,16 @@
 function Get-KbInstalledUpdate {
     <#
     .SYNOPSIS
-        Replacement for Get-Hotfix
+        Replacement for Get-Hotfix, Get-Package, searching the registry and searching CIM for updates
 
     .DESCRIPTION
-        Replacement for Get-Hotfix
+        Replacement for Get-Hotfix, Get-Package, searching the registry and searching CIM for updates.
 
     .PARAMETER Pattern
-        Any pattern. Can be the KB name, number or even MSRC numbrer. For example, KB4057119, 4057119, or MS15-101.
+        Any pattern. But really, a KB pattern is your best bet.
 
     .PARAMETER ComputerName
-        Get the Operating System and architecture information automatically
+        Used to connect to a remote host
 
     .PARAMETER Credential
         The optional alternative credential to be used when connecting to ComputerName
@@ -27,29 +27,38 @@ function Get-KbInstalledUpdate {
         License: MIT https://opensource.org/licenses/MIT
 
     .EXAMPLE
-        PS C:\> Get-KbInstalledUpdate -ComputerName sql2017
+        PS C:\> Get-KbInstalledUpdate
 
-        Gets detailed information about all of the installed updates on sql2017.
+        Gets all the updates installed on the local machine
 
     .EXAMPLE
-        PS C:\> Get-KbInstalledUpdate -ComputerName sql2017 -Pattern kb4498951
+        PS C:\> Get-KbInstalledUpdate -ComputerName server01
 
-        Gets detailed information about all of the installed updates on sql2017 for KB4057119
+        Gets all the updates installed on server01
+
+    .EXAMPLE
+        PS C:\> Get-KbInstalledUpdate -ComputerName server01 -Pattern KB4057119
+
+        Gets all the updates installed on server01 that match KB4057119
 #>
     [CmdletBinding()]
     param(
         [string[]]$ComputerName = $env:COMPUTERNAME,
         [pscredential]$Credential,
-        [string]$Pattern,
+        [string[]]$Pattern,
         [switch]$EnableException
     )
     begin {
         $scriptblock = {
-            param ($Pattern)
-            if ($Pattern) {
+            param ($Search)
+            # i didnt know how else to preserve the array, it kept flattening to a single string
+            $pattern = $Search['Pattern']
+            if ($pattern) {
                 $packages = @()
-                $packages += Get-Package -IncludeWindowsInstaller -ProviderName msi, msu, Programs -Name "*$Pattern*" -ErrorAction SilentlyContinue
-                $packages += Get-Package -ProviderName msi, msu, Programs -Name "*$Pattern*" -ErrorAction SilentlyContinue
+                foreach ($name in $pattern) {
+                    $packages += Get-Package -IncludeWindowsInstaller -ProviderName msi, msu, Programs -Name "*$name*" -ErrorAction SilentlyContinue
+                    $packages += Get-Package -ProviderName msi, msu, Programs -Name "*$name*" -ErrorAction SilentlyContinue
+                }
                 $packages = $packages | Sort-Object -Unique Name
             } else {
                 $packages = @()
@@ -61,6 +70,8 @@ function Get-KbInstalledUpdate {
 
             foreach ($package in $packages) {
                 $null = $package | Add-Member -MemberType ScriptMethod -Name ToString -Value { $this.Name } -Force
+
+                # Make it pretty
                 $fullpath = $package.FullPath
                 if ($fullpath -eq "?") {
                     $fullpath = $null
@@ -80,6 +91,7 @@ function Get-KbInstalledUpdate {
                 }
 
                 [pscustomobject]@{
+                    ComputerName         = $env:COMPUTERNAME
                     Name                 = $package.Name
                     ProviderName         = $package.ProviderName
                     Source               = $package.Source
@@ -111,24 +123,20 @@ function Get-KbInstalledUpdate {
             }
 
             $allcim = Get-CimInstance -ClassName Win32_QuickFixEngineering
-            if ($Pattern) {
-                $allcim = $allcim | Where-Object HotfixId -match $Pattern
+
+            if ($pattern) {
+                $allcim = $allcim | Where-Object HotfixId -in $pattern
             }
 
             foreach ($cim in $allcim) {
-                $hotfixid = $cim.HotfixId
-                $reg = Get-ItemProperty -Path "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\$hotfixid" -ErrorAction SilentlyContinue
-                if ($reg) {
-                    $null = $reg | Add-Member -MemberType ScriptMethod -Name ToString -Value { $this.DisplayName } -Force
-                }
-
                 #return the same properties as above
                 [pscustomobject]@{
-                    Name                = $null
+                    ComputerName        = $env:COMPUTERNAME
+                    Name                = $cim.HotfixId
                     ProviderName        = $null
                     Source              = $null
                     Status              = $null
-                    HotfixId            = $hotfixid
+                    HotfixId            = $cim.HotfixId
                     FullPath            = $null
                     PackageFilename     = $null
                     Summary             = $null
@@ -148,7 +156,7 @@ function Get-KbInstalledUpdate {
                     VersionMinor        = $null
                     TagId               = $null
                     PackageObject       = $null
-                    RegistryObject      = $reg
+                    RegistryObject      = $null
                     CimObject           = $cim
                 }
             }
@@ -157,7 +165,7 @@ function Get-KbInstalledUpdate {
     process {
         try {
             foreach ($computer in $ComputerName) {
-                Invoke-Command2 -ComputerName $computer -Credential $Credential -ErrorAction Stop -ScriptBlock $scriptblock -Raw -ArgumentList $Pattern | Sort-Object -Property Name
+                Invoke-Command2 -ComputerName $computer -Credential $Credential -ErrorAction Stop -ScriptBlock $scriptblock -Raw -ArgumentList @{ Pattern = $Pattern } | Sort-Object -Property Name
             }
         } catch {
             Stop-PSFFunction -EnableException:$EnableException -Message "Failure" -ErrorRecord $_ -Continue
