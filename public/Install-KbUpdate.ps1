@@ -73,18 +73,17 @@ function Install-KbUpdate {
             return
         }
 
-        # moved this from begin because it can be piped in which can only be seen in process
         if (-not $HotfixId.ToUpper().StartsWith("KB") -and $PSBoundParameters.HotfixId) {
             $HotfixId = "KB$HotfixId"
         }
 
         foreach ($computer in $ComputerName) {
             # null out a couple things to be safe
-            $remoteexists = $remotehome = $remotesession = $null
+            $remotefileexists = $remotehome = $remotesession = $null
 
             if ($HotFixId) {
                 if (Get-KbInstalledUpdate -ComputerName $computer -Credential $Credential -Pattern $HotFixId) {
-                    Stop-Function -EnableException:$EnableException -Message "$hotfixid is already installed on $computer" -Continue
+                    Stop-Function -EnableException:$EnableException -Message "$HotFixId is already installed on $computer" -Continue
                 }
             }
 
@@ -96,19 +95,18 @@ function Install-KbUpdate {
                 Stop-Function -EnableException:$EnableException -Message "Session for $computer can't be found or no runspaces are available. Please file an issue on the GitHub repo at https://github.com/potatoqualitee/kbupdate/issues" -Continue
             }
 
-            # Copy every time even if remote computer has xWindowsUpdate because this version has Jess' fix
             $oldpref = $ProgressPreference
             $ProgressPreference = 'SilentlyContinue'
             $null = Copy-Item -Path "$script:ModuleRoot\library\xWindowsUpdate" -Destination "$remotehome\kbupdatetemp\xWindowsUpdate" -ToSession $remotesession -Recurse -Force
             $ProgressPreference = $oldpref
 
+
             if ($PSBoundParameters.FilePath) {
-                $remoteexists = Invoke-PSFCommand -ComputerName $computer -Credential $Credential -ArgumentList $FilePath -ScriptBlock { Get-ChildItem -Path $args -ErrorAction SilentlyContinue }
+                $remotefileexists = Invoke-PSFCommand -ComputerName $computer -Credential $Credential -ArgumentList $FilePath -ScriptBlock { Get-ChildItem -Path $args -ErrorAction SilentlyContinue }
             }
 
-            if (-not $remoteexists) {
+            if (-not $remotefileexists) {
                 if (-not $updatefile) {
-                    # need to detect being piped in via InputObject
                     if (-not $PSBoundParameters.InputObject) {
                         $InputObject = Get-KbUpdate -ComputerName $computer -Architecture x64 -Credential $credential -Latest -Pattern $HotfixId
                     }
@@ -124,11 +122,12 @@ function Install-KbUpdate {
                     }
                 }
 
-                if (-not $FilePath) {
+                if (-not $PSBoundParameters.FilePath) {
                     $FilePath = "$remotehome\kbupdatetemp\$(Split-Path -Leaf $updateFile)"
                 }
 
-                if ($updatefile) {
+                # ignore if it's on a file server
+                if ($updatefile -and -not ($PSBoundParameters.FilePath).StartsWith("\\")) {
                     try {
                         $null = Copy-Item -Path $updatefile -Destination $FilePath -ToSession $remotesession -ErrrorAction Stop
                     } catch {
@@ -197,8 +196,6 @@ function Install-KbUpdate {
                 }
             }
 
-            ## could also use xPendingReboot to look for pending reboots and handle?
-
             if ($PSCmdlet.ShouldProcess($computer, "Installing Hotfix $HotfixId from $FilePath")) {
                 try {
                     Invoke-PSFCommand -ComputerName $computer -Credential $Credential -ScriptBlock {
@@ -236,7 +233,6 @@ function Install-KbUpdate {
                                     throw "The return code -2067919934 was not expected. You likely need to reboot $env:ComputerName."
                                 }
                                 default {
-
                                     throw
                                 }
                             }

@@ -152,7 +152,7 @@ function Uninstall-KbUpdate {
                             # -2067919934 is reboot needed but the output already tells you to reboot
                             switch ($results.ExitCode) {
                                 -2068052310 {
-                                    $output = "$output`n`nThe exit code is -2068052310 which may mean that you need to mount the SQL Server ISO so the uninstaller can find the setup files."
+                                    $output = "$output`n`nThe exit code suggests that you need to mount the SQL Server ISO so the uninstaller can find the setup files."
                                 }
                                 0 {
                                     if ($output.Trim()) {
