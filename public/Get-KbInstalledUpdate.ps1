@@ -45,10 +45,19 @@ function Get-KbInstalledUpdate {
     )
     begin {
         $scriptblock = {
-            $packages = @()
-            $packages += Get-Package -IncludeWindowsInstaller -ProviderName msi, msu, Programs
-            $packages += Get-Package -ProviderName msi, msu, Programs
-            $packages = $packages | Sort-Object -Unique Name
+            param ($Pattern)
+            if ($Pattern) {
+                $packages = @()
+                $packages += Get-Package -IncludeWindowsInstaller -ProviderName msi, msu, Programs -Name "*$Pattern*" -ErrorAction SilentlyContinue
+                $packages += Get-Package -ProviderName msi, msu, Programs -Name "*$Pattern*" -ErrorAction SilentlyContinue
+                $packages = $packages | Sort-Object -Unique Name
+            } else {
+                $packages = @()
+                $packages += Get-Package -IncludeWindowsInstaller -ProviderName msi, msu, Programs
+                $packages += Get-Package -ProviderName msi, msu, Programs
+                $packages = $packages | Sort-Object -Unique Name
+            }
+            # Cim never reports stuff in a package :(
 
             foreach ($package in $packages) {
                 $null = $package | Add-Member -MemberType ScriptMethod -Name ToString -Value { $this.Name } -Force
@@ -65,32 +74,82 @@ function Get-KbInstalledUpdate {
                 if (($regpath = ($package.FastPackageReference).Replace("hklm64\HKEY_LOCAL_MACHINE", "HKLM:\")) -match 'HKLM') {
                     $reg = Get-ItemProperty -Path $regpath -ErrorAction SilentlyContinue
                     $null = $reg | Add-Member -MemberType ScriptMethod -Name ToString -Value { $this.DisplayName } -Force
+                    $hotfixid = Split-Path -Path $regpath -Leaf | Where-Object { $psitem.StartsWith("KB") }
                 } else {
                     $reg = $null
                 }
-                # NEEDS TO PROVIDE SQLProductPatchFamilyCode {a667bcac-6b8f-46ef-9906-2f1213007566}
-
-                #Get-CimInstance -ClassName Win32_QuickFixEngineering  | Where-Object HotFixID -eq KB4528760 | Select *
 
                 [pscustomobject]@{
-                    Name            = $package.Name
-                    ProviderName    = $package.ProviderName
-                    Source          = $package.Source
-                    Status          = $package.Status
-                    FullPath        = $fullpath
-                    PackageFilename = $filename
-                    Summary         = $package.Summary
-                    DisplayName     = $package.Meta.Attributes['DisplayName']
-                    DisplayIcon     = $package.Meta.Attributes['DisplayIcon']
-                    UninstallString = $package.Meta.Attributes['UninstallString']
-                    InstallLocation = $package.Meta.Attributes['InstallLocation']
-                    EstimatedSize   = $package.Meta.Attributes['EstimatedSize']
-                    Publisher       = $package.Meta.Attributes['Publisher']
-                    VersionMajor    = $package.Meta.Attributes['VersionMajor']
-                    VersionMinor    = $package.Meta.Attributes['VersionMinor']
-                    TagId           = $package.TagId
-                    PackageObject   = $package
-                    RegistryObject  = $reg
+                    Name                 = $package.Name
+                    ProviderName         = $package.ProviderName
+                    Source               = $package.Source
+                    Status               = $package.Status
+                    HotfixId             = $hotfixid
+                    FullPath             = $fullpath
+                    PackageFilename      = $filename
+                    Summary              = $package.Summary
+                    InstalledBy          = $cim.InstalledBy
+                    FastPackageReference = $package.FastPackageReference
+                    InstalledOn          = $cim.InstalledOn
+                    InstallDate          = $cim.InstallDate
+                    FixComments          = $cim.FixComments
+                    ServicePackInEffect  = $cim.ServicePackInEffect
+                    Caption              = $cim.Caption
+                    DisplayName          = $package.Meta.Attributes['DisplayName']
+                    DisplayIcon          = $package.Meta.Attributes['DisplayIcon']
+                    UninstallString      = $package.Meta.Attributes['UninstallString']
+                    InstallLocation      = $package.Meta.Attributes['InstallLocation']
+                    EstimatedSize        = $package.Meta.Attributes['EstimatedSize']
+                    Publisher            = $package.Meta.Attributes['Publisher']
+                    VersionMajor         = $package.Meta.Attributes['VersionMajor']
+                    VersionMinor         = $package.Meta.Attributes['VersionMinor']
+                    TagId                = $package.TagId
+                    PackageObject        = $package
+                    RegistryObject       = $reg
+                    CimObject            = $cim
+                }
+            }
+
+            $allcim = Get-CimInstance -ClassName Win32_QuickFixEngineering
+            if ($Pattern) {
+                $allcim = $allcim | Where-Object HotfixId -match $Pattern
+            }
+
+            foreach ($cim in $allcim) {
+                $hotfixid = $cim.HotfixId
+                $reg = Get-ItemProperty -Path "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\$hotfixid" -ErrorAction SilentlyContinue
+                if ($reg) {
+                    $null = $reg | Add-Member -MemberType ScriptMethod -Name ToString -Value { $this.DisplayName } -Force
+                }
+
+                #return the same properties as above
+                [pscustomobject]@{
+                    Name                = $null
+                    ProviderName        = $null
+                    Source              = $null
+                    Status              = $null
+                    HotfixId            = $hotfixid
+                    FullPath            = $null
+                    PackageFilename     = $null
+                    Summary             = $null
+                    InstalledBy         = $cim.InstalledBy
+                    InstalledOn         = $cim.InstalledOn
+                    InstallDate         = $cim.InstallDate
+                    FixComments         = $cim.FixComments
+                    ServicePackInEffect = $cim.ServicePackInEffect
+                    Caption             = $cim.Caption
+                    DisplayName         = $null
+                    DisplayIcon         = $null
+                    UninstallString     = $null
+                    InstallLocation     = $null
+                    EstimatedSize       = $null
+                    Publisher           = $null
+                    VersionMajor        = $null
+                    VersionMinor        = $null
+                    TagId               = $null
+                    PackageObject       = $null
+                    RegistryObject      = $reg
+                    CimObject           = $cim
                 }
             }
         }
@@ -98,17 +157,10 @@ function Get-KbInstalledUpdate {
     process {
         try {
             foreach ($computer in $ComputerName) {
-                if ($Pattern) {
-                    Invoke-Command2 -ComputerName $computer -Credential $Credential -ErrorAction Stop -ScriptBlock $scriptblock -Raw | Sort-Object -Property Name | Where-Object Name -match $Pattern
-                    Select-DefaultView -ExcludeProperty PackageObject, RegistryObject, DisplayName
-                } else {
-                    Invoke-Command2 -ComputerName $computer -Credential $Credential -ErrorAction Stop -ScriptBlock $scriptblock -Raw | Sort-Object -Property Name |
-                    Select-DefaultView -ExcludeProperty PackageObject, RegistryObject, DisplayName
-                }
+                Invoke-Command2 -ComputerName $computer -Credential $Credential -ErrorAction Stop -ScriptBlock $scriptblock -Raw -ArgumentList $Pattern | Sort-Object -Property Name
             }
         } catch {
             Stop-PSFFunction -EnableException:$EnableException -Message "Failure" -ErrorRecord $_ -Continue
         }
     }
 }
-# MAYBE ADD CIMINSTANCE Get-CimInstance -ClassName Win32_QuickFixEngineering
