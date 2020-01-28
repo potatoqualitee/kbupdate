@@ -1,9 +1,0 @@
-[ClassVersion("1.0.0.0"), FriendlyName("SqlAgentFailsafe")]
-class MSFT_SqlAgentFailsafe : OMI_BaseResource
-{
-    [Required, Description("The name of the SQL Agent Failsafe Operator.")] String Name;
-    [Write, Description("Specifies if the SQL Agent Failsafe Operator should be present or absent. Default is Present."), ValueMap{"Present","Absent"}, Values{"Present","Absent"}] String Ensure;
-    [Write, Description("The host name of the SQL Server to be configured. Default is $env:COMPUTERNAME.")] String ServerName;
-    [Key, Description("The name of the SQL instance to be configured.")] String InstanceName;
-    [Write, Description("The method of notification for the Failsafe Operator."), ValueMap{"None","NotifyEmail","Pager","NetSend","NotifyAll"}, Values{"None","NotifyEmail","Pager","NetSend","NotifyAll"}] String NotificationMethod;
-};
