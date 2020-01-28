@@ -78,7 +78,7 @@ function Uninstall-KbUpdate {
             }
 
             foreach ($computer in $PSBoundParameters.ComputerName) {
-                $exists = Get-KbInstalledUpdate -Pattern $hotfix -ComputerName $computer
+                $exists = Get-KbInstalledUpdate -Pattern $hotfix -ComputerName $computer | Where-Object UninstallString
                 if (-not $exists) {
                     Stop-Function -EnableException:$EnableException -Message "$hotfix is not installed on $computer" -Continue
                 } else {
@@ -94,15 +94,13 @@ function Uninstall-KbUpdate {
                     Stop-Function -Message "To run this command locally, you must run as admin." -Continue -EnableException:$EnableException
                 }
 
+                if (-not $update.UninstallString) {
+                    Stop-Function -Message "Uninstall string cannot be found, skipping $($update.Name) on $computername" -Continue -EnableException:$EnableException
+                }
                 if ($update.ProviderName -eq "Programs") {
-                    $path = $update.UninstallString -match '^(".+") (/.+) (/.+)'
-
-                    if ($path -match 'msiexec') {
-                        $path -match '(\w+) (/i)({.*})'
-                    }
-                    $program = $matches[1]
+                    $program = Split-Path $update.UninstallString
                     if (-not $PSBoundParameters.ArgumentList) {
-                        $ArgumentList = "$($matches[2, 3, 4, 5, 6, 7])".Trim()
+                        $ArgumentList = $update.UninstallString.Replace($program, "")
                     }
                 }
 
@@ -118,6 +116,7 @@ function Uninstall-KbUpdate {
                                 $Program,
                                 $ArgumentList,
                                 $hotfix,
+                                $Name,
                                 $VerbosePreference
                             )
 
@@ -151,17 +150,24 @@ function Uninstall-KbUpdate {
                                     $output = "$output`n`nThe exit code is -2068052310 which may mean that you need to mount the SQL Server ISO so the uninstaller can find the setup files."
                                 }
                                 0 {
-                                    $output = "$output`n`nYou have successfully uninstalled $HotfixId"
+                                    if ($output.Trim()) {
+                                        $output = "$output`n`nYou have successfully uninstalled $Name"
+                                    } else {
+                                        if ($Name) {
+                                            $output = "$Name has been successfully uninstalled"
+                                        }
+                                    }
                                 }
                             }
 
                             [pscustomobject]@{
                                 ComputerName = $env:ComputerName
+                                Name         = $Name
                                 HotfixID     = $hotfix
                                 Results      = $output
                                 ExitCode     = $results.ExitCode
                             }
-                        } -ArgumentList $Program, $ArgumentList, $hotfix, $VerbosePreference -ErrorAction Stop | Select-Object -Property * -ExcludeProperty PSComputerName, RunspaceId
+                        } -ArgumentList $Program, $ArgumentList, $hotfix, $update.Name $VerbosePreference -ErrorAction Stop | Select-Object -Property * -ExcludeProperty PSComputerName, RunspaceId
                     } catch {
                         Stop-Function -Message "Failure on $computer" -ErrorRecord $_ -EnableException:$EnableException
                     }
