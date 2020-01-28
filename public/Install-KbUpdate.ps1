@@ -92,7 +92,6 @@ function Install-KbUpdate {
             $remotehome = Invoke-PSFCommand -ComputerName $computer -Credential $Credential -ScriptBlock { $home }
             $hasxhotfix = Invoke-PSFCommand -ComputerName $computer -Credential $Credential -ScriptBlock {
                 Get-Module -ListAvailable xWindowsUpdate
-                Get-ChildItem -Path "$remotehome\kbupdatetemp\xWindowsUpdate\xWindowsUpdate.psd1" -ErrorAction SilentlyContinue
             }
             $remotesession = Get-PSSession -ComputerName $computer | Where-Object { $PsItem.Availability -eq 'Available' -and $PsItem.Name -match 'WinRM' } | Select-Object -First 1
 
@@ -104,15 +103,12 @@ function Install-KbUpdate {
                 try {
                     $oldpref = $ProgressPreference
                     $ProgressPreference = 'SilentlyContinue'
-                    $null = Invoke-PSFCommand -ComputerName $computer -Credential $Credential -ArgumentList "$remotehome\kbupdatetemp" -ScriptBlock {
-                        Remove-Item $args -Force -ErrorAction SilentlyContinue -Recurse
+                    $programfiles = Invoke-PSFCommand -ComputerName $computer -Credential $Credential -ArgumentList "$env:ProgramFiles\WindowsPowerShell\Modules" -ScriptBlock {
+                        $env:ProgramFiles
                     }
-                    $null = Copy-Item -Path "$script:ModuleRoot\library\xWindowsUpdate" -Destination "$remotehome\kbupdatetemp\xWindowsUpdate" -ToSession $remotesession -Recurse -Force
+                    $null = Copy-Item -Path "$script:ModuleRoot\library\xWindowsUpdate" -Destination "$programfiles\WindowsPowerShell\Modules\xWindowsUpdate" -ToSession $remotesession -Recurse -Force
                     $ProgressPreference = $oldpref
                 } catch {
-                    $null = Invoke-PSFCommand -ComputerName $computer -Credential $Credential -ArgumentList "$remotehome\kbupdatetemp" -ScriptBlock {
-                        Remove-Item $args -Force -ErrorAction SilentlyContinue -Recurse
-                    }
                     Stop-PSFFunction -EnableException:$EnableException -Message "Couldn't auto-install xHotfix on $computer. Please Install-Module xWindowsUpdate on $computer to continue." -Continue
                 }
             }
@@ -139,7 +135,7 @@ function Install-KbUpdate {
                 }
 
                 if (-not $PSBoundParameters.FilePath) {
-                    $FilePath = "$remotehome\kbupdatetemp\$(Split-Path -Leaf $updateFile)"
+                    $FilePath = "$env:ProgramFiles\WindowsPowerShell\Modules\$(Split-Path -Leaf $updateFile)"
                 }
 
                 # ignore if it's on a file server
@@ -223,27 +219,18 @@ function Install-KbUpdate {
                             $ManualFileName
                         )
                         $PSDefaultParameterValues['*:ErrorAction'] = 'SilentlyContinue'
-                        $env:PSModulePath = "$env:PSModulePath;$home\kbupdatetemp\"
+
                         if (-not (Get-Command Invoke-DscResource)) {
                             throw "Invoke-DscResource not found on $env:ComputerName"
                         }
-                        $null = Import-Module xWindowsUpdate
+                        $null = Import-Module xWindowsUpdate -Force
 
-                        if (-not (Get-Module -Name xWindowsUpdate)) {
-                            Import-Module "$home\kbupdatetemp\xWindowsUpdate" -Force
-                        }
-
-                        Get-DscResource -Module xWindowsUpdate -Name xHotFix | Select-Object *
-                        return
-                        # Extract exes, cabs? exe = /extract
-                        Write-Verbose -Message ("Installing { 0 } from { 1 }" -f $hotfix.property.id, $hotfix.property.path)
+                        # Write-Verbose -Message ("Installing { 0 } from { 1 }" -f $hotfix.property.id, $hotfix.property.path)
                         try {
                             if (-not (Invoke-DscResource @hotfix -Method Test)) {
                                 Invoke-DscResource @hotfix -Method Set -ErrorAction Stop
                             }
                         } catch {
-                            Remove-Module xWindowsUpdate
-                            Remove-Item -Recurse -Force -Path "$home\kbupdatetemp"
                             switch ($message = "$_") {
                                 # some things can be ignored
                                 { $message -match "Serialized XML is nested too deeply" -or $message -match "Name does not match package details" } {
@@ -266,22 +253,11 @@ function Install-KbUpdate {
                             HotfixID     = $hotfix.property.id
                             Status       = "Seems successful"
                         }
-                        Remove-Module xWindowsUpdate
-                        Remove-Item -Recurse -Force -Path "$home\kbupdatetemp\xWindowsUpdate"
-                        if (-not $NoDelete -and -not $ManualFileName) {
-                            Remove-Item -Recurse -Force -Path "$home\kbupdatetemp"
-                        }
                     } -ArgumentList $hotfix, $VerbosePreference, $NoDelete, $PSBoundParameters.FileName -ErrorAction Stop
                 } catch {
                     Stop-PSFFunction -Message "Failure on $computer" -ErrorRecord $_ -EnableException:$EnableException
                 }
             }
-        }
-    }
-    end {
-        # if copy-item tosession remote fails, we leave litter. gotta fix that.
-        if ($updatefile -and -not $NoDelete) {
-            Remove-Item -Path $Path -ErrorAction SilentlyContinue
         }
     }
 }
