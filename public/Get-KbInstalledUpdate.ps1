@@ -164,7 +164,7 @@ function Get-KbInstalledUpdate {
     process {
         try {
             foreach ($computer in $ComputerName) {
-                Invoke-Command2 -ComputerName $computer -Credential $Credential -ErrorAction Stop -ScriptBlock $scriptblock -Raw -ArgumentList @{ Pattern = $Pattern } | Sort-Object -Property Name
+                Invoke-Command2 -ComputerName $computer -Credential $Credential -ErrorAction Stop -ScriptBlock $scriptblock -Raw -ArgumentList @{ Pattern = $Pattern } | Sort-Object -Property Name | Select-Object -Property * -ExcludeProperty PSComputerName, RunspaceId
             }
         } catch {
             Stop-PSFFunction -EnableException:$EnableException -Message "Failure" -ErrorRecord $_ -Continue
