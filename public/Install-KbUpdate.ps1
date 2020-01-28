@@ -1,3 +1,4 @@
+# requires 5
 function Install-KbUpdate {
     <#
     .SYNOPSIS
@@ -225,13 +226,14 @@ function Install-KbUpdate {
                         if (-not (Get-Command Invoke-DscResource)) {
                             throw "Invoke-DscResource not found on $env:ComputerName"
                         }
-
                         $null = Import-Module xWindowsUpdate
 
                         if (-not (Get-Module -Name xWindowsUpdate)) {
                             Import-Module "$home\kbupdatetemp\xWindowsUpdate" -Force
                         }
 
+                        Get-DscResource -Module xWindowsUpdate -Name xHotFix | Select-Object *
+                        return
                         # Extract exes, cabs? exe = /extract
                         Write-Verbose -Message ("Installing {0} from {1}" -f $hotfix.property.id, $hotfix.property.path)
                         try {
