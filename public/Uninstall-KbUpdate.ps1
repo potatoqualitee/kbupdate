@@ -15,13 +15,18 @@ function Uninstall-KbUpdate {
     .PARAMETER HotfixId
         The HotfixId of the patch. This needs to be updated to be more in-depth.
 
-    .PARAMETER InputObject
-        Allows results to be piped in from Get-KbInstalledUpdate
+    .PARAMETER ArgumentList
+        Allows you to override our automatically determined ArgumentList
 
     .PARAMETER NoQuiet
         By default, we add a /quiet switch to the argument list to ensure the command can run from the command line.
 
         Some commands may not support this switch, however, so to remove it use NoQuiet.
+
+        Not required if you use ArgumentList.
+
+    .PARAMETER InputObject
+        Allows results to be piped in from Get-KbInstalledUpdate
 
     .PARAMETER EnableException
         By default, when something goes wrong we try to catch it, interpret it and give you a friendly warning message.
@@ -39,9 +44,14 @@ function Uninstall-KbUpdate {
         Uninstalls kb4498951 on sql2017
 
     .EXAMPLE
-        PS C:\> Get-KbUpdate -Pattern 4498951 | Install-KbUpdate -Type SQL -ComputerName sql2017
+        PS C:\>  Get-KbInstalledUpdate -ComputerName server23, server24 -Pattern kb4498951 | Uninstall-KbUpdate
 
-        Installs KB4534273 from the C:\temp directory on sql2017
+        Uninstalls kb4498951 from server23 and server24
+
+    .EXAMPLE
+        PS C:\> Uninstall-KbUpdate -ComputerName sql2017 -HotfixId KB4534273 -WhatIf
+
+        Shows what would happen if the command were to run but does not execute any changes
 #>
 
     [CmdletBinding(SupportsShouldProcess, ConfirmImpact = "Medium")]
@@ -52,7 +62,7 @@ function Uninstall-KbUpdate {
         [string]$HotfixId,
         [Parameter(ValueFromPipeline)]
         [pscustomobject]$InputObject,
-        # PERHAPS ADD ARGUMENTLIST
+        [string]$ArgumentList,
         [switch]$NoQuiet,
         [switch]$EnableException
     )
@@ -67,7 +77,7 @@ function Uninstall-KbUpdate {
                 $hotfix = "KB$hotfix"
             }
 
-            foreach ($computer in $ComputerName) {
+            foreach ($computer in $PSBoundParameters.ComputerName) {
                 $exists = Get-KbInstalledUpdate -Pattern $hotfix -ComputerName $computer
                 if (-not $exists) {
                     Stop-Function -EnableException:$EnableException -Message "$hotfix is not installed on $computer" -Continue
@@ -91,15 +101,17 @@ function Uninstall-KbUpdate {
                         $path -match '(\w+) (/i)({.*})'
                     }
                     $program = $matches[1]
-                    $argumentlist = "$($matches[2, 3, 4, 5, 6, 7])".Trim()
+                    if (-not $PSBoundParameters.ArgumentList) {
+                        $ArgumentList = "$($matches[2, 3, 4, 5, 6, 7])".Trim()
+                    }
                 }
 
-                if ($argumentlist -notmatch "/quiet" -and -not $NoQuiet) {
-                    $argumentlist = "$argumentlist /quiet"
+                if ($ArgumentList -notmatch "/quiet" -and -not $NoQuiet -and -not $PSBoundParameters.ArgumentList) {
+                    $ArgumentList = "$ArgumentList /quiet"
                 }
 
                 # I tried to get this working using DSC but in end end, Start-Process was it
-                if ($PSCmdlet.ShouldProcess($computer, "Uninstalling Hotfix $hotfix by executing $program $argumentlist")) {
+                if ($PSCmdlet.ShouldProcess($computer, "Uninstalling Hotfix $hotfix by executing $program $ArgumentList")) {
                     try {
                         Invoke-PSFCommand -ComputerName $computer -Credential $Credential -ScriptBlock {
                             param (
