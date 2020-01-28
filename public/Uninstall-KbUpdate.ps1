@@ -5,8 +5,6 @@ function Uninstall-KbUpdate {
         [string[]]$ComputerName = $env:ComputerName,
         [PSCredential]$Credential,
         [PSCredential]$PSDscRunAsCredential,
-        [Parameter(ValueFromPipelineByPropertyName)]
-        [Alias("Id")]
         [string]$HotfixId,
         [string]$FilePath,
         [Parameter(ValueFromPipelineByPropertyName)]
@@ -33,11 +31,11 @@ function Uninstall-KbUpdate {
 
         foreach ($computer in $ComputerName) {
             #null out a couple things to be safe
-            $remoteexists = $remotehome = $remotesession = $null
+            $remotehome = $remotesession = $null
 
             # a lot of the file copy work will be done in the remote $home dir
             $remotehome = Invoke-PSFCommand -ComputerName $computer -Credential $Credential -ScriptBlock { $home }
-            $remotesession = Get-PSSession -ComputerName $computer | Where-Object Availability -eq Available
+            $remotesession = Get-PSSession -ComputerName $computer | Where-Object Availability -eq Available | Select-Object -First 1
 
             if (-not $remotesession) {
                 Stop-Function -EnableException:$EnableException -Message "Session for $computer can't be found or no runspaces are available. Please file an issue on the GitHub repo at https://github.com/potatoqualitee/kbupdate/issues" -Continue
@@ -49,22 +47,23 @@ function Uninstall-KbUpdate {
             $null = Copy-Item -Path "$script:ModuleRoot\library\xWindowsUpdate" -Destination "$remotehome\kbupdatetemp\xWindowsUpdate" -ToSession $remotesession -Recurse -Force
             $ProgressPreference = $oldpref
 
-            $updatereg = Invoke-PSFCommand -ComputerName $computer -Credential $Credential -ArgumentList $HotfixId -ScriptBlock {
-                # props https://blog.dbi-services.com/sql-server-change-management-list-all-updates/
-                # all other methods are incomplete, boo
-                Get-ChildItem -Path HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall -ErrorAction SilentlyContinue | Get-ItemProperty -ErrorAction SilentlyContinue | Where-Object DisplayName -match $args
-            }
-
-            $product = Get-CimInstance -ClassName Win32_Product -Filter 'InstallSource like "%KB4498951%"' -Property Name, Version, IdentifyingNumber
-
-            $Title = $product.Name
-            $FilePath = $product.InstallSource
-            $localid = $product.IdentifyingNumber
-
             if ($FilePath.EndsWith("exe")) {
                 $type = "exe"
             } else {
                 $type = "msu"
+            }
+            $HotfixId = "KB4498951"
+            $update = Get-KbInstalledUpdate -Pattern $HotfixId -ComputerName $computer
+
+            if ($update.ProviderName -eq "Programs") {
+                $path = $update.UninstallString -match '^(".+") (/.+) (/.+)'
+
+                if ($path -match 'msiexec') {
+                    $path -match '(\w+) (/i)({.*})'
+                    write-warning hello
+                }
+                $program = $matches[1]
+                $argumentlist = $matches[2, 3, 4, 5, 6, 7]
             }
 
             $type = "exe"
@@ -99,18 +98,25 @@ function Uninstall-KbUpdate {
                         ModuleName = 'PSDesiredStateConfiguration'
                         Property   = @{
                             Ensure     = 'Absent'
-                            ProductId  = $localid
-                            Name       = $Title
-                            Path       = $FilePath
-                            Arguments  = "/action=patch /AllInstances /quiet /IAcceptSQLServerLicenseTerms"
+                            ProductId  = "KB4498951"
+                            Name       = "Hotfix 3162 for SQL Server 2017 (KB4498951) (64-bit)"
+                            Path       = "C:\Program Files\Microsoft SQL Server\140\Setup Bootstrap\Update Cache\KB4498951\QFE\setup.exe"
+                            Arguments  = "/Action=RemovePatch /AllInstances"
                             ReturnCode = 0, 3010
                         }
                     }
                 }
             }
-
-            ## could also use xPendingReboot to look for pending reboots and handle?
-
+            <#
+                Name                           Value
+                ----                           -----
+                ReturnCode                     {0, 3010}
+                ProductId
+                Arguments                      /Action=RemovePatch /AllInstances
+                Ensure                         Absent
+                Path                           "C:\Program Files\Microsoft SQL Server\140\Setup Bootstrap\Update Cache\KB4498951\QFE\setup.exe"
+                Name                           SQL Server 2017 RTM Cumulative Update (CU) 15 KB4498951
+            #>
             if ($PSCmdlet.ShouldProcess($computer, "Installing Hotfix $HotfixId from $FilePath")) {
                 try {
                     Invoke-PSFCommand -ComputerName $computer -Credential $Credential -ScriptBlock {
@@ -126,6 +132,7 @@ function Uninstall-KbUpdate {
                         }
                         # Extract exes, cabs? exe = /extract
                         Import-Module "$home\kbupdatetemp\xWindowsUpdate" -Force
+
                         Write-Verbose -Message ("Uninstalling {0} from {1}" -f $hotfix.property.id, $hotfix.property.path)
                         try {
                             if (-not (Invoke-DscResource @hotfix -Method Test)) {
