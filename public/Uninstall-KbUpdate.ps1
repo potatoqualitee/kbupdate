@@ -16,6 +16,7 @@ function Uninstall-KbUpdate {
         [Parameter(ValueFromPipeline)]
         [pscustomobject]$InputObject,
         [switch]$Force,
+        # PERHAPS ADD ARGUMENTLIST
         [switch]$EnableException
     )
     process {
@@ -98,7 +99,7 @@ function Uninstall-KbUpdate {
                         ModuleName = 'PSDesiredStateConfiguration'
                         Property   = @{
                             Ensure     = 'Absent'
-                            ProductId  = "KB4498951"
+                            ProductId  = "A9A443F5-56E1-4FC6-937C-5F481345A843"
                             Name       = "Hotfix 3162 for SQL Server 2017 (KB4498951) (64-bit)"
                             Path       = "C:\Program Files\Microsoft SQL Server\140\Setup Bootstrap\Update Cache\KB4498951\QFE\setup.exe"
                             Arguments  = "/Action=RemovePatch /AllInstances"
@@ -183,3 +184,7 @@ function Uninstall-KbUpdate {
 # PS C:\Users\ctrlb> Get-ChildItem -Path HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall | Get-ItemProperty | Sort-Object -Property DisplayName | Where-Object {($_.DisplayName -like "Hotfix*SQL*") -or ($_.DisplayName -like "Service Pack*SQL*")}  | Select UninstallString
 ## xHotFix resource needs to be available on target machine - could we look for it and ship it out if it's needed?
 ## xHotFix has a log parameter - perhaps could read that back in for output
+
+# MAYBE WE CAN PARSE THRU HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\{A9A443F5-56E1-4FC6-937C-5F481345A843}
+# see if anything matches
+# "sqlserver2014-kb4032541-x86_080a5c3a38b721a9587c2072375921161896e19d.exe" /qs /Action=RemovePatch /InstanceName=InstanceName /SkipRules=Cluster_IsOnlineIfClustered

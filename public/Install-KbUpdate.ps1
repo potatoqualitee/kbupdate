@@ -96,7 +96,7 @@ function Install-KbUpdate {
 
             # a lot of the file copy work will be done in the remote $home dir
             $remotehome = Invoke-PSFCommand -ComputerName $computer -Credential $Credential -ScriptBlock { $home }
-            $remotesession = Get-PSSession -ComputerName $computer | Where-Object Availability -eq Available
+            $remotesession = Get-PSSession -ComputerName $computer | Where-Object Availability -eq Available | Select-Object -First 1
 
             if (-not $remotesession) {
                 Stop-Function -EnableException:$EnableException -Message "Session for $computer can't be found or no runspaces are available. Please file an issue on the GitHub repo at https://github.com/potatoqualitee/kbupdate/issues" -Continue

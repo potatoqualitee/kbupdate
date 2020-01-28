@@ -60,7 +60,18 @@ function Get-KbInstalledUpdate {
                 if ($filename -eq "?") {
                     $filename = $null
                 }
+
+                $null = $package | Add-Member -MemberType ScriptMethod -Name ToString -Value { $this.Name } -Force
+                if (($regpath = ($package.FastPackageReference).Replace("hklm64\HKEY_LOCAL_MACHINE", "HKLM:\")) -match 'HKLM') {
+                    $reg = Get-ItemProperty -Path $regpath -ErrorAction SilentlyContinue
+                    $null = $reg | Add-Member -MemberType ScriptMethod -Name ToString -Value { $this.DisplayName } -Force
+                } else {
+                    $reg = $null
+                }
                 # NEEDS TO PROVIDE SQLProductPatchFamilyCode {a667bcac-6b8f-46ef-9906-2f1213007566}
+
+                #Get-CimInstance -ClassName Win32_QuickFixEngineering  | Where-Object HotFixID -eq KB4528760 | Select *
+
                 [pscustomobject]@{
                     Name            = $package.Name
                     ProviderName    = $package.ProviderName
@@ -79,7 +90,7 @@ function Get-KbInstalledUpdate {
                     VersionMinor    = $package.Meta.Attributes['VersionMinor']
                     TagId           = $package.TagId
                     PackageObject   = $package
-                    RegistryObject  = $regprops
+                    RegistryObject  = $reg
                 }
             }
         }
@@ -96,7 +107,8 @@ function Get-KbInstalledUpdate {
                 }
             }
         } catch {
-            Stop-Function -EnableException:$EnableException -Message "Failure" -ErrorRecord $_ -Continue
+            Stop-PSFFunction -EnableException:$EnableException -Message "Failure" -ErrorRecord $_ -Continue
         }
     }
 }
+# MAYBE ADD CIMINSTANCE Get-CimInstance -ClassName Win32_QuickFixEngineering
