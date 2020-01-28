@@ -13,21 +13,36 @@ function Import-ModuleRemotely {
         }
     }
     process {
-        Import-Module "$script:ModuleRoot\library\xWindowsUpdate"
-        $localModule = Get-Module $ModuleName
+        Import-Module "$script:ModuleRoot\library\xWindowsUpdate\DscResources\MSFT_xMicrosoftUpdate\MSFT_xMicrosoftUpdate.psm1" -Force
+        Import-Module "$script:ModuleRoot\library\xWindowsUpdate\xWindowsUpdate.psd1" -Force
+        $localmodule = Get-Module $ModuleName
 
-        $fns = Exports "Function" $localModule.ExportedFunctions
-        $aliases = Exports "Alias" $localModule.ExportedAliases
-        $cmdlets = Exports "Cmdlet" $localModule.ExportedCmdlets
-        $vars = Exports "Variable" $localModule.ExportedVariables
-        $exports = "Export-ModuleMember $fns $aliases $cmdlets $vars"
+        $fns = Exports "Function" $localmodule.ExportedFunctions
+        $aliases = Exports "Alias" $localmodule.ExportedAliases
+        $cmdlets = Exports "Cmdlet" $localmodule.ExportedCmdlets
+        $vars = Exports "Variable" $localmodule.ExportedVariables
+        $dscs = @{ "DscResource" = $localmodule.ExportedDscResources }
+        $exports = "Export-ModuleMember $fns $aliases $cmdlets $vars $dscs"
 
         $scriptblock = {
-            New-Module -Name $ModuleName {
-                $($localModule.Definition)
+            param (
+                $ModuleName,
+                $localmodule,
+                $exports,
+                $VerbosePreference
+            )
+            Remove-Module -Name $ModuleName -ErrorAction SilentlyContinue
+            New-Module -Name $ModuleName -ScriptBlock {
+                param (
+                    $localmodule,
+                    $exports,
+                    $VerbosePreference
+                )
+                $localmodule.Definition
                 $exports
-            } | Import-Module
+            } -ArgumentList $localmodule, $exports, $VerbosePreference | Import-Module
+            (Get-Module $ModuleName).ExportedDscResources
         }
-        Invoke-Command -Session $Session -ScriptBlock $scriptblock
+        Invoke-Command -Session $Session -ScriptBlock $scriptblock -ArgumentList $ModuleName, $localmodule, $exports, $VerbosePreference
     }
 }

@@ -89,17 +89,32 @@ function Install-KbUpdate {
 
             # a lot of the file copy work will be done in the remote $home dir
             $remotehome = Invoke-PSFCommand -ComputerName $computer -Credential $Credential -ScriptBlock { $home }
-            $remotesession = Get-PSSession -ComputerName $computer | Where-Object Availability -eq Available | Select-Object -First 1
+            $hasxhotfix = Invoke-PSFCommand -ComputerName $computer -Credential $Credential -ScriptBlock {
+                Get-Module -ListAvailable xWindowsUpdate
+                Get-ChildItem -Path "$remotehome\kbupdatetemp\xWindowsUpdate\xWindowsUpdate.psd1" -ErrorAction SilentlyContinue
+            }
+            $remotesession = Get-PSSession -ComputerName $computer | Where-Object { $PsItem.Availability -eq 'Available' -and $PsItem.Name -match 'WinRM' } | Select-Object -First 1
 
             if (-not $remotesession) {
                 Stop-Function -EnableException:$EnableException -Message "Session for $computer can't be found or no runspaces are available. Please file an issue on the GitHub repo at https://github.com/potatoqualitee/kbupdate/issues" -Continue
             }
 
-            $oldpref = $ProgressPreference
-            $ProgressPreference = 'SilentlyContinue'
-            $null = Copy-Item -Path "$script:ModuleRoot\library\xWindowsUpdate" -Destination "$remotehome\kbupdatetemp\xWindowsUpdate" -ToSession $remotesession -Recurse -Force
-            $ProgressPreference = $oldpref
-
+            if (-not $hasxhotfix) {
+                try {
+                    $oldpref = $ProgressPreference
+                    $ProgressPreference = 'SilentlyContinue'
+                    $null = Invoke-PSFCommand -ComputerName $computer -Credential $Credential -ArgumentList "$remotehome\kbupdatetemp" -ScriptBlock {
+                        Remove-Item $args -Force -ErrorAction SilentlyContinue -Recurse
+                    }
+                    $null = Copy-Item -Path "$script:ModuleRoot\library\xWindowsUpdate" -Destination "$remotehome\kbupdatetemp\xWindowsUpdate" -ToSession $remotesession -Recurse -Force
+                    $ProgressPreference = $oldpref
+                } catch {
+                    $null = Invoke-PSFCommand -ComputerName $computer -Credential $Credential -ArgumentList "$remotehome\kbupdatetemp" -ScriptBlock {
+                        Remove-Item $args -Force -ErrorAction SilentlyContinue -Recurse
+                    }
+                    Stop-Function -EnableException:$EnableException -Message "Couldn't auto-install xHotfix on $computer. Please Install-Module xWindowsUpdate on $computer to continue." -Continue
+                }
+            }
 
             if ($PSBoundParameters.FilePath) {
                 $remotefileexists = Invoke-PSFCommand -ComputerName $computer -Credential $Credential -ArgumentList $FilePath -ScriptBlock { Get-ChildItem -Path $args -ErrorAction SilentlyContinue }
@@ -179,6 +194,7 @@ function Install-KbUpdate {
                             }
                         }
                     }
+                    # RIGHT HERE DO if dsc then .ddsc =
                 }
                 "exe" {
                     $hotfix = @{
@@ -205,26 +221,32 @@ function Install-KbUpdate {
                             $NoDelete,
                             $ManualFileName
                         )
-
+                        $PSDefaultParameterValues['*:ErrorAction'] = 'SilentlyContinue'
                         if (-not (Get-Command Invoke-DscResource)) {
                             throw "Invoke-DscResource not found on $env:ComputerName"
                         }
+
+                        $null = Import-Module xWindowsUpdate
+
+                        if (-not (Get-Module -Name xWindowsUpdate)) {
+                            Import-Module "$home\kbupdatetemp\xWindowsUpdate" -Force
+                        }
+
                         # Extract exes, cabs? exe = /extract
-                        Import-Module "$home\kbupdatetemp\xWindowsUpdate" -Force
                         Write-Verbose -Message ("Installing {0} from {1}" -f $hotfix.property.id, $hotfix.property.path)
                         try {
                             if (-not (Invoke-DscResource @hotfix -Method Test)) {
                                 Invoke-DscResource @hotfix -Method Set -ErrorAction Stop
                             }
                         } catch {
-                            Remove-Module xWindowsUpdate -ErrorAction SilentlyContinue
+                            Remove-Module xWindowsUpdate
                             if (-not $NoDelete -and -not $ManualFileName) {
-                                Remove-Item -Recurse -Force -ErrorAction SilentlyContinue -Path "$home\kbupdatetemp"
+                                Remove-Item -Recurse -Force -Path "$home\kbupdatetemp"
                             }
                             switch ($message = "$_") {
                                 # some things can be ignored
                                 { $message -match "Serialized XML is nested too deeply" -or $message -match "Name does not match package details" } {
-                                    # nothing
+                                    $null = 1
                                 }
                                 { $message -match "2042429437" } {
                                     throw "The return code -2042429437 was not expected. Configuration is likely not correct. The requested features may not be installed or features are already at a higher patch level."
@@ -237,24 +259,16 @@ function Install-KbUpdate {
                                 }
                             }
                         }
-                        <#
-                        ComputerName : SQL2017
-                        HotfixID     : KB4498951
-                        Results      : SQL Server 2017 transmits information about your installation experience, as well as other usage and performance data, to
-                                    Microsoft to help improve the product. To learn more about SQL Server 2017 data processing and privacy controls, please see the
-                                    Privacy Statement.
-                                    Microsoft (R) SQL Server 2017 14.00.3162.01
-                                    Copyright (c) 2017 Microsoft.  All rights reserved.
-                        ExitCode     : 0
-                        #>
                         [pscustomobject]@{
                             ComputerName = $env:ComputerName
+                            Name         = $Name
                             HotfixID     = $hotfix.property.id
-                            Status       = "Success"
+                            Status       = "Seems successful"
                         }
-                        Remove-Module xWindowsUpdate -ErrorAction SilentlyContinue
+                        Remove-Module xWindowsUpdate
+                        Remove-Item -Recurse -Force -Path "$home\kbupdatetemp\xWindowsUpdate"
                         if (-not $NoDelete -and -not $ManualFileName) {
-                            Remove-Item -Recurse -Force -ErrorAction SilentlyContinue -Path "$home\kbupdatetemp"
+                            Remove-Item -Recurse -Force -Path "$home\kbupdatetemp"
                         }
                     } -ArgumentList $hotfix, $VerbosePreference, $NoDelete, $PSBoundParameters.FileName -ErrorAction Stop
                 } catch {
