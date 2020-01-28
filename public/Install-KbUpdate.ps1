@@ -240,9 +240,7 @@ function Install-KbUpdate {
                             }
                         } catch {
                             Remove-Module xWindowsUpdate
-                            if (-not $NoDelete -and -not $ManualFileName) {
-                                Remove-Item -Recurse -Force -Path "$home\kbupdatetemp"
-                            }
+                            Remove-Item -Recurse -Force -Path "$home\kbupdatetemp"
                             switch ($message = "$_") {
                                 # some things can be ignored
                                 { $message -match "Serialized XML is nested too deeply" -or $message -match "Name does not match package details" } {
