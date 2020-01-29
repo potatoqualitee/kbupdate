@@ -101,6 +101,29 @@ function Get-KbInstalledUpdate {
                     $hotfixid = $package.HotfixId
                 }
 
+                if ($hotfixid) {
+                    $cbs = Get-ChildItem 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Component Based Servicing\Packages' | Where-Object Name -match $hotfixid | Get-ItemProperty
+                    if ($cbs) {
+                        # make it pretty
+                        $cbs | Add-Member -MemberType ScriptMethod -Name ToString -Value { "ComponentBasedServicing" } -Force
+                        $installclient = ($cbs | Select-Object -First 1).InstallClient
+                        $installuser = ($cbs | Select-Object -First 1).InstallUser
+
+                        $allfiles = New-Object -TypeName System.Collections.ArrayList
+                        foreach ($file in $cbs) {
+                            $name = $file.InstallName
+                            $location = $file.InstallLocation.ToString().TrimStart("\\?\")
+                            $location = "$location\$name"
+                            $null = $allfiles.Add([pscustomobject]@{
+                                    Name = $name
+                                    Path = $location
+                                })
+                        }
+                        # no idea why this doesn't work :(
+                        Add-Member -InputObject $allfiles -MemberType ScriptMethod -Name ToString -Value { $this.Name } -Force
+                    }
+                }
+
                 [pscustomobject]@{
                     ComputerName         = $env:COMPUTERNAME
                     Name                 = $package.Name
@@ -115,6 +138,9 @@ function Get-KbInstalledUpdate {
                     FastPackageReference = $package.FastPackageReference
                     InstalledOn          = $cim.InstalledOn
                     InstallDate          = $cim.InstallDate
+                    InstallClient        = $installclient
+                    InstallFile          = $allfiles
+                    InstallUser          = $installuser
                     FixComments          = $cim.FixComments
                     ServicePackInEffect  = $cim.ServicePackInEffect
                     Caption              = $cim.Caption
@@ -129,6 +155,7 @@ function Get-KbInstalledUpdate {
                     TagId                = $package.TagId
                     PackageObject        = $package
                     RegistryObject       = $reg
+                    CBSPackageObject     = $cbs
                     CimObject            = $cim
                 }
             }
@@ -150,6 +177,29 @@ function Get-KbInstalledUpdate {
                     $hotfixid = $cim.HotfixId
                 }
 
+                if ($hotfixid) {
+                    $cbs = Get-ChildItem 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Component Based Servicing\Packages' | Where-Object Name -match $hotfixid | Get-ItemProperty
+                    if ($cbs) {
+                        # make it pretty
+                        $cbs | Add-Member -MemberType ScriptMethod -Name ToString -Value { "ComponentBasedServicing" } -Force
+                        $installclient = ($cbs | Select-Object -First 1).InstallClient
+                        $installuser = ($cbs | Select-Object -First 1).InstallUser
+
+                        $allfiles = New-Object -TypeName System.Collections.ArrayList
+                        foreach ($file in $cbs) {
+                            $name = $file.InstallName
+                            $location = $file.InstallLocation.ToString().TrimStart("\\?\")
+                            $location = "$location\$name"
+                            $null = $allfiles.Add([pscustomobject]@{
+                                    Name = $name
+                                    Path = $location
+                                })
+                        }
+                        # no idea why this doesn't work :(
+                        Add-Member -InputObject $allfiles -MemberType ScriptMethod -Name ToString -Value { $this.Name } -Force
+                    }
+                }
+
                 [pscustomobject]@{
                     ComputerName        = $env:COMPUTERNAME
                     Name                = $cim.HotfixId
@@ -163,6 +213,9 @@ function Get-KbInstalledUpdate {
                     InstalledBy         = $cim.InstalledBy
                     InstalledOn         = $cim.InstalledOn
                     InstallDate         = $cim.InstallDate
+                    InstallClient       = $installclient
+                    InstallFile         = $allfiles
+                    InstallUser         = $installuser
                     FixComments         = $cim.FixComments
                     ServicePackInEffect = $cim.ServicePackInEffect
                     Caption             = $cim.Caption
@@ -177,6 +230,7 @@ function Get-KbInstalledUpdate {
                     TagId               = $null
                     PackageObject       = $null
                     RegistryObject      = $null
+                    CBSPackageObject    = $cbs
                     CimObject           = $cim
                 }
             }
