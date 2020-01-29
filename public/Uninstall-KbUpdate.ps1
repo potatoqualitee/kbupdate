@@ -124,36 +124,6 @@ function Uninstall-KbUpdate {
                 ExitCode     = $results.ExitCode
             }
         }
-
-        $msuscriptblock = {
-            param (
-                $HotfixId,
-                $VerbosePreference
-            )
-            $package = Get-Package | Where-Object Name -Match $HotfixId
-            $name = $package.Name
-            $package
-            if ($package) {
-                Write-Verbose -Message "Found $HotfixId. Uninstalling."
-                $params = {
-                    InstallUpdate = $true
-                }
-                $package | Uninstall-Package -ErrorAction Stop -Force -IncludeWindowsInstaller -IncludeSystemComponent
-            }
-
-            if (Get-Package | Where-Object Name -Match $HotfixId) {
-                $notes = "Please restart to finish uninstalling"
-            } else {
-                $notes = "Uninstall successful"
-            }
-
-            [pscustomobject]@{
-                ComputerName = $env:ComputerName
-                Name         = $name
-                HotfixID     = $HotfixId
-                Notes        = $notes
-            }
-        }
     }
     process {
         if (-not $PSBoundParameters.HotfixId -and -not $PSBoundParameters.InputObject.HotfixId) {
@@ -198,23 +168,22 @@ function Uninstall-KbUpdate {
                     if ($ArgumentList -notmatch "/quiet" -and -not $NoQuiet -and -not $PSBoundParameters.ArgumentList) {
                         $ArgumentList = "$ArgumentList /quiet"
                     }
-
-                    # I tried to get this working using DSC but in end end, a Start-Process equivalent was it
-                    if ($PSCmdlet.ShouldProcess($computer, "Uninstalling Hotfix $hotfix by executing $program $ArgumentList")) {
-                        try {
-                            Invoke-PSFCommand -ComputerName $computer -Credential $Credential -ScriptBlock $programscriptblock -ArgumentList $Program, $ArgumentList, $hotfix, $update.Name $VerbosePreference -ErrorAction Stop | Select-Object -Property * -ExcludeProperty PSComputerName, RunspaceId
-                        } catch {
-                            Stop-PSFFunction -Message "Failure on $computer" -ErrorRecord $_ -EnableException:$EnableException
-                        }
-                    }
                 } else {
-                    # DSC does work for .wsu
-                    if ($PSCmdlet.ShouldProcess($computer, "Uninstalling Hotfix $hotfix using DSC")) {
-                        try {
-                            Invoke-PSFCommand -ComputerName $computer -Credential $Credential -ScriptBlock $msuscriptblock -ArgumentList $hotfixid, $VerbosePreference -ErrorAction Stop | Select-Object -Property * -ExcludeProperty PSComputerName, RunspaceId
-                        } catch {
-                            Stop-PSFFunction -Message "Failure on $computer" -ErrorRecord $_ -EnableException:$EnableException
-                        }
+                    $hotfixnumber = $hotfix.Replace("KB", "")
+                    $program = "wusa.exe"
+                    $ArgumentList = "/uninstall /kb:$hotfixnumber /quiet /warnrestart"
+                    #$program = "DISM.exe"
+                    #$ArgumentList = "/Online /Remove-Package /PackageName:$($update.HotfixId) /quiet /norestart"
+                    #dism.exe /online /Remove-Package /PackagePath:<PATH_TO_EXTRACTED_CAB> /LogPath:<LOG_PATH> /quiet /norestart
+
+                }
+
+                # I tried to get this working using DSC but in end end, a Start-Process equivalent was it
+                if ($PSCmdlet.ShouldProcess($computer, "Uninstalling Hotfix $hotfix by executing $program $ArgumentList")) {
+                    try {
+                        Invoke-PSFCommand -ComputerName $computer -Credential $Credential -ScriptBlock $programscriptblock -ArgumentList $Program, $ArgumentList, $hotfix, $update.Name $VerbosePreference -ErrorAction Stop | Select-Object -Property * -ExcludeProperty PSComputerName, RunspaceId
+                    } catch {
+                        Stop-PSFFunction -Message "Failure on $computer" -ErrorRecord $_ -EnableException:$EnableException
                     }
                 }
             }

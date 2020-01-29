@@ -108,6 +108,7 @@ function Get-KbInstalledUpdate {
                         $cbs | Add-Member -MemberType ScriptMethod -Name ToString -Value { "ComponentBasedServicing" } -Force
                         $installclient = ($cbs | Select-Object -First 1).InstallClient
                         $installuser = ($cbs | Select-Object -First 1).InstallUser
+                        $installname = ($cbs | Select-Object -First 1).InstallName
 
                         $allfiles = New-Object -TypeName System.Collections.ArrayList
                         foreach ($file in $cbs) {
@@ -139,6 +140,7 @@ function Get-KbInstalledUpdate {
                     InstalledOn          = $cim.InstalledOn
                     InstallDate          = $cim.InstallDate
                     InstallClient        = $installclient
+                    InstallName          = $installname
                     InstallFile          = $allfiles
                     InstallUser          = $installuser
                     FixComments          = $cim.FixComments
@@ -214,6 +216,7 @@ function Get-KbInstalledUpdate {
                     InstalledOn         = $cim.InstalledOn
                     InstallDate         = $cim.InstallDate
                     InstallClient       = $installclient
+                    InstallName         = $installname
                     InstallFile         = $allfiles
                     InstallUser         = $installuser
                     FixComments         = $cim.FixComments
