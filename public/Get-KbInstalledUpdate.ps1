@@ -88,6 +88,17 @@ function Get-KbInstalledUpdate {
                     $hotfixid = Split-Path -Path $regpath -Leaf | Where-Object { $psitem.StartsWith("KB") }
                 } else {
                     $reg = $null
+                    $hotfixid = $null
+                }
+
+                #return the same properties as above
+                if ($package.Name -match 'KB' -and -not $hotfixid) {
+                    # anyone want to help with regex, I'm down. Till then..
+                    $split = $package.Name -split 'KB'
+                    $number = ($split[-1]).TrimEnd(")").Trim()
+                    $hotfixid = "KB$number"
+                } else {
+                    $hotfixid = $package.HotfixId
                 }
 
                 [pscustomobject]@{
@@ -130,13 +141,22 @@ function Get-KbInstalledUpdate {
 
             foreach ($cim in $allcim) {
                 #return the same properties as above
+                if ($cim.Name -match 'KB' -and -not $cim.HotfixId) {
+                    # anyone want to help with regex, I'm down. Till then..
+                    $split = $cim.Name -split 'KB'
+                    $number = ($split[-1]).TrimEnd(")").Trim()
+                    $hotfixid = "KB$number"
+                } else {
+                    $hotfixid = $cim.HotfixId
+                }
+
                 [pscustomobject]@{
                     ComputerName        = $env:COMPUTERNAME
                     Name                = $cim.HotfixId
                     ProviderName        = $null
                     Source              = $null
                     Status              = $null
-                    HotfixId            = $cim.HotfixId
+                    HotfixId            = $hotfixid
                     FullPath            = $null
                     PackageFilename     = $null
                     Summary             = $null
