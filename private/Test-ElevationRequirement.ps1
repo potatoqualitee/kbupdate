@@ -48,7 +48,7 @@ function Test-ElevationRequirement {
     #>
     [CmdletBinding(DefaultParameterSetName = 'Stop')]
     param (
-        [DbaInstanceParameter]$ComputerName,
+        [PSFComputer]$ComputerName,
         [Parameter(ParameterSetName = 'Stop')]
         [switch]$Continue,
         [Parameter(ParameterSetName = 'Stop')]

@@ -47,6 +47,9 @@ function Install-KbUpdate {
         PS C:\> Get-KbUpdate -Pattern 4498951 | Install-KbUpdate -ComputerName sql2017 -NoDelete -FilePath \\dc\sql\sqlserver2017-kb4498951-x64_b143d28a48204eb6ebab62394ce45df53d73f286.exe
 
         Installs KB4534273 from the C:\temp directory on sql2017
+
+    .EXAMPLE
+        PS C:\> Install-KbUpdate -FilePath '\\dc\sql\windows10.0-kb4532947-x64_20103b70445e230e5994dc2a89dc639cd5756a66.msu' -ComputerName sql2017 -HotfixId KB453510
 #>
     [CmdletBinding(SupportsShouldProcess, ConfirmImpact = "Medium")]
     param (
@@ -101,6 +104,7 @@ function Install-KbUpdate {
 
             if (-not $hasxhotfix) {
                 try {
+                    # Copy xWindowsUpdate to Program Files. The module is pretty much required to be in the PS Modules directory.
                     $oldpref = $ProgressPreference
                     $ProgressPreference = 'SilentlyContinue'
                     $programfiles = Invoke-PSFCommand -ComputerName $computer -Credential $Credential -ArgumentList "$env:ProgramFiles\WindowsPowerShell\Modules" -ScriptBlock {
@@ -118,28 +122,46 @@ function Install-KbUpdate {
             }
 
             if (-not $remotefileexists) {
+                if ($FilePath) {
+                    # try really hard to find it locally
+                    $updatefile = Get-ChildItem -Path $FilePath -ErrorAction SilentlyContinue
+                    if (-not $updatefile) {
+                        $filename = Split-Path -Path $FilePath -Leaf
+                        $updatefile = Get-ChildItem -Path "$home\Downloads\$filename" -ErrorAction SilentlyContinue
+                    }
+                }
+
                 if (-not $updatefile) {
+                    # try to automatically download it for them
                     if (-not $PSBoundParameters.InputObject) {
-                        $InputObject = Get-KbUpdate -ComputerName $computer -Architecture x64 -Credential $credential -Latest -Pattern $HotfixId
+                        $InputObject = Get-KbUpdate -ComputerName $computer -Architecture x64 -Credential $credential -Latest -Pattern $HotfixId | Where-Object Link
                     }
 
-                    $file = Split-Path $InputObject.Link -Leaf
-
-                    if ((Test-Path -Path "$home\$file")) {
-                        $updatefile = Get-ChildItem -Path "$home\$file"
+                    # note to reader: if this picks the wrong one, please download the required file manually.
+                    if ($InputObject.Link) {
+                        $file = Split-Path $InputObject.Link -Leaf | Select-Object -Last 1
                     } else {
-                        if ($PSCmdlet.ShouldProcess($computer, "File not detected, downloading now and copying to remote computer")) {
-                            $updatefile = $InputObject | Select-Object -First 1 | Save-KbUpdate -Path $home
+                        Stop-PSFFunction -EnableException:$EnableException -Message "Could not find file on $computer and couldn't find it online. Try piping in exactly what you'd like from Get-KbUpdate." -Continue
+                    }
+
+                    if ((Test-Path -Path "$home\Downloads\$file")) {
+                        $updatefile = Get-ChildItem -Path "$home\Downloads\$file"
+                    } else {
+                        if ($PSCmdlet.ShouldProcess($computer, "File not detected, downloading now to $home\Downloads and copying to remote computer")) {
+                            $warnatbottom = $true
+                            $updatefile = $InputObject | Select-Object -First 1 | Save-KbUpdate -Path "$home\Downloads"
                         }
                     }
                 }
 
                 if (-not $PSBoundParameters.FilePath) {
-                    $FilePath = "$env:ProgramFiles\WindowsPowerShell\Modules\$(Split-Path -Leaf $updateFile)"
+                    $FilePath = "$remotehome\Downloads\$(Split-Path -Leaf $updateFile)"
                 }
 
                 # ignore if it's on a file server
+                write-warning hello
                 if ($updatefile -and -not ($PSBoundParameters.FilePath).StartsWith("\\")) {
+                    write-warning hello2
                     try {
                         $null = Copy-Item -Path $updatefile -Destination $FilePath -ToSession $remotesession -ErrrorAction Stop
                     } catch {
@@ -224,17 +246,23 @@ function Install-KbUpdate {
                             throw "Invoke-DscResource not found on $env:ComputerName"
                         }
                         $null = Import-Module xWindowsUpdate -Force
-
-                        # Write-Verbose -Message ("Installing { 0 } from { 1 }" -f $hotfix.property.id, $hotfix.property.path)
+                        Write-Verbose -Message "Installing $($hotfix.property.id) from $($hotfix.property.path)"
                         try {
                             if (-not (Invoke-DscResource @hotfix -Method Test)) {
-                                Invoke-DscResource @hotfix -Method Set -ErrorAction Stop
+                                #Invoke-DscResource @hotfix -Method Set -ErrorAction Stop
                             }
                         } catch {
+                            write-warning HELLO
+                            $message = "$_"
+                            write-warning $message
+                            return $_
                             switch ($message = "$_") {
                                 # some things can be ignored
-                                { $message -match "Serialized XML is nested too deeply" -or $message -match "Name does not match package details" } {
+                                { $message -match "nested too deeply" -or $message -match "Name does not match package details" } {
                                     $null = 1
+                                }
+                                { $message -match "2359302" } {
+                                    throw "Update is already installed on $env:ComputerName"
                                 }
                                 { $message -match "2042429437" } {
                                     throw "The return code -2042429437 was not expected. Configuration is likely not correct. The requested features may not be installed or features are already at a higher patch level."
@@ -259,5 +287,8 @@ function Install-KbUpdate {
                 }
             }
         }
+    }
+    end {
+        $warnatbottom
     }
 }

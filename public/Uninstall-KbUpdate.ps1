@@ -68,7 +68,7 @@ function Uninstall-KbUpdate {
     )
     process {
         if (-not $PSBoundParameters.HotfixId -and -not $PSBoundParameters.InputObject.HotfixId) {
-            Stop-Function -EnableException:$EnableException -Message "You must specify either HotfixId or pipe in the results from Get-KbInstalledUpdate"
+            Stop-PSFFunction -EnableException:$EnableException -Message "You must specify either HotfixId or pipe in the results from Get-KbInstalledUpdate"
             return
         }
 
@@ -78,9 +78,9 @@ function Uninstall-KbUpdate {
             }
 
             foreach ($computer in $PSBoundParameters.ComputerName) {
-                $exists = Get-KbInstalledUpdate -Pattern $hotfix -ComputerName $computer | Where-Object UninstallString
+                $exists = Get-KbInstalledUpdate -Pattern $hotfix -ComputerName $computer
                 if (-not $exists) {
-                    Stop-Function -EnableException:$EnableException -Message "$hotfix is not installed on $computer" -Continue
+                    Stop-PSFFunction -EnableException:$EnableException -Message "$hotfix is not installed on $computer" -Continue
                 } else {
                     $InputObject += $exists
                 }
@@ -91,11 +91,12 @@ function Uninstall-KbUpdate {
                 $hotfix = $update.HotfixId
 
                 if (-not (Test-ElevationRequirement -ComputerName $computer)) {
-                    Stop-Function -Message "To run this command locally, you must run as admin." -Continue -EnableException:$EnableException
+                    Stop-PSFFunction -Message "To run this command locally, you must run as admin." -Continue -EnableException:$EnableException
                 }
+                # GOTTA ADD BACK THE SHIT
 
                 if (-not $update.UninstallString) {
-                    Stop-Function -Message "Uninstall string cannot be found, skipping $($update.Name) on $computername" -Continue -EnableException:$EnableException
+                    Stop-PSFFunction -Message "Uninstall string cannot be found, skipping $($update.Name) on $computername" -Continue -EnableException:$EnableException
                 }
 
                 if ($update.ProviderName -eq "Programs") {
@@ -174,7 +175,7 @@ function Uninstall-KbUpdate {
                             }
                         } -ArgumentList $Program, $ArgumentList, $hotfix, $update.Name $VerbosePreference -ErrorAction Stop | Select-Object -Property * -ExcludeProperty PSComputerName, RunspaceId
                     } catch {
-                        Stop-Function -Message "Failure on $computer" -ErrorRecord $_ -EnableException:$EnableException
+                        Stop-PSFFunction -Message "Failure on $computer" -ErrorRecord $_ -EnableException:$EnableException
                     }
                 }
             }
