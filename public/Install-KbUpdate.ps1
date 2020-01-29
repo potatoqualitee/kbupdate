@@ -221,6 +221,7 @@ function Install-KbUpdate {
                             $ManualFileName
                         )
                         $PSDefaultParameterValues['*:ErrorAction'] = 'SilentlyContinue'
+                        $ErrorActionPreference = "Stop"
 
                         if (-not (Get-Command Invoke-DscResource)) {
                             throw "Invoke-DscResource not found on $env:ComputerName"
@@ -229,20 +230,16 @@ function Install-KbUpdate {
                         Write-Verbose -Message "Installing $($hotfix.property.id) from $($hotfix.property.path)"
                         try {
                             if (-not (Invoke-DscResource @hotfix -Method Test)) {
-                                #Invoke-DscResource @hotfix -Method Set -ErrorAction Stop
+                                Invoke-DscResource @hotfix -Method Set -ErrorAction Stop
                             }
                         } catch {
-                            write-warning HELLO
-                            $message = "$_"
-                            write-warning $message
-                            return $_
                             switch ($message = "$_") {
                                 # some things can be ignored
                                 { $message -match "nested too deeply" -or $message -match "Name does not match package details" } {
                                     $null = 1
                                 }
                                 { $message -match "2359302" } {
-                                    throw "Update is already installed on $env:ComputerName"
+                                    throw "Error 2359302: update is already installed on $env:ComputerName"
                                 }
                                 { $message -match "2042429437" } {
                                     throw "The return code -2042429437 was not expected. Configuration is likely not correct. The requested features may not be installed or features are already at a higher patch level."

@@ -50,7 +50,13 @@ function Get-KbInstalledUpdate {
     )
     begin {
         $scriptblock = {
-            param ($Search)
+            param ($Search, $VerbosePreference)
+            if ($psversiontable.PsVersion.Major -lt 5 -or ($psversiontable.PsVersion.Major -eq 5 -and $psversiontable.PsVersion.Major -lt 1)) {
+                # using throw because it's a remote computer with no guarantee of psframework. Also the throw is caught at the bottom by PSFramework.
+                throw "$env:ComputerName is running PowerShell version $psversiontalbe. Please upgrade to PowerShell version 5.1 or greater"
+            }
+            $allcbs = Get-ChildItem 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Component Based Servicing\Packages'
+
             # i didnt know how else to preserve the array, it kept flattening to a single string
             $pattern = $Search['Pattern']
             if ($pattern) {
@@ -93,22 +99,29 @@ function Get-KbInstalledUpdate {
 
                 #return the same properties as above
                 if ($package.Name -match 'KB' -and -not $hotfixid) {
-                    # anyone want to help with regex, I'm down. Till then..
-                    $split = $package.Name -split 'KB'
-                    $number = ($split[-1]).TrimEnd(")").Trim()
-                    $hotfixid = "KB$number"
+                    #anyone want to help with regex, I'm down. Till then..
+                    $number = $package.Name.Split('KB') | Select-Object -Last 1
+                    $number = $number.Split(" ") | Select-Object -First 1
+                    $hotfixid = "KB$number".Trim().Replace(")", "")
                 } else {
                     $hotfixid = $package.HotfixId
                 }
 
                 if ($hotfixid) {
-                    $cbs = Get-ChildItem 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Component Based Servicing\Packages' | Where-Object Name -match $hotfixid | Get-ItemProperty
+                    $cbs = $allcbs | Where-Object Name -match $hotfixid | Get-ItemProperty
                     if ($cbs) {
                         # make it pretty
                         $cbs | Add-Member -MemberType ScriptMethod -Name ToString -Value { "ComponentBasedServicing" } -Force
                         $installclient = ($cbs | Select-Object -First 1).InstallClient
                         $installuser = ($cbs | Select-Object -First 1).InstallUser
                         $installname = ($cbs | Select-Object -First 1).InstallName
+
+                        # props for highlighting that the installversion is important
+                        # https://social.technet.microsoft.com/Forums/Lync/en-US/f6594e00-2400-4276-85a1-fb06485b53e6/issues-with-wusaexe-and-windows-10-enterprise?forum=win10itprogeneral
+                        if ($installname) {
+                            $installname = $installname.Replace(".mum", "")
+                            $installversion = (($installname -split "~~")[1])
+                        }
 
                         $allfiles = New-Object -TypeName System.Collections.ArrayList
                         foreach ($file in $cbs) {
@@ -120,11 +133,9 @@ function Get-KbInstalledUpdate {
                                     Path = $location
                                 })
                         }
-                        # no idea why this doesn't work :(
-                        Add-Member -InputObject $allfiles -MemberType ScriptMethod -Name ToString -Value { $this.Name } -Force
                     }
                 }
-
+                # gotta get dism module and try that jesus christ
                 [pscustomobject]@{
                     ComputerName         = $env:COMPUTERNAME
                     Name                 = $package.Name
@@ -141,6 +152,7 @@ function Get-KbInstalledUpdate {
                     InstallDate          = $cim.InstallDate
                     InstallClient        = $installclient
                     InstallName          = $installname
+                    InstallVersion       = $installversion
                     InstallFile          = $allfiles
                     InstallUser          = $installuser
                     FixComments          = $cim.FixComments
@@ -217,6 +229,7 @@ function Get-KbInstalledUpdate {
                     InstallDate         = $cim.InstallDate
                     InstallClient       = $installclient
                     InstallName         = $installname
+                    InstallVersion      = $installversion
                     InstallFile         = $allfiles
                     InstallUser         = $installuser
                     FixComments         = $cim.FixComments
@@ -242,7 +255,7 @@ function Get-KbInstalledUpdate {
     process {
         try {
             foreach ($computer in $ComputerName) {
-                Invoke-PSFCommand -ComputerName $computer -Credential $Credential -ErrorAction Stop -ScriptBlock $scriptblock -ArgumentList @{ Pattern = $Pattern } | Sort-Object -Property Name | Select-Object -Property * -ExcludeProperty PSComputerName, RunspaceId
+                Invoke-PSFCommand -ComputerName $computer -Credential $Credential -ErrorAction Stop -ScriptBlock $scriptblock -ArgumentList @{ Pattern = $Pattern }, $VerbosePreference | Sort-Object -Property Name | Select-Object -Property * -ExcludeProperty PSComputerName, RunspaceId
             }
         } catch {
             Stop-PSFFunction -EnableException:$EnableException -Message "Failure" -ErrorRecord $_ -Continue

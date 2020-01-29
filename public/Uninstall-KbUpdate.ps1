@@ -127,6 +127,7 @@ function Uninstall-KbUpdate {
     }
     process {
         if (-not $PSBoundParameters.HotfixId -and -not $PSBoundParameters.InputObject.HotfixId) {
+            # some just wont have hotfix i guess but you can pipe from the command and still get this error so fix the erorr
             Stop-PSFFunction -EnableException:$EnableException -Message "You must specify either HotfixId or pipe in the results from Get-KbInstalledUpdate"
             return
         }
@@ -169,13 +170,13 @@ function Uninstall-KbUpdate {
                         $ArgumentList = "$ArgumentList /quiet"
                     }
                 } else {
-                    $hotfixnumber = $hotfix.Replace("KB", "")
-                    $program = "wusa.exe"
-                    $ArgumentList = "/uninstall /kb:$hotfixnumber /quiet /warnrestart"
-                    #$program = "DISM.exe"
-                    #$ArgumentList = "/Online /Remove-Package /PackageName:$($update.HotfixId) /quiet /norestart"
-                    #dism.exe /online /Remove-Package /PackagePath:<PATH_TO_EXTRACTED_CAB> /LogPath:<LOG_PATH> /quiet /norestart
+                    # props for highlighting that the installversion is important for win10
+                    # https://social.technet.microsoft.com/Forums/Lync/en-US/f6594e00-2400-4276-85a1-fb06485b53e6/issues-with-wusaexe-and-windows-10-enterprise?forum=win10itprogeneral
+                    $installname = $update.InstallName
 
+                    # this can be done in PowerShell but I'm just gonna reuse that scriptblock
+                    $program = "dism.exe"
+                    $ArgumentList = "/Online /Remove-Package /PackageName:$installname /quiet /norestart"
                 }
 
                 # I tried to get this working using DSC but in end end, a Start-Process equivalent was it
