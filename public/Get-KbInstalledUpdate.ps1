@@ -42,8 +42,9 @@ function Get-KbInstalledUpdate {
 #>
     [CmdletBinding()]
     param(
-        [string[]]$ComputerName = $env:COMPUTERNAME,
+        [PSFComputer[]]$ComputerName = $env:COMPUTERNAME,
         [pscredential]$Credential,
+        [Alias("HotfixId")]
         [string[]]$Pattern,
         [switch]$EnableException
     )
@@ -121,7 +122,7 @@ function Get-KbInstalledUpdate {
                 }
             }
 
-            $allcim = Get-CimInstance -ClassName Win32_QuickFixEngineering
+            $allcim = Get-CimInstance -ClassName Win32_QuickFixEngineering | Sort-Object Name -Unique
 
             if ($pattern) {
                 $allcim = $allcim | Where-Object HotfixId -in $pattern

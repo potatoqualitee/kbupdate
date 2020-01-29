@@ -95,10 +95,11 @@ function Get-KbUpdate {
     param(
         [Parameter(Mandatory)]
         [Alias("Name")]
+        [Alias("HotfixId")]
         [string[]]$Pattern,
         [string[]]$Architecture,
         [string[]]$OperatingSystem,
-        [string[]]$ComputerName,
+        [PSFComputer[]]$ComputerName,
         [pscredential]$Credential,
         [string[]]$Product,
         [string[]]$Language,

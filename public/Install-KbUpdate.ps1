@@ -53,7 +53,7 @@ function Install-KbUpdate {
 #>
     [CmdletBinding(SupportsShouldProcess, ConfirmImpact = "Medium")]
     param (
-        [string[]]$ComputerName = $env:ComputerName,
+        [PSFComputer[]]$ComputerName = $env:ComputerName,
         [PSCredential]$Credential,
         [PSCredential]$PSDscRunAsCredential,
         [Parameter(ValueFromPipelineByPropertyName)]
@@ -184,50 +184,30 @@ function Install-KbUpdate {
             }
 
             if ($FilePath.EndsWith("exe")) {
-                $type = "exe"
-            } else {
-                $type = "msu"
-            }
-
-            switch ($type) {
-                "msu" {
-                    if ($PSDscRunAsCredential) {
-                        $hotfix = @{
-                            Name       = 'xHotFix'
-                            ModuleName = 'xWindowsUpdate'
-                            Property   = @{
-                                Id                   = $HotfixId
-                                Path                 = $FilePath
-                                Ensure               = 'Present'
-                                PSDscRunAsCredential = $PSDscRunAsCredential
-                            }
-                        }
-                    } else {
-                        $hotfix = @{
-                            Name       = 'xHotFix'
-                            ModuleName = 'xWindowsUpdate'
-                            Property   = @{
-                                Id     = $HotfixId
-                                Path   = $FilePath
-                                Ensure = 'Present'
-                            }
-                        }
+                $hotfix = @{
+                    Name       = 'Package'
+                    ModuleName = 'PSDesiredStateConfiguration'
+                    Property   = @{
+                        Ensure     = 'Present'
+                        ProductId  = $Guid
+                        Name       = $Title
+                        Path       = $FilePath
+                        Arguments  = $ArgumentList
+                        ReturnCode = 0, 3010
                     }
-                    # RIGHT HERE DO if dsc then .ddsc =
                 }
-                "exe" {
-                    $hotfix = @{
-                        Name       = 'Package'
-                        ModuleName = 'PSDesiredStateConfiguration'
-                        Property   = @{
-                            Ensure     = 'Present'
-                            ProductId  = $Guid
-                            Name       = $Title
-                            Path       = $FilePath
-                            Arguments  = $ArgumentList
-                            ReturnCode = 0, 3010
-                        }
+            } else {
+                $hotfix = @{
+                    Name       = 'xHotFix'
+                    ModuleName = 'xWindowsUpdate'
+                    Property   = @{
+                        Ensure = 'Present'
+                        Id     = $HotfixId
+                        Path   = $FilePath
                     }
+                }
+                if ($PSDscRunAsCredential) {
+                    $hotfix.Property.PSDscRunAsCredential = $PSDscRunAsCredential
                 }
             }
 

@@ -56,7 +56,7 @@ function Uninstall-KbUpdate {
 
     [CmdletBinding(SupportsShouldProcess, ConfirmImpact = "Medium")]
     param (
-        [string[]]$ComputerName = $env:ComputerName,
+        [PSFComputer[]]$ComputerName = $env:ComputerName,
         [PSCredential]$Credential,
         [Parameter(ValueFromPipelineByPropertyName)]
         [string]$HotfixId,
@@ -66,6 +66,95 @@ function Uninstall-KbUpdate {
         [switch]$NoQuiet,
         [switch]$EnableException
     )
+    begin {
+        $programscriptblock = {
+            param (
+                $Program,
+                $ArgumentList,
+                $hotfix,
+                $Name,
+                $VerbosePreference
+            )
+
+            Function Invoke-UninstallCommand ($Program, $ArgumentList) {
+                $pinfo = New-Object System.Diagnostics.ProcessStartInfo
+                $pinfo.FileName = $Program
+                $pinfo.RedirectStandardError = $true
+                $pinfo.RedirectStandardOutput = $true
+                $pinfo.UseShellExecute = $false
+                $pinfo.Arguments = $ArgumentList
+                $p = New-Object System.Diagnostics.Process
+                $p.StartInfo = $pinfo
+                $null = $p.Start()
+                $p.WaitForExit()
+                [pscustomobject]@{
+                    stdout   = $p.StandardOutput.ReadToEnd()
+                    stderr   = $p.StandardError.ReadToEnd()
+                    ExitCode = $p.ExitCode
+                }
+            }
+
+            Write-Verbose -Message "Program = $Program"
+            Write-Verbose -Message "ArgumentList = $ArgumentList"
+
+            $results = Invoke-UninstallCommand -Program $Program -ArgumentList $ArgumentList
+            $output = $results.stdout.Trim()
+
+            # -2067919934 is reboot needed but the output already tells you to reboot
+            switch ($results.ExitCode) {
+                -2068052310 {
+                    $output = "$output`n`nThe exit code suggests that you need to mount the SQL Server ISO so the uninstaller can find the setup files."
+                }
+                0 {
+                    if ($output.Trim()) {
+                        $output = "$output`n`nYou have successfully uninstalled $Name"
+                    } else {
+                        if ($Name) {
+                            $output = "$Name has been successfully uninstalled"
+                        }
+                    }
+                }
+            }
+
+            [pscustomobject]@{
+                ComputerName = $env:ComputerName
+                Name         = $Name
+                HotfixID     = $hotfix
+                Results      = $output
+                ExitCode     = $results.ExitCode
+            }
+        }
+
+        $msuscriptblock = {
+            param (
+                $HotfixId,
+                $VerbosePreference
+            )
+            $package = Get-Package | Where-Object Name -Match $HotfixId
+            $name = $package.Name
+            $package
+            if ($package) {
+                Write-Verbose -Message "Found $HotfixId. Uninstalling."
+                $params = {
+                    InstallUpdate = $true
+                }
+                $package | Uninstall-Package -ErrorAction Stop -Force -IncludeWindowsInstaller -IncludeSystemComponent
+            }
+
+            if (Get-Package | Where-Object Name -Match $HotfixId) {
+                $notes = "Please restart to finish uninstalling"
+            } else {
+                $notes = "Uninstall successful"
+            }
+
+            [pscustomobject]@{
+                ComputerName = $env:ComputerName
+                Name         = $name
+                HotfixID     = $HotfixId
+                Notes        = $notes
+            }
+        }
+    }
     process {
         if (-not $PSBoundParameters.HotfixId -and -not $PSBoundParameters.InputObject.HotfixId) {
             Stop-PSFFunction -EnableException:$EnableException -Message "You must specify either HotfixId or pipe in the results from Get-KbInstalledUpdate"
@@ -93,89 +182,39 @@ function Uninstall-KbUpdate {
                 if (-not (Test-ElevationRequirement -ComputerName $computer)) {
                     Stop-PSFFunction -Message "To run this command locally, you must run as admin." -Continue -EnableException:$EnableException
                 }
-                # GOTTA ADD BACK THE SHIT
 
-                if (-not $update.UninstallString) {
-                    Stop-PSFFunction -Message "Uninstall string cannot be found, skipping $($update.Name) on $computername" -Continue -EnableException:$EnableException
-                }
-
-                if ($update.ProviderName -eq "Programs") {
-                    $path = $update.UninstallString -match '^(".+") (/.+) (/.+)'
-                    $program = $matches[1]
-                    if (-not $path) {
-                        $program = Split-Path $update.UninstallString
+                if ($update.UninstallString) {
+                    if ($update.ProviderName -eq "Programs") {
+                        $path = $update.UninstallString -match '^(".+") (/.+) (/.+)'
+                        $program = $matches[1]
+                        if (-not $path) {
+                            $program = Split-Path $update.UninstallString
+                        }
+                        if (-not $PSBoundParameters.ArgumentList) {
+                            $ArgumentList = $update.UninstallString.Replace($program, "")
+                        }
                     }
-                    if (-not $PSBoundParameters.ArgumentList) {
-                        $ArgumentList = $update.UninstallString.Replace($program, "")
+
+                    if ($ArgumentList -notmatch "/quiet" -and -not $NoQuiet -and -not $PSBoundParameters.ArgumentList) {
+                        $ArgumentList = "$ArgumentList /quiet"
                     }
-                }
 
-                if ($ArgumentList -notmatch "/quiet" -and -not $NoQuiet -and -not $PSBoundParameters.ArgumentList) {
-                    $ArgumentList = "$ArgumentList /quiet"
-                }
-
-                # I tried to get this working using DSC but in end end, a Start-Process equivalent was it
-                if ($PSCmdlet.ShouldProcess($computer, "Uninstalling Hotfix $hotfix by executing $program $ArgumentList")) {
-                    try {
-                        Invoke-PSFCommand -ComputerName $computer -Credential $Credential -ScriptBlock {
-                            param (
-                                $Program,
-                                $ArgumentList,
-                                $hotfix,
-                                $Name,
-                                $VerbosePreference
-                            )
-
-                            Function Invoke-UninstallCommand ($Program, $ArgumentList) {
-                                $pinfo = New-Object System.Diagnostics.ProcessStartInfo
-                                $pinfo.FileName = $Program
-                                $pinfo.RedirectStandardError = $true
-                                $pinfo.RedirectStandardOutput = $true
-                                $pinfo.UseShellExecute = $false
-                                $pinfo.Arguments = $ArgumentList
-                                $p = New-Object System.Diagnostics.Process
-                                $p.StartInfo = $pinfo
-                                $null = $p.Start()
-                                $p.WaitForExit()
-                                [pscustomobject]@{
-                                    stdout   = $p.StandardOutput.ReadToEnd()
-                                    stderr   = $p.StandardError.ReadToEnd()
-                                    ExitCode = $p.ExitCode
-                                }
-                            }
-
-                            Write-Verbose -Message "Program = $Program"
-                            Write-Verbose -Message "ArgumentList = $ArgumentList"
-
-                            $results = Invoke-UninstallCommand -Program $Program -ArgumentList $ArgumentList
-                            $output = $results.stdout.Trim()
-
-                            # -2067919934 is reboot needed but the output already tells you to reboot
-                            switch ($results.ExitCode) {
-                                -2068052310 {
-                                    $output = "$output`n`nThe exit code suggests that you need to mount the SQL Server ISO so the uninstaller can find the setup files."
-                                }
-                                0 {
-                                    if ($output.Trim()) {
-                                        $output = "$output`n`nYou have successfully uninstalled $Name"
-                                    } else {
-                                        if ($Name) {
-                                            $output = "$Name has been successfully uninstalled"
-                                        }
-                                    }
-                                }
-                            }
-
-                            [pscustomobject]@{
-                                ComputerName = $env:ComputerName
-                                Name         = $Name
-                                HotfixID     = $hotfix
-                                Results      = $output
-                                ExitCode     = $results.ExitCode
-                            }
-                        } -ArgumentList $Program, $ArgumentList, $hotfix, $update.Name $VerbosePreference -ErrorAction Stop | Select-Object -Property * -ExcludeProperty PSComputerName, RunspaceId
-                    } catch {
-                        Stop-PSFFunction -Message "Failure on $computer" -ErrorRecord $_ -EnableException:$EnableException
+                    # I tried to get this working using DSC but in end end, a Start-Process equivalent was it
+                    if ($PSCmdlet.ShouldProcess($computer, "Uninstalling Hotfix $hotfix by executing $program $ArgumentList")) {
+                        try {
+                            Invoke-PSFCommand -ComputerName $computer -Credential $Credential -ScriptBlock $programscriptblock -ArgumentList $Program, $ArgumentList, $hotfix, $update.Name $VerbosePreference -ErrorAction Stop | Select-Object -Property * -ExcludeProperty PSComputerName, RunspaceId
+                        } catch {
+                            Stop-PSFFunction -Message "Failure on $computer" -ErrorRecord $_ -EnableException:$EnableException
+                        }
+                    }
+                } else {
+                    # DSC does work for .wsu
+                    if ($PSCmdlet.ShouldProcess($computer, "Uninstalling Hotfix $hotfix using DSC")) {
+                        try {
+                            Invoke-PSFCommand -ComputerName $computer -Credential $Credential -ScriptBlock $msuscriptblock -ArgumentList $hotfixid, $VerbosePreference -ErrorAction Stop | Select-Object -Property * -ExcludeProperty PSComputerName, RunspaceId
+                        } catch {
+                            Stop-PSFFunction -Message "Failure on $computer" -ErrorRecord $_ -EnableException:$EnableException
+                        }
                     }
                 }
             }
