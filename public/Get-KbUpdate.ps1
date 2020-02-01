@@ -94,8 +94,7 @@ function Get-KbUpdate {
     [CmdletBinding()]
     param(
         [Parameter(Mandatory)]
-        [Alias("Name")]
-        [Alias("HotfixId")]
+        [Alias("Name", "HotfixId", "KBUpdate", "Id")]
         [string[]]$Pattern,
         [string[]]$Architecture,
         [string[]]$OperatingSystem,
@@ -198,8 +197,8 @@ function Get-KbUpdate {
             Write-Progress -Activity "Searching catalog for $kb" -Id 1 -Completed
 
             $kbids = $results.InputFields |
-            Where-Object { $_.type -eq 'Button' -and $_.Value -eq 'Download' } |
-            Select-Object -ExpandProperty  ID
+                Where-Object { $_.type -eq 'Button' -and $_.Value -eq 'Download' } |
+                Select-Object -ExpandProperty  ID
 
             if (-not $kbids) {
                 try {
@@ -215,8 +214,8 @@ function Get-KbUpdate {
             Write-PSFMessage -Level Verbose -Message "$kbids"
             # Thanks! https://keithga.wordpress.com/2017/05/21/new-tool-get-the-latest-windows-10-cumulative-updates/
             $resultlinks = $results.Links |
-            Where-Object ID -match '_link' |
-            Where-Object { $_.OuterHTML -match ( "(?=.*" + ( $Filter -join ")(?=.*" ) + ")" ) }
+                Where-Object ID -match '_link' |
+                Where-Object { $_.OuterHTML -match ( "(?=.*" + ( $Filter -join ")(?=.*" ) + ")" ) }
 
             # get the title too
             $guids = @()
