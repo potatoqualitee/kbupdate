@@ -52,12 +52,19 @@ function Uninstall-KbUpdate {
         PS C:\> Uninstall-KbUpdate -ComputerName sql2017 -HotfixId KB4534273 -WhatIf
 
         Shows what would happen if the command were to run but does not execute any changes
+
+
+    .EXAMPLE
+        PS C:\> Uninstall-KbUpdate -ComputerName sql2017 -HotfixId KB4534273 -Confirm:$false
+
+        Without prompts...
 #>
 
-    [CmdletBinding(SupportsShouldProcess, ConfirmImpact = "Medium")]
+    [CmdletBinding(SupportsShouldProcess, ConfirmImpact = "High")]
     param (
         [PSFComputer[]]$ComputerName = $env:ComputerName,
         [PSCredential]$Credential,
+        [Alias("Name", "KBUpdate", "Id")]
         [Parameter(ValueFromPipelineByPropertyName)]
         [string]$HotfixId,
         [Parameter(ValueFromPipeline)]
@@ -101,6 +108,17 @@ function Uninstall-KbUpdate {
             $output = $results.stdout.Trim()
 
             # -2067919934 is reboot needed but the output already tells you to reboot
+            # Perhaps suggest people check out C:\Windows\Logs\CBS\CBS.log
+            # Only package owners can remove package: Package_10_for_KB4532947~31bf3856ad364e35~amd64~~10.0.1.2565 [HRESULT = 0x80070005 - E_ACCESSDENIED]
+
+            <#
+            0 { "Uninstallation command triggered successfully" }
+            2 { "You don't have sufficient permissions to trigger the command on $Computer" }
+            3 { "You don't have sufficient permissions to trigger the command on $Computer" }
+            8 { "An unknown error has occurred" }
+            9 { "Path Not Found" }
+            9 { "Invalid Parameter"}
+            #>
             switch ($results.ExitCode) {
                 -2068052310 {
                     $output = "$output`n`nThe exit code suggests that you need to mount the SQL Server ISO so the uninstaller can find the setup files."
@@ -138,11 +156,15 @@ function Uninstall-KbUpdate {
             }
 
             foreach ($computer in $PSBoundParameters.ComputerName) {
-                $exists = Get-KbInstalledUpdate -Pattern $hotfix -ComputerName $computer
+                $exists = Get-KbInstalledUpdate -Pattern $hotfix -ComputerName $computer -IncludeHidden
                 if (-not $exists) {
                     Stop-PSFFunction -EnableException:$EnableException -Message "$hotfix is not installed on $computer" -Continue
                 } else {
-                    $InputObject += $exists
+                    if ($exists.Summary -match "restart") {
+                        Stop-PSFFunction -EnableException:$EnableException -Message "You must restart before you can uninstall $hotfix on $computer" -Continue
+                    } else {
+                        $InputObject += $exists
+                    }
                 }
             }
 
@@ -171,6 +193,7 @@ function Uninstall-KbUpdate {
                     }
                 } else {
                     # props for highlighting that the installversion is important for win10
+                    # this allowed me to find the InstallName
                     # https://social.technet.microsoft.com/Forums/Lync/en-US/f6594e00-2400-4276-85a1-fb06485b53e6/issues-with-wusaexe-and-windows-10-enterprise?forum=win10itprogeneral
                     $installname = $update.InstallName
 
