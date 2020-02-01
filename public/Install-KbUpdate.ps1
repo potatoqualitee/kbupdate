@@ -57,7 +57,7 @@ function Install-KbUpdate {
         [PSCredential]$Credential,
         [PSCredential]$PSDscRunAsCredential,
         [Parameter(ValueFromPipelineByPropertyName)]
-        [Alias("Id")]
+        [Alias("Name", "KBUpdate", "Id")]
         [string]$HotfixId,
         [string]$FilePath,
         [Parameter(ValueFromPipelineByPropertyName)]
@@ -67,7 +67,7 @@ function Install-KbUpdate {
         [string]$Title,
         [switch]$NoDelete,
         [Parameter(ValueFromPipeline)]
-        [pscustomobject]$InputObject,
+        [pscustomobject[]]$InputObject,
         [switch]$Force,
         [switch]$EnableException
     )
@@ -86,7 +86,7 @@ function Install-KbUpdate {
             $remotefileexists = $remotehome = $remotesession = $null
 
             if ($HotFixId) {
-                if (Get-KbInstalledUpdate -ComputerName $computer -Credential $Credential -Pattern $HotFixId) {
+                if (Get-KbInstalledUpdate -ComputerName $computer -Credential $Credential -Pattern $HotFixId -IncludeHidden) {
                     Stop-PSFFunction -EnableException:$EnableException -Message "$HotFixId is already installed on $computer" -Continue
                 }
             }
@@ -159,9 +159,7 @@ function Install-KbUpdate {
                 }
 
                 # ignore if it's on a file server
-                write-warning hello
                 if ($updatefile -and -not ($PSBoundParameters.FilePath).StartsWith("\\")) {
-                    write-warning hello2
                     try {
                         $null = Copy-Item -Path $updatefile -Destination $FilePath -ToSession $remotesession -ErrrorAction Stop
                     } catch {
@@ -184,6 +182,7 @@ function Install-KbUpdate {
             }
 
             if ($FilePath.EndsWith("exe")) {
+                # this takes care of things like SQL Server updates
                 $hotfix = @{
                     Name       = 'Package'
                     ModuleName = 'PSDesiredStateConfiguration'
@@ -197,6 +196,7 @@ function Install-KbUpdate {
                     }
                 }
             } else {
+                # this takes care of WSU files
                 $hotfix = @{
                     Name       = 'xHotFix'
                     ModuleName = 'xWindowsUpdate'
@@ -242,21 +242,31 @@ function Install-KbUpdate {
                                     throw "Error 2359302: update is already installed on $env:ComputerName"
                                 }
                                 { $message -match "2042429437" } {
-                                    throw "The return code -2042429437 was not expected. Configuration is likely not correct. The requested features may not be installed or features are already at a higher patch level."
+                                    throw "Error -2042429437. Configuration is likely not correct. The requested features may not be installed or features are already at a higher patch level."
                                 }
                                 { $message -match "2067919934" } {
-                                    throw "The return code -2067919934 was not expected. You likely need to reboot $env:ComputerName."
+                                    throw "Error -2067919934 You likely need to reboot $env:ComputerName."
+                                }
+                                { $message -match "2147942402" } {
+                                    throw "System can't find the file specified for some reason."
                                 }
                                 default {
                                     throw
                                 }
                             }
                         }
+
+                        if ($thing) {
+                            $status = "This update requires a restart"
+                        } else {
+                            $status = "Install successful"
+                        }
+
                         [pscustomobject]@{
                             ComputerName = $env:ComputerName
                             Name         = $Name
                             HotfixID     = $hotfix.property.id
-                            Status       = "Seems successful"
+                            Status       = $Status
                         }
                     } -ArgumentList $hotfix, $VerbosePreference, $NoDelete, $PSBoundParameters.FileName -ErrorAction Stop
                 } catch {
