@@ -15,6 +15,9 @@ function Get-KbInstalledUpdate {
     .PARAMETER Credential
         The optional alternative credential to be used when connecting to ComputerName
 
+    .PARAMETER IncludeHidden
+        Include KBs that are hidden due to misconfiguration.
+
     .PARAMETER EnableException
         By default, when something goes wrong we try to catch it, interpret it and give you a friendly warning message.
         This avoids overwhelming you with "sea of red" exceptions, but is inconvenient because it basically disables advanced scripting.
@@ -39,23 +42,31 @@ function Get-KbInstalledUpdate {
         PS C:\> Get-KbInstalledUpdate -ComputerName server01 -Pattern KB4057119
 
         Gets all the updates installed on server01 that match KB4057119
+
+    .EXAMPLE
+        PS C:\> Get-KbInstalledUpdate -ComputerName server01 -Pattern KB4057119 | Select -ExpandProperty InstallFile
+
+        Shows alls of the install files for KB4057119 on server01. InstallFile is hidden by default because it has a lot of information.
 #>
     [CmdletBinding()]
     param(
         [PSFComputer[]]$ComputerName = $env:COMPUTERNAME,
         [pscredential]$Credential,
-        [Alias("HotfixId")]
+        [Alias("Name", "HotfixId", "KBUpdate", "Id")]
         [string[]]$Pattern,
+        [switch]$IncludeHidden,
         [switch]$EnableException
     )
     begin {
         $scriptblock = {
-            param ($Search, $VerbosePreference)
+            param ($Search, $IncludeHidden, $VerbosePreference)
+            $allhotfixids = New-Object System.Collections.ArrayList
+            $allcbs = Get-ChildItem 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Component Based Servicing\Packages'
+
             if ($psversiontable.PsVersion.Major -lt 5 -or ($psversiontable.PsVersion.Major -eq 5 -and $psversiontable.PsVersion.Major -lt 1)) {
                 # using throw because it's a remote computer with no guarantee of psframework. Also the throw is caught at the bottom by PSFramework.
                 throw "$env:ComputerName is running PowerShell version $psversiontalbe. Please upgrade to PowerShell version 5.1 or greater"
             }
-            $allcbs = Get-ChildItem 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Component Based Servicing\Packages'
 
             # i didnt know how else to preserve the array, it kept flattening to a single string
             $pattern = $Search['Pattern']
@@ -108,6 +119,7 @@ function Get-KbInstalledUpdate {
                 }
 
                 if ($hotfixid) {
+                    $null = $allhotfixids.Add($hotfixid)
                     $cbs = $allcbs | Where-Object Name -match $hotfixid | Get-ItemProperty
                     if ($cbs) {
                         # make it pretty
@@ -192,7 +204,8 @@ function Get-KbInstalledUpdate {
                 }
 
                 if ($hotfixid) {
-                    $cbs = Get-ChildItem 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Component Based Servicing\Packages' | Where-Object Name -match $hotfixid | Get-ItemProperty
+                    $null = $allhotfixids.Add($hotfixid)
+                    $cbs = $allcbs | Where-Object Name -match $hotfixid | Get-ItemProperty
                     if ($cbs) {
                         # make it pretty
                         $cbs | Add-Member -MemberType ScriptMethod -Name ToString -Value { "ComponentBasedServicing" } -Force
@@ -250,12 +263,69 @@ function Get-KbInstalledUpdate {
                     CimObject           = $cim
                 }
             }
+
+            if ($IncludeHidden) {
+                #anyone want to help with regex, I'm down. Till then..
+                $kbfiles = $allcbs | Get-ItemProperty | Where-Object InstallName -match '_KB' | Select-Object -ExpandProperty InstallName
+                $allkbs = @()
+                foreach ($file in $kbfiles) {
+                    $tempfile = $file.ToString().Split("_") | Where-Object { $PSItem.StartsWith("KB") }
+                    if ($tempfile) {
+                        $allkbs += $tempfile.Replace("_", "").Split("~") | Select-Object -First 1
+                    }
+                }
+
+                if ($HotfixId) {
+                    $missing = $allkbs | Where-Object { $PSitem -notin $allhotfixes -and $PSItem -in $HotfixId } | Select-Object -Unique
+                } else {
+                    $missing = $allkbs | Where-Object { $PSitem -notin $allhotfixes } | Select-Object -Unique
+                }
+
+                foreach ($result in $missing) {
+                    [pscustomobject]@{
+                        ComputerName        = $env:COMPUTERNAME
+                        Name                = $result
+                        ProviderName        = $null
+                        Source              = $null
+                        Status              = $null
+                        HotfixId            = $result
+                        FullPath            = $null
+                        PackageFilename     = $null
+                        Summary             = "Requires restart to finish installing"
+                        InstalledBy         = $null
+                        InstalledOn         = $null
+                        InstallDate         = $null
+                        InstallClient       = $null
+                        InstallName         = $null
+                        InstallVersion      = $null
+                        InstallFile         = $null
+                        InstallUser         = $null
+                        FixComments         = $null
+                        ServicePackInEffect = $null
+                        Caption             = $null
+                        DisplayName         = $null
+                        DisplayIcon         = $null
+                        UninstallString     = $null
+                        InstallLocation     = $null
+                        EstimatedSize       = $null
+                        Publisher           = $null
+                        VersionMajor        = $null
+                        VersionMinor        = $null
+                        TagId               = $null
+                        PackageObject       = $null
+                        RegistryObject      = $null
+                        CBSPackageObject    = $null
+                        CimObject           = $null
+                    }
+                }
+            }
         }
     }
     process {
         try {
             foreach ($computer in $ComputerName) {
-                Invoke-PSFCommand -ComputerName $computer -Credential $Credential -ErrorAction Stop -ScriptBlock $scriptblock -ArgumentList @{ Pattern = $Pattern }, $VerbosePreference | Sort-Object -Property Name | Select-Object -Property * -ExcludeProperty PSComputerName, RunspaceId
+                Invoke-PSFCommand -ComputerName $computer -Credential $Credential -ErrorAction Stop -ScriptBlock $scriptblock -ArgumentList @{ Pattern = $Pattern }, $IncludeHidden, $VerbosePreference | Sort-Object -Property Name |
+                    Select-Object -Property * -ExcludeProperty PSComputerName, RunspaceId | Select-DefaultView -ExcludeProperty InstallFile
             }
         } catch {
             Stop-PSFFunction -EnableException:$EnableException -Message "Failure" -ErrorRecord $_ -Continue
