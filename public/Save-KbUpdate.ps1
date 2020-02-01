@@ -83,7 +83,7 @@ function Save-KbUpdate {
     [CmdletBinding()]
     param(
         [Alias("Name")]
-        [Alias("HotfixId")]
+        [Alias("Name", "HotfixId", "KBUpdate", "Id")]
         [string[]]$Pattern,
         [string]$Path = ".",
         [string]$FilePath,
