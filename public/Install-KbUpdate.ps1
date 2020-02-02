@@ -30,6 +30,9 @@ function Install-KbUpdate {
     .PARAMETER Title
         If the file is an exe and no Title is specified, we will have to get it from Get-KbUpdate
 
+    .PARAMETER ArgumentList
+        If the file is an exe and no Title is specified, we will have to get it from Get-KbUpdate
+
     .PARAMETER InputObject
         Allows infos to be piped in from Get-KbUpdate
 
@@ -73,6 +76,7 @@ function Install-KbUpdate {
         [string]$Guid,
         [Parameter(ValueFromPipelineByPropertyName)]
         [string]$Title,
+        [string]$ArgumentList,
         [Parameter(ValueFromPipeline)]
         [pscustomobject[]]$InputObject,
         [switch]$EnableException
@@ -106,7 +110,7 @@ function Install-KbUpdate {
                 try {
                     # Copy xWindowsUpdate to Program Files. The module is pretty much required to be in the PS Modules directory.
                     $oldpref = $ProgressPreference
-                    $ProgressPreference = 'SilentlyContinue'
+                    $ProgressPreference = "SilentlyContinue"
                     $programfiles = Invoke-PSFCommand -ComputerName $computer -Credential $Credential -ArgumentList "$env:ProgramFiles\WindowsPowerShell\Modules" -ScriptBlock {
                         $env:ProgramFiles
                     }
@@ -192,6 +196,21 @@ function Install-KbUpdate {
             }
 
             if ($FilePath.EndsWith("exe")) {
+                if (-not $ArgumentList -and $FilePath -match "sql") {
+                    $ArgumentList = "/qs /IAcceptSQLServerLicenseTerms /Action=Patch /AllInstances"
+                }
+
+                if (-not $Guid) {
+                    if ($InputObject) {
+                        $Guid = $PSBoundParameters.InputObject.Guid
+                        $Title = $PSBoundParameters.InputObject.Title
+                    } else {
+                        $InputObject = Get-KbUpdate -Architecture x64 -Credential $credential -Latest -Pattern $HotfixId | Where-Object Link | Select-Object -First 1
+                        $Guid = $InputObject | Select-Object -ExpandProperty UpdateId
+                        $Title = $InputObject | Select-Object -ExpandProperty Title
+                    }
+                }
+
                 # this takes care of things like SQL Server updates
                 $hotfix = @{
                     Name       = 'Package'
@@ -227,7 +246,6 @@ function Install-KbUpdate {
                         param (
                             $Hotfix,
                             $VerbosePreference,
-                            $NoDelete,
                             $ManualFileName
                         )
                         $PSDefaultParameterValues['*:ErrorAction'] = 'SilentlyContinue'
@@ -265,7 +283,7 @@ function Install-KbUpdate {
                                 }
                             }
                         }
-                    } -ArgumentList $hotfix, $VerbosePreference, $NoDelete, $PSBoundParameters.FileName -ErrorAction Stop
+                    } -ArgumentList $hotfix, $VerbosePreference, $PSBoundParameters.FileName -ErrorAction Stop
                     Write-Verbose -Message "Finished installing, checking status"
                     $exists = Get-KbInstalledUpdate -ComputerName $computer -Credential $Credential -Pattern $hotfix.property.id -IncludeHidden
 
