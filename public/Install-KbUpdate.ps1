@@ -134,12 +134,16 @@ function Install-KbUpdate {
                 if (-not $updatefile) {
                     # try to automatically download it for them
                     if (-not $PSBoundParameters.InputObject) {
-                        $InputObject = Get-KbUpdate -ComputerName $computer -Architecture x64 -Credential $credential -Latest -Pattern $HotfixId | Where-Object Link
+                        $InputObject = Get-KbUpdate -Architecture x64 -Credential $credential -Latest -Pattern $HotfixId | Where-Object Link
                     }
 
                     # note to reader: if this picks the wrong one, please download the required file manually.
                     if ($InputObject.Link) {
-                        $file = Split-Path $InputObject.Link -Leaf | Select-Object -Last 1
+                        if ($InputObject.Link -match 'x64') {
+                            $file = $InputObject | Where-Object Link -match 'x64' | Select-Object -ExpandProperty Link -Last 1 | Split-Path -Leaf
+                        } else {
+                            $file = Split-Path $InputObject.Link -Leaf | Select-Object -Last 1
+                        }
                     } else {
                         Stop-PSFFunction -EnableException:$EnableException -Message "Could not find file on $computer and couldn't find it online. Try piping in exactly what you'd like from Get-KbUpdate." -Continue
                     }
