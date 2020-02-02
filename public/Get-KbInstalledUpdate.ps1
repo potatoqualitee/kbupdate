@@ -126,7 +126,12 @@ function Get-KbInstalledUpdate {
                         $cbs | Add-Member -MemberType ScriptMethod -Name ToString -Value { "ComponentBasedServicing" } -Force
                         $installclient = ($cbs | Select-Object -First 1).InstallClient
                         $installuser = ($cbs | Select-Object -First 1).InstallUser
-                        $installname = ($cbs | Select-Object -First 1).InstallName
+                        $installname = $cbs.InstallName
+
+                        if ("$installname" -match "Package_1_for") {
+                            $installname = $cbs | Where-Object InstallName -match "Package_1_for" | Select-Object -First 1 -ExpandProperty InstallName
+                            $installname = $installname.Replace("Package_1_for", "Package_for")
+                        }
 
                         # props for highlighting that the installversion is important
                         # https://social.technet.microsoft.com/Forums/Lync/en-US/f6594e00-2400-4276-85a1-fb06485b53e6/issues-with-wusaexe-and-windows-10-enterprise?forum=win10itprogeneral
@@ -275,8 +280,8 @@ function Get-KbInstalledUpdate {
                     }
                 }
 
-                if ($HotfixId) {
-                    $missing = $allkbs | Where-Object { $PSitem -notin $allhotfixes -and $PSItem -in $HotfixId } | Select-Object -Unique
+                if ($Pattern) {
+                    $missing = $allkbs | Where-Object { $PSitem -notin $allhotfixes -and $PSItem -in $Pattern } | Select-Object -Unique
                 } else {
                     $missing = $allkbs | Where-Object { $PSitem -notin $allhotfixes } | Select-Object -Unique
                 }
