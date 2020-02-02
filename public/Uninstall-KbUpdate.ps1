@@ -123,6 +123,9 @@ function Uninstall-KbUpdate {
                 -2068052310 {
                     $output = "$output`n`nThe exit code suggests that you need to mount the SQL Server ISO so the uninstaller can find the setup files."
                 }
+                3010 {
+                    $output = "You have successfully uninstalled $Name. A restart is now required."
+                }
                 0 {
                     if ($output.Trim()) {
                         $output = "$output`n`nYou have successfully uninstalled $Name"
@@ -192,13 +195,45 @@ function Uninstall-KbUpdate {
                         $ArgumentList = "$ArgumentList /quiet"
                     }
                 } else {
-                    # props for highlighting that the installversion is important for win10
-                    # this allowed me to find the InstallName
-                    # https://social.technet.microsoft.com/Forums/Lync/en-US/f6594e00-2400-4276-85a1-fb06485b53e6/issues-with-wusaexe-and-windows-10-enterprise?forum=win10itprogeneral
-                    $installname = $update.InstallName
+                    <#
+                    I have so many notes from so many different attempts to address this flawlessly
 
-                    # this can be done in PowerShell but I'm just gonna reuse that scriptblock
-                    $program = "dism.exe"
+                    GET-PACKAGE
+                    Get-Package | Uninstall-Package is buggy per https://stackoverflow.com/questions/54740151/get-package-notepad-uninstall-package-force-not-working
+                    The Uninstall-Package cmdlet won't work with these entries (i.e. ones where "ProviderName" is "Programs").
+
+                    Another BIG gotcha with PackageManagement/PowerShellGet Modules that I ran into recently - if you uninstall a Program that was installed via PackageManagement via the Control Panel GUI,
+                    the Get-Package cmdlet will still show it as installed until you run the Uninstall-Package cmdlet on the erroneous entry.
+
+                    PKGMGR
+                    http://msiworld.blogspot.com/2012/04/silent-install-and-uninstall-of-msu.html
+                    pkgmgr = DISM
+                    $ArgumentList = "/up:$installname"
+
+                    WUSA
+                    Newer versions of win10 doesnt support old-style wusa, go for DISM  /quiet /norestart
+                    https://support.microsoft.com/en-us/help/934307/description-of-the-windows-update-standalone-installer-in-windows
+
+                    MSIEXEC WITH PACKAGE GUID + GUID OF PATCH
+                    https://docs.microsoft.com/en-us/windows/win32/msi/uninstalling-patches?redirectedfrom=MSDN
+                    Msiexec /i {installpath_of_product} MSIPATCHREMOVE={installpath_of_patch} /qb
+                    Msiexec /package {GUID-OF-PRODUCT} /uninstall {GUID_OF_PATCH} /passive
+
+                    WMIC
+                    wmic product where "name like 'Java 8%%'" and not name 'Java 8 Update 101%%'" call uninstall /nointeractive
+
+                    VARIOUS ARTISTS
+                    provides various ways from https://support.symantec.com/us/en/article.howto42396.html
+                    introduced me to msipatchremove and how to reverse enginer guid
+                    https://docs.microsoft.com/en-us/office/troubleshoot/installation/automate-uninstall-office-update
+
+                    DISM
+                    props for highlighting that the installversion is important for win10
+                    this allowed me to find the InstallName
+                    https://social.technet.microsoft.com/Forums/Lync/en-US/f6594e00-2400-4276-85a1-fb06485b53e6/issues-with-wusaexe-and-windows-10-enterprise?forum=win10itprogeneral
+                    #>
+                    $installname = $update.InstallName
+                    $program = "dism"
                     $ArgumentList = "/Online /Remove-Package /PackageName:$installname /quiet /norestart"
                 }
 
