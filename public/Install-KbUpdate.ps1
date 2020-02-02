@@ -256,7 +256,10 @@ function Install-KbUpdate {
                             }
                         }
 
-                        if ($thing) {
+                        Write-PSFMessage -Level Verbose -Message "Finished installing, checking status"
+                        $exists = Get-KbInstalledUpdate -ComputerName $computer -Credential $Credential -Pattern $HotFixId -IncludeHidden
+
+                        if ($exists.Summary -match "restart") {
                             $status = "This update requires a restart"
                         } else {
                             $status = "Install successful"
