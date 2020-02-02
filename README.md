@@ -35,6 +35,37 @@ Get-KbUpdate -Name 3118347 -Simple -Architecture x64 | Out-GridView -Passthru | 
 Save-KbUpdate -Name KB4057119, 4057114 -Architecture x64 -Path C:\temp
 ```
 
+## Examples - Install-KbUpdate
+
+```powershell
+# Install KB4534273 from the \\fileshare\sql\ directory on server01
+Install-KbUpdate -ComputerName server01 -FilePath \\fileshare\sql\windows10.0-kb4532947-x64_20103b70445e230e5994dc2a89dc639cd5756a66.msu
+
+# Automatically an update, stores it in Downloads and install it from there
+Install-KbUpdate -ComputerName sql2017 -HotfixId kb4486129
+```
+
+## Examples - Uninstall-KbUpdate
+
+```powershell
+# Uninstalls KB4498951 from server01
+Uninstall-KbUpdate -ComputerName server01 -HotfixId KB4498951     
+
+# Uninstalls KB4498951 on server01 without prompts
+Uninstall-KbUpdate -ComputerName server01 -HotfixId KB4498951 -Confirm:$false
+
+# Uninstall kb4498951 from server23 and server24
+Get-KbInstalledUpdate -ComputerName server23, server24 -Pattern kb4498951 | Uninstall-KbUpdate
+```
+
+## Examples - Get-KbInstalledUpdate
+
+```powershell
+# Test to see if KB4057119 and get a bunch of info about it on server01
+Get-KbInstalledUpdate -ComputerName server01 -Pattern KB4057119
+
+```
+
 ## Screenshots
 
 ![image](https://user-images.githubusercontent.com/8278033/60805564-c127af00-a180-11e9-843a-e7d159a50aa7.png)
