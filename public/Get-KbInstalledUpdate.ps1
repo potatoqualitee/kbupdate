@@ -131,6 +131,12 @@ function Get-KbInstalledUpdate {
                         if ("$installname" -match "Package_1_for") {
                             $installname = $cbs | Where-Object InstallName -match "Package_1_for" | Select-Object -First 1 -ExpandProperty InstallName
                             $installname = $installname.Replace("Package_1_for", "Package_for")
+                        } elseif ("$installname" -match "Package_for") {
+                            $installname = $cbs | Where-Object InstallName -match "Package_for" | Select-Object -First 1 -ExpandProperty InstallName
+                        }
+
+                        if ($installname.Count -gt 1) {
+                            $installname | Select-Object -First 1
                         }
 
                         # props for highlighting that the installversion is important
@@ -280,10 +286,10 @@ function Get-KbInstalledUpdate {
                     }
                 }
 
+                $missing = $allkbs | Where-Object { $PSitem -notin $allhotfixids } | Select-Object -Unique
+
                 if ($Pattern) {
-                    $missing = $allkbs | Where-Object { $PSitem -notin $allhotfixes -and $PSItem -in $Pattern } | Select-Object -Unique
-                } else {
-                    $missing = $allkbs | Where-Object { $PSitem -notin $allhotfixes } | Select-Object -Unique
+                    $missing = $missing | Where-Object { $PSItem -in $Pattern }
                 }
 
                 foreach ($result in $missing) {
