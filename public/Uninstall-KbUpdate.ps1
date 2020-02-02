@@ -34,7 +34,7 @@ function Uninstall-KbUpdate {
         Using this switch turns this "nice by default" feature off and enables you to catch exceptions with your own try/catch.
 
     .NOTES
-        Author: Chrissy LeMaire (@cl), netnerds.net
+        Author: Chrissy LeMaire (@cl), Jess Pomfret (@jpomfret)
         Copyright: (c) licensed under MIT
         License: MIT https://opensource.org/licenses/MIT
 

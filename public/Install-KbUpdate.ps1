@@ -39,24 +39,24 @@ function Install-KbUpdate {
         Using this switch turns this "nice by default" feature off and enables you to catch exceptions with your own try/catch.
 
     .NOTES
-        Author: Jess Pomfret (@jpomfret)
+        Author: Jess Pomfret (@jpomfret), Chrissy LeMaire (@cl)
         Copyright: (c) licensed under MIT
         License: MIT https://opensource.org/licenses/MIT
 
     .EXAMPLE
-        PS C:\> Install-KbUpdate -ComputerName sql2017 -HotfixId KB4534273 -FilePath C:\temp\windows10.0-kb4534273-x64_74bf76bc5a941bbbd0052caf5c3f956867e1de38.msu
+        PS C:\> Install-KbUpdate -ComputerName sql2017 -FilePath C:\temp\windows10.0-kb4534273-x64_74bf76bc5a941bbbd0052caf5c3f956867e1de38.msu
 
         Installs KB4534273 from the C:\temp directory on sql2017
-
-    .EXAMPLE
-        PS C:\> Get-KbUpdate -Pattern 4498951 | Install-KbUpdate -ComputerName sql2017
-
-        Downloads an update, stores it in Downloads and installs it from there
 
     .EXAMPLE
         PS C:\> Install-KbUpdate -ComputerName sql2017 -FilePath \\dc\sql\windows10.0-kb4532947-x64_20103b70445e230e5994dc2a89dc639cd5756a66.msu
 
         Installs KB4534273 from the \\dc\sql\ directory on sql2017
+
+    .EXAMPLE
+        PS C:\> Install-KbUpdate -ComputerName sql2017 -HotfixId kb4486129
+
+        Downloads an update, stores it in Downloads and installs it from there
 
     #>
     [CmdletBinding(SupportsShouldProcess, ConfirmImpact = "Medium")]
@@ -303,7 +303,7 @@ function Install-KbUpdate {
     }
     end {
         if ($warnatbottom) {
-            Write-PSFMessage -Level Output -Message "$updatefile still exists on your local drive, and likely other servers as well in your Downloads directory."
+            Write-PSFMessage -Level Output -Message "$updatefile still exists on your local drive, and likely other servers as well, in the Downloads directory."
         }
     }
 }
