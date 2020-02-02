@@ -58,6 +58,15 @@ function Uninstall-KbUpdate {
         PS C:\> Uninstall-KbUpdate -ComputerName sql2017 -HotfixId KB4534273 -Confirm:$false
 
         Without prompts...
+
+    .EXAMPLE
+        PS C:\> Install-KbUpdate -ComputerName sql2017 -FilePath C:\temp\windows10.0-kb4486129-x64_0b61d9a03db731562e0a0b49383342a4d8cbe36a.msu
+        PS C:\> Get-KbInstalledUpdate -Pattern kb4486129 -ComputerName sql2017 | Uninstall-KbUpdate
+
+
+    .EXAMPLE
+        PS C:\> Install-KbUpdate -ComputerName sql2017 -FilePath \\dc\sql\windows10.0-kb4486129-x64_0b61d9a03db731562e0a0b49383342a4d8cbe36a.msu
+        PS C:\> Get-KbInstalledUpdate -Pattern kb4486129 -ComputerName sql2017 | Uninstall-KbUpdate
 #>
 
     [CmdletBinding(SupportsShouldProcess, ConfirmImpact = "High")]
@@ -124,7 +133,7 @@ function Uninstall-KbUpdate {
                     $output = "$output`n`nThe exit code suggests that you need to mount the SQL Server ISO so the uninstaller can find the setup files."
                 }
                 3010 {
-                    $output = "You have successfully uninstalled $Name. A restart is now required."
+                    $output = "You have successfully uninstalled $Name. A restart is now required to finalize the uninstall."
                 }
                 0 {
                     if ($output.Trim()) {
@@ -215,11 +224,13 @@ function Uninstall-KbUpdate {
                     https://support.microsoft.com/en-us/help/934307/description-of-the-windows-update-standalone-installer-in-windows
 
                     MSIEXEC WITH PACKAGE GUID + GUID OF PATCH
+                    Could never figure out how to get GUID-OF-PRODUCT
                     https://docs.microsoft.com/en-us/windows/win32/msi/uninstalling-patches?redirectedfrom=MSDN
                     Msiexec /i {installpath_of_product} MSIPATCHREMOVE={installpath_of_patch} /qb
                     Msiexec /package {GUID-OF-PRODUCT} /uninstall {GUID_OF_PATCH} /passive
 
                     WMIC
+                    Took too long
                     wmic product where "name like 'Java 8%%'" and not name 'Java 8 Update 101%%'" call uninstall /nointeractive
 
                     VARIOUS ARTISTS
@@ -233,6 +244,9 @@ function Uninstall-KbUpdate {
                     https://social.technet.microsoft.com/Forums/Lync/en-US/f6594e00-2400-4276-85a1-fb06485b53e6/issues-with-wusaexe-and-windows-10-enterprise?forum=win10itprogeneral
                     #>
                     $installname = $update.InstallName
+                    if (-not $InstallName) {
+                        Stop-PSFFunction -EnableException:$EnableException -Message "Couldn't figure out a way to install $hotfix. Please provide -FileName or reinstall." -Continue
+                    }
                     $program = "dism"
                     $ArgumentList = "/Online /Remove-Package /PackageName:$installname /quiet /norestart"
                 }
@@ -240,7 +254,7 @@ function Uninstall-KbUpdate {
                 # I tried to get this working using DSC but in end end, a Start-Process equivalent was it
                 if ($PSCmdlet.ShouldProcess($computer, "Uninstalling Hotfix $hotfix by executing $program $ArgumentList")) {
                     try {
-                        Invoke-PSFCommand -ComputerName $computer -Credential $Credential -ScriptBlock $programscriptblock -ArgumentList $Program, $ArgumentList, $hotfix, $update.Name $VerbosePreference -ErrorAction Stop | Select-Object -Property * -ExcludeProperty PSComputerName, RunspaceId
+                        Invoke-PSFCommand -ComputerName $computer -Credential $Credential -ScriptBlock $programscriptblock -ArgumentList $Program, $ArgumentList, $hotfix, $update.Name, $VerbosePreference -ErrorAction Stop | Select-Object -Property * -ExcludeProperty PSComputerName, RunspaceId
                     } catch {
                         Stop-PSFFunction -Message "Failure on $computer" -ErrorRecord $_ -EnableException:$EnableException
                     }

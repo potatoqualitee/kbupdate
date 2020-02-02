@@ -85,12 +85,6 @@ function Install-KbUpdate {
             # null out a couple things to be safe
             $remotefileexists = $remotehome = $remotesession = $null
 
-            if ($HotFixId) {
-                if (Get-KbInstalledUpdate -ComputerName $computer -Credential $Credential -Pattern $HotFixId -IncludeHidden) {
-                    Stop-PSFFunction -EnableException:$EnableException -Message "$HotFixId is already installed on $computer" -Continue
-                }
-            }
-
             # a lot of the file copy work will be done in the remote $home dir
             $remotehome = Invoke-PSFCommand -ComputerName $computer -Credential $Credential -ScriptBlock { $home }
             $hasxhotfix = Invoke-PSFCommand -ComputerName $computer -Credential $Credential -ScriptBlock {
@@ -255,25 +249,38 @@ function Install-KbUpdate {
                                 }
                             }
                         }
-
-                        Write-PSFMessage -Level Verbose -Message "Finished installing, checking status"
-                        $exists = Get-KbInstalledUpdate -ComputerName $computer -Credential $Credential -Pattern $HotFixId -IncludeHidden
-
-                        if ($exists.Summary -match "restart") {
-                            $status = "This update requires a restart"
-                        } else {
-                            $status = "Install successful"
-                        }
-
-                        [pscustomobject]@{
-                            ComputerName = $env:ComputerName
-                            Name         = $Name
-                            HotfixID     = $hotfix.property.id
-                            Status       = $Status
-                        }
                     } -ArgumentList $hotfix, $VerbosePreference, $NoDelete, $PSBoundParameters.FileName -ErrorAction Stop
+                    Write-Verbose -Message "Finished installing, checking status"
+                    $exists = Get-KbInstalledUpdate -ComputerName $computer -Credential $Credential -Pattern $hotfix.property.id -IncludeHidden
+
+                    if ($exists.Summary -match "restart") {
+                        $status = "This update requires a restart"
+                    } else {
+                        $status = "Install successful"
+                    }
+
+                    [pscustomobject]@{
+                        ComputerName = $computer
+                        HotfixID     = $hotfix.property.id
+                        Status       = $Status
+                    }
                 } catch {
-                    Stop-PSFFunction -Message "Failure on $computer" -ErrorRecord $_ -EnableException:$EnableException
+                    if ("$PSItem" -match "Serialized XML is nested too deeply") {
+                        Write-PSFMessage -Level Verbose -Message "Serialized XML is nested too deeply. Forcing output."
+                        $exists = Get-KbInstalledUpdate -ComputerName $computer -Credential $credential -HotfixId $hotfix.property.id
+
+                        if ($exists) {
+                            [pscustomobject]@{
+                                ComputerName = $computer
+                                HotfixID     = $hotfix.property.id
+                                Status       = "Successfully installed. A restart is now required."
+                            }
+                        } else {
+                            Stop-PSFFunction -Message "Failure on $computer" -ErrorRecord $_ -EnableException:$EnableException
+                        }
+                    } else {
+                        Stop-PSFFunction -Message "Failure on $computer" -ErrorRecord $_ -EnableException:$EnableException
+                    }
                 }
             }
         }
