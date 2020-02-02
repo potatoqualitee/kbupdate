@@ -44,13 +44,16 @@ function Install-KbUpdate {
         Installs KB4534273 from the C:\temp directory on sql2017
 
     .EXAMPLE
-        PS C:\> Get-KbUpdate -Pattern 4498951 | Install-KbUpdate -ComputerName sql2017 -NoDelete -FilePath \\dc\sql\sqlserver2017-kb4498951-x64_b143d28a48204eb6ebab62394ce45df53d73f286.exe
+        PS C:\> Get-KbUpdate -Pattern 4498951 | Install-KbUpdate -ComputerName sql2017
 
-        Installs KB4534273 from the C:\temp directory on sql2017
+        Downloads an update, stores it in Downloads and installs it from there
 
     .EXAMPLE
-        PS C:\> Install-KbUpdate -FilePath '\\dc\sql\windows10.0-kb4532947-x64_20103b70445e230e5994dc2a89dc639cd5756a66.msu' -ComputerName sql2017 -HotfixId KB453510
-#>
+        PS C:\> Install-KbUpdate -ComputerName sql2017 -FilePath \\dc\sql\windows10.0-kb4532947-x64_20103b70445e230e5994dc2a89dc639cd5756a66.msu
+
+        Installs KB4534273 from the \\dc\sql\ directory on sql2017
+
+    #>
     [CmdletBinding(SupportsShouldProcess, ConfirmImpact = "Medium")]
     param (
         [PSFComputer[]]$ComputerName = $env:ComputerName,
