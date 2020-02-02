@@ -4,6 +4,7 @@
     "files.trimTrailingWhitespace": true,
     // formatting style this project adheres to: https://en.wikipedia.org/wiki/Indentation_style#Variant:_1TBS_(OTBS)
     "powershell.codeFormatting.preset": "OTBS",
+    "powershell.codeFormatting.autoCorrectAliases": true,
     // editor settings for formatting standards on this project
     "editor.tabSize": 4,
     "editor.detectIndentation": false,
@@ -12,10 +13,10 @@
     // editor settings that will auto add the closing quote or curly brace
     "editor.autoClosingBrackets": "always",
     "editor.autoClosingQuotes": "always",
-    "editor.autoSurround": "languageDefined"
-	// now your double clicks on a variable names include the dollar sign '$'
-	// https://twitter.com/TylerLeonhardt/status/1102749805233737729
-	"[powershell]": {
-		"editor.wordSeparators": "`~!@#%^&*()-=+[{]}\\|;:'\",.<>/?"
-	}
+    "editor.autoSurround": "languageDefined",
+    // now your double clicks on a variable names include the dollar sign '$'
+    // https://twitter.com/TylerLeonhardt/status/1102749805233737729
+    "[powershell]": {
+        "editor.wordSeparators": "`~!@#%^&*()-=+[{]}\\|;:'\",.<>/?"
+    }
 }

@@ -48,7 +48,7 @@ function Write-ProgressHelper {
         Write-Progress -Activity $Activity -Status $Message
     } else {
         if (-not $TotalSteps -and $caller -ne '<ScriptBlock>') {
-            $TotalSteps = ([regex]::Matches((Get-Command -Module dbatools -Name $caller).Definition, "Write-ProgressHelper")).Count
+            $TotalSteps = ([regex]::Matches((Get-Command -Module kbupdate -Name $caller).Definition, "Write-ProgressHelper")).Count
         }
         if (-not $TotalSteps) {
             $percentComplete = 0

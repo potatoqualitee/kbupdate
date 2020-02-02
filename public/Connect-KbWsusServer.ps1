@@ -51,7 +51,7 @@ function Connect-KbWsusServer {
     param(
         [Parameter(ValueFromPipeline)]
         [Alias("WsusServer")]
-        [string]$ComputerName,
+        [PSFComputer]$ComputerName,
         [pscredential]$Credential,
         [switch]$SecureConnection,
         [ValidateSet("80", "443", "8530", "8531" )]

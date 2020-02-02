@@ -41,7 +41,10 @@
     FunctionsToExport = @(
         'Get-KbUpdate',
         'Save-KbUpdate',
-        'Connect-KbWsusServer'
+        'Connect-KbWsusServer',
+        'Get-KbInstalledUpdate',
+        'Install-KbUpdate',
+        'Uninstall-KbUpdate'
     )
 
     PrivateData       = @{
