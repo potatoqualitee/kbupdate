@@ -2,10 +2,10 @@
 function Install-KbUpdate {
     <#
     .SYNOPSIS
-        Installs
+        Installs KBs on local and remote servers
 
     .DESCRIPTION
-        Installs etc
+        Installs KBs on local and remote servers
 
     .PARAMETER ComputerName
         Used to connect to a remote host
@@ -17,16 +17,21 @@ function Install-KbUpdate {
         Run the install as a specific user (other than SYSTEM) on the target node
 
     .PARAMETER HotfixId
-        The HotfixId of the patch. This needs to be updated to be more in-depth.
+        The HotfixId of the patch
 
     .PARAMETER FilePath
-        The filepath of the patch. This needs to be updated to be more in-depth.
+        The filepath of the patch. Not required - if you don't have it, we can grab it from the internet
+
+        Note this does place the hotfix files in your local and remote Downloads directories
 
     .PARAMETER Guid
-        The filepath of the patch. This needs to be updated to be more in-depth.
+        If the file is an exe and no GUID is specified, we will have to get it from Get-KbUpdate
 
-    .PARAMETER Type
-        The type of patch. Basically General or SQL.
+    .PARAMETER Title
+        If the file is an exe and no Title is specified, we will have to get it from Get-KbUpdate
+
+    .PARAMETER InputObject
+        Allows infos to be piped in from Get-KbUpdate
 
     .PARAMETER EnableException
         By default, when something goes wrong we try to catch it, interpret it and give you a friendly warning message.
@@ -68,10 +73,8 @@ function Install-KbUpdate {
         [string]$Guid,
         [Parameter(ValueFromPipelineByPropertyName)]
         [string]$Title,
-        [switch]$NoDelete,
         [Parameter(ValueFromPipeline)]
         [pscustomobject[]]$InputObject,
-        [switch]$Force,
         [switch]$EnableException
     )
     process {
@@ -163,6 +166,7 @@ function Install-KbUpdate {
                         $null = Invoke-PSFCommand -ComputerName $computer -Credential $Credential -ArgumentList $FilePath -ScriptBlock {
                             Remove-Item $args -Force -ErrorAction SilentlyContinue
                         }
+                        Stop-PSFFunction -EnableException:$EnableException -Message "Could not copy $updatefile to $filepath and no file was specified" -Continue
                     }
                 } else {
                     Stop-PSFFunction -EnableException:$EnableException -Message "Could not find $HotfixId and no file was specified" -Continue
@@ -289,6 +293,8 @@ function Install-KbUpdate {
         }
     }
     end {
-        $warnatbottom
+        if ($warnatbottom) {
+            Write-PSFMessage -Level Output -Message "$updatefile still exists on your local drive, and likely other servers as well in your Downloads directory."
+        }
     }
 }
