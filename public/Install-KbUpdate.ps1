@@ -61,6 +61,16 @@ function Install-KbUpdate {
 
         Downloads an update, stores it in Downloads and installs it from there
 
+    .EXAMPLE
+        PS C:\> $params = @{
+            ComputerName = "sql2017"
+            FilePath = "C:\temp\sqlserver2017-kb4498951-x64_b143d28a48204eb6ebab62394ce45df53d73f286.exe"
+            Verbose = $true
+        }
+        PS C:\> Install-KbUpdate @params
+        PS C:\> Uninstall-KbUpdate -ComputerName sql2017 -HotfixId KB4498951
+
+        Installs KB4498951 on sql2017 then uninstalls it ✔
     #>
     [CmdletBinding(SupportsShouldProcess, ConfirmImpact = "Medium")]
     param (
@@ -295,7 +305,7 @@ function Install-KbUpdate {
 
                     [pscustomobject]@{
                         ComputerName = $computer
-                        HotfixID     = $hotfix.property.id
+                        HotfixID     = $HotfixId
                         Status       = $Status
                     }
                 } catch {
@@ -306,7 +316,7 @@ function Install-KbUpdate {
                         if ($exists) {
                             [pscustomobject]@{
                                 ComputerName = $computer
-                                HotfixID     = $hotfix.property.id
+                                HotfixID     = $HotfixId
                                 Status       = "Successfully installed. A restart is now required."
                             }
                         } else {

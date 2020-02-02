@@ -87,7 +87,6 @@ function Uninstall-KbUpdate {
                 $Name,
                 $VerbosePreference
             )
-
             Function Invoke-UninstallCommand ($Program, $ArgumentList) {
                 $pinfo = New-Object System.Diagnostics.ProcessStartInfo
                 $pinfo.FileName = $Program
@@ -178,7 +177,6 @@ function Uninstall-KbUpdate {
 
             foreach ($update in $InputObject) {
                 $computer = $update.ComputerName
-                $hotfix = $update.HotfixId
 
                 if (-not (Test-ElevationRequirement -ComputerName $computer)) {
                     Stop-PSFFunction -Message "To run this command locally, you must run as admin." -Continue -EnableException:$EnableException
