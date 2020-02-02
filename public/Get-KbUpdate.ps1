@@ -550,4 +550,3 @@ function Get-KbUpdate {
         }
     }
 }
-
