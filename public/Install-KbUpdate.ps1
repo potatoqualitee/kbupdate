@@ -163,9 +163,14 @@ function Install-KbUpdate {
                 }
 
                 # ignore if it's on a file server
-                if ($updatefile -and -not ($PSBoundParameters.FilePath).StartsWith("\\")) {
+                if ($updatefile -and -not "$($PSBoundParameters.FilePath)".StartsWith("\\")) {
                     try {
-                        $null = Copy-Item -Path $updatefile -Destination $FilePath -ToSession $remotesession -ErrrorAction Stop
+                        $exists = Invoke-PSFCommand -ComputerName $computer -Credential $Credential -ArgumentList $FilePath -ScriptBlock {
+                            Get-ChildItem -Path $args -ErrorAction SilentlyContinue
+                        }
+                        if (-not $exists) {
+                            $null = Copy-Item -Path $updatefile -Destination $FilePath -ToSession $remotesession
+                        }
                     } catch {
                         $null = Invoke-PSFCommand -ComputerName $computer -Credential $Credential -ArgumentList $FilePath -ScriptBlock {
                             Remove-Item $args -Force -ErrorAction SilentlyContinue
@@ -240,7 +245,7 @@ function Install-KbUpdate {
                         } catch {
                             switch ($message = "$_") {
                                 # some things can be ignored
-                                { $message -match "nested too deeply" -or $message -match "Name does not match package details" } {
+                                { $message -match "Name does not match package details" } {
                                     $null = 1
                                 }
                                 { $message -match "2359302" } {
