@@ -13,7 +13,10 @@ function Uninstall-KbUpdate {
         The optional alternative credential to be used when connecting to ComputerName
 
     .PARAMETER HotfixId
-        The HotfixId of the patch. This needs to be updated to be more in-depth.
+        The HotfixId of the patch
+
+    .PARAMETER InputObject
+        Allows results to be piped in from Get-KbInstalledUpdate
 
     .PARAMETER ArgumentList
         Allows you to override our automatically determined ArgumentList
@@ -24,9 +27,6 @@ function Uninstall-KbUpdate {
         Some commands may not support this switch, however, so to remove it use NoQuiet.
 
         Not required if you use ArgumentList.
-
-    .PARAMETER InputObject
-        Allows results to be piped in from Get-KbInstalledUpdate
 
     .PARAMETER EnableException
         By default, when something goes wrong we try to catch it, interpret it and give you a friendly warning message.
@@ -44,6 +44,11 @@ function Uninstall-KbUpdate {
         Uninstalls kb4498951 on sql2017
 
     .EXAMPLE
+        PS C:\> Uninstall-KbUpdate -ComputerName sql2017 -HotfixId kb4498951 -Confirm:$false
+
+        Uninstalls kb4498951 on sql2017 without prompts
+
+    .EXAMPLE
         PS C:\>  Get-KbInstalledUpdate -ComputerName server23, server24 -Pattern kb4498951 | Uninstall-KbUpdate
 
         Uninstalls kb4498951 from server23 and server24
@@ -53,20 +58,11 @@ function Uninstall-KbUpdate {
 
         Shows what would happen if the command were to run but does not execute any changes
 
-
-    .EXAMPLE
-        PS C:\> Uninstall-KbUpdate -ComputerName sql2017 -HotfixId KB4534273 -Confirm:$false
-
-        Without prompts...
-
-    .EXAMPLE
-        PS C:\> Install-KbUpdate -ComputerName sql2017 -FilePath C:\temp\windows10.0-kb4486129-x64_0b61d9a03db731562e0a0b49383342a4d8cbe36a.msu
-        PS C:\> Get-KbInstalledUpdate -Pattern kb4486129 -ComputerName sql2017 | Uninstall-KbUpdate
-
-
     .EXAMPLE
         PS C:\> Install-KbUpdate -ComputerName sql2017 -FilePath \\dc\sql\windows10.0-kb4486129-x64_0b61d9a03db731562e0a0b49383342a4d8cbe36a.msu
         PS C:\> Get-KbInstalledUpdate -Pattern kb4486129 -ComputerName sql2017 | Uninstall-KbUpdate
+
+        Quick lil example to show an install, followed by an uninstall
 #>
 
     [CmdletBinding(SupportsShouldProcess, ConfirmImpact = "High")]
@@ -251,7 +247,7 @@ function Uninstall-KbUpdate {
                     $ArgumentList = "/Online /Remove-Package /PackageName:$installname /quiet /norestart"
                 }
 
-                # I tried to get this working using DSC but in end end, a Start-Process equivalent was it
+                # I tried to get this working using DSC but in end end, a Start-Process equivalent was it for the convenience of not having to specify a filename, tho that can be added as a backup
                 if ($PSCmdlet.ShouldProcess($computer, "Uninstalling Hotfix $hotfix by executing $program $ArgumentList")) {
                     try {
                         Invoke-PSFCommand -ComputerName $computer -Credential $Credential -ScriptBlock $programscriptblock -ArgumentList $Program, $ArgumentList, $hotfix, $update.Name, $VerbosePreference -ErrorAction Stop | Select-Object -Property * -ExcludeProperty PSComputerName, RunspaceId
