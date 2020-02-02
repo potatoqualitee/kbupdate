@@ -7,7 +7,7 @@
 #
 @{
     # Version number of this module.
-    ModuleVersion     = '1.1.6'
+    ModuleVersion     = '1.1.7'
 
     # ID used to uniquely identify this module
     GUID              = 'f292e190-ed32-4232-b9f3-b50b42a5655f'
@@ -22,7 +22,7 @@
     Copyright         = '2019 Chrissy LeMaire'
 
     # Description of the functionality provided by this module
-    Description       = 'KB Viewer and Saver'
+    Description       = 'KB Viewer, Saver, Installer and Uninstaller'
 
     # Minimum version of the Windows PowerShell engine required by this module
     PowerShellVersion = '3.0'
