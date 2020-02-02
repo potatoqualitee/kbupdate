@@ -16,7 +16,7 @@ Data LocalizedData
         FileDoesntExist=The given path {0} does not exist.
         LogNotSpecified=Log name hasn't been specified. Hotfix will use the temporary log {0} .
         ErrorOccuredOnHotfixInstall = \nCould not install the windows update. Details are stored in the log {0} . Error message is \n\n {1}  .\n\nPlease look at Windows Update error codes here for more information - http://technet.microsoft.com/en-us/library/dd939837(WS.10).aspx .
-        ErrorOccuredOnHotfixUninnstall = \nCould not uninstall the windows update. Details are stored in the log {0} . Error message is \n\n {1}  .\n\nPlease look at Windows Update error codes here for more information - http://technet.microsoft.com/en-us/library/dd939837(WS.10).aspx .
+        ErrorOccuredOnHotfixUninstall = \nCould not uninstall the windows update. Details are stored in the log {0} . Error message is \n\n {1}  .\n\nPlease look at Windows Update error codes here for more information - http://technet.microsoft.com/en-us/library/dd939837(WS.10).aspx .
         TestingEnsure = Testing whether hotfix is {0}.
         InvalidPath=The specified Path ({0}) is not in a valid format. Valid formats are local paths, UNC, and HTTP.
         InvalidBinaryType=The specified Path ({0}) does not appear to specify an MSU file and as such is not supported.
@@ -44,7 +44,7 @@ Data LocalizedData
 
 $CacheLocation = "$env:ProgramData\Microsoft\Windows\PowerShell\Configuration\BuiltinProvCache\MSFT_xWindowsUpdate"
 
-# Get-TargetResource function  
+# Get-TargetResource function
 function Get-TargetResource
 {
     [CmdletBinding()]
@@ -66,14 +66,14 @@ function Get-TargetResource
     Write-Verbose $($LocalizedData.GettingHotfixMessage -f ${Id})
 
     $hotfix = Get-HotFix -Id "KB$kbId"
-    
+
     $returnValue = @{
         Path = ''
         Id = $hotfix.HotFixId
         Log = ''
     }
 
-    $returnValue    
+    $returnValue
 
 }
 
@@ -95,7 +95,7 @@ Function New-InvalidArgumentException
         [string] $ParamName
     )
     Set-StrictMode -Version latest
-    
+
     $exception = new-object System.ArgumentException $Message,$ParamName
     $errorRecord = New-Object System.Management.Automation.ErrorRecord $exception,$ParamName,'InvalidArgument',$null
     throw $errorRecord
@@ -105,7 +105,7 @@ Function New-InvalidArgumentException
 function Set-TargetResource
 {
     # should be [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSAvoidGlobalVars", "DSCMachineStatus")], but it doesn't work
-    [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSAvoidGlobalVars", "")]   
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSAvoidGlobalVars", "")]
     [CmdletBinding()]
     Param
     (
@@ -136,16 +136,16 @@ function Set-TargetResource
         Write-Verbose "$($LocalizedData.LogNotSpecified -f ${Log})"
     }
     $uri, $kbId = Test-StandardArguments -Path $Path -Id $Id
-
-    
-            
+    $filePath = Test-WindowsUpdatePath -uri $uri -Credential $Credential
+    $startTime = get-date
     if($Ensure -eq 'Present')
     {
-        $filePath = Test-WindowsUpdatePath -uri $uri -Credential $Credential 
         Write-Verbose "$($LocalizedData.StartKeyWord) $($LocalizedData.ActionInstallUsingwsusa)"
-    
-        Start-Process -FilePath 'wusa.exe' -ArgumentList "`"$filepath`" /quiet /norestart /log:`"$Log`"" -Wait -NoNewWindow -ErrorAction SilentlyContinue
-        $errorOccured = Get-WinEvent -Path $Log -Oldest | Where-Object {$_.Id -eq 3}                         
+
+        $argumentList = "`"$filepath`" /quiet /norestart /log:`"$Log`""
+        write-host $argumentList
+        Start-Process -FilePath 'wusa.exe' -ArgumentList $argumentList -Wait -NoNewWindow -ErrorAction SilentlyContinue
+        $errorOccured = Get-WinEvent -Path $Log -Oldest | Where-Object {$_.Id -eq 3}
         if($errorOccured)
         {
             $errorMessage= $errorOccured.Message
@@ -156,30 +156,42 @@ function Set-TargetResource
     }
     else
     {
-        $argumentList = "/uninstall /KB:$kbId /quiet /norestart /log:`"$Log`""
-        
+        $argumentList = "/uninstall `"$filepath`" /quiet /norestart /log:`"$Log`""
+
         Write-Verbose "$($LocalizedData.StartKeyWord) $($LocalizedData.ActionUninstallUsingwsusa) Arguments: $ArgumentList"
-    
-        Start-Process -FilePath 'wusa.exe' -ArgumentList $argumentList  -Wait -NoNewWindow  -ErrorAction SilentlyContinue 
+        Start-Process -FilePath 'wusa.exe' -ArgumentList $argumentList  -Wait -NoNewWindow  -ErrorAction SilentlyContinue
         #Read the log and see if there was an error event
-        $errorOccured = Get-WinEvent -Path $Log -Oldest | Where-Object {$_.Id -eq 3}                         
+        $errorOccured = Get-WinEvent -Path $Log -Oldest | Where-Object {$_.Id -eq 3}
         if($errorOccured)
         {
             $errorMessage= $errorOccured.Message
             Throw "$($LocalizedData.ErrorOccuredOnHotfixUninstall -f ${Log}, ${errorMessage})"
         }
+        else{
+            #Look for errors in setup log
+            $timespan = (Get-Date) - (New-TimeSpan -Start $startTime)
+            $error = Get-WinEvent -FilterHashtable @{
+                LogName='Setup'
+                ProviderName='Microsoft-Windows-WUSA'
+                Level=2
+                StartTime=$timespan
+            } -MaxEvents 1 -ErrorAction SilentlyContinue
+            if($error) {
+                $errorMessage = $error.Message
+                Throw "$($LocalizedData.ErrorOccuredOnHotfixUninstall -f ${Log}, ${errorMessage})"
+            }
+        }
 
         Write-Verbose "$($LocalizedData.EndKeyWord) $($LocalizedData.ActionUninstallUsingwsusa)"
 
-        
     }
-    
+
     if (Test-Path -Path 'variable:\LASTEXITCODE')
     {
         if ($LASTEXITCODE -eq 3010)
         {
             # reboot machine if exitcode indicates reboot.
-            $global:DSCMachineStatus = 1        
+            $global:DSCMachineStatus = 1
         }
     }
 }
@@ -212,7 +224,7 @@ function Test-TargetResource
     Set-StrictMode -Version latest
     Write-Verbose "$($LocalizedData.TestingEnsure -f ${Ensure})"
     $uri, $kbId = Test-StandardArguments -Path $Path -Id $Id
-    
+
     # This is not the correct way to test to see if an update is applicable to a machine
     # but, WUSA does not currently expose a way to ask.
     $result = Get-HotFix -Id "KB$kbId" -ErrorAction SilentlyContinue
@@ -239,7 +251,7 @@ Function Test-StandardArguments
         $Id
     )
     Set-StrictMode -Version latest
-    
+
     Trace-Message ($LocalizedData.TestStandardArgumentsPathWasPath -f $Path)
     $uri = $null
     try
@@ -250,20 +262,20 @@ Function Test-StandardArguments
     {
         New-InvalidArgumentException ($LocalizedData.InvalidPath -f $Path) 'Path'
     }
-    
+
     if(-not @('file', 'http', 'https') -contains $uri.Scheme)
     {
         Trace-Message ($Localized.TheUriSchemeWasUriScheme -f $uri.Scheme)
         New-InvalidArgumentException ($LocalizedData.InvalidPath -f $Path) 'Path'
     }
-    
+
     $pathExt = [System.IO.Path]::GetExtension($Path)
     Trace-Message ($LocalizedData.ThePathExtensionWasPathExt -f $pathExt)
     if(-not @('.msu') -contains $pathExt.ToLower())
     {
         New-InvalidArgumentException ($LocalizedData.InvalidBinaryType -f $Path) 'Path'
     }
-    
+
     if(-not $Id)
     {
         New-InvalidArgumentException ($LocalizedData.NeedsMoreInfo -f $Path) 'Id'
@@ -293,7 +305,7 @@ Function Test-StandardArguments
             }
         }
     }
-    
+
     return @($uri, $kbId)
 }
 
@@ -307,7 +319,7 @@ function Test-WindowsUpdatePath
     param(
             [parameter(Mandatory = $true)]
             [System.Uri] $uri,
-            
+
             [pscredential] $Credential
     )
     Set-StrictMode -Version latest
@@ -321,7 +333,7 @@ function Test-WindowsUpdatePath
             #we pass a null for Credential which causes the cmdlet to pop a dialog up
             $psdriveArgs['Credential'] = $Credential
         }
-        
+
         $psdrive = New-PSDrive @psdriveArgs
         $Path = Join-Path $psdrive.Root (Split-Path -Leaf $uri.LocalPath) #Necessary?
     }
@@ -330,20 +342,20 @@ function Test-WindowsUpdatePath
         $scheme = $uri.Scheme
         $outStream = $null
         $responseStream = $null
-        
+
         try
         {
             Trace-Message ($LocalizedData.CreatingCacheLocation)
-            
+
             if(-not (Test-Path -PathType Container $CacheLocation))
             {
                 mkdir $CacheLocation | Out-Null
             }
-            
+
             $destName = Join-Path $CacheLocation (Split-Path -Leaf $uri.LocalPath)
-            
+
             Trace-Message ($LocalizedData.NeedToDownloadFileFromSchemeDestinationWillBeDestName -f $scheme, $destName)
-            
+
             try
             {
                 Trace-Message ($LocalizedData.CreatingTheDestinationCacheFile)
@@ -354,7 +366,7 @@ function Test-WindowsUpdatePath
                 #Should never happen since we own the cache directory
                 Throw-TerminatingError ($LocalizedData.CouldNotOpenDestFile -f $destName) $_
             }
-            
+
             try
             {
                 Trace-Message ($LocalizedData.CreatingTheSchemeStream -f $scheme)
@@ -365,7 +377,7 @@ function Test-WindowsUpdatePath
                 {
                     Trace-Message ($LocalizedData.SettingAuthenticationLevel)
                     # default value is MutualAuthRequested, which applies to https scheme
-                    $request.AuthenticationLevel = [System.Net.Security.AuthenticationLevel]::None                            
+                    $request.AuthenticationLevel = [System.Net.Security.AuthenticationLevel]::None
                 }
                 if ($scheme -eq 'https')
                 {
@@ -380,7 +392,7 @@ function Test-WindowsUpdatePath
                 Trace-Message ($LocalizedData.ErrorOutString -f ($_ | Out-String))
                 Throw-TerminatingError ($LocalizedData.CouldNotGetHttpStream -f $scheme, $Path) $_
             }
-            
+
             try
             {
                 Trace-Message ($LocalizedData.CopyingTheSchemeStreamBytesToTheDiskCache -f $scheme)
@@ -400,7 +412,7 @@ function Test-WindowsUpdatePath
             {
                 $outStream.Close()
             }
-            
+
             if($responseStream)
             {
                 $responseStream.Close()
