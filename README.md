@@ -74,6 +74,9 @@ Get-KbInstalledUpdate -ComputerName server01 -Pattern KB4057119
 
 ![image](https://user-images.githubusercontent.com/8278033/60805580-c97fea00-a180-11e9-9ad9-315812eae144.png)
 
+![image](https://user-images.githubusercontent.com/8278033/73614221-69113800-45fd-11ea-89b5-465728f61ed7.png)
+
+![image](https://user-images.githubusercontent.com/8278033/73614293-f9e81380-45fd-11ea-89af-72fc78698660.png)
 
 ## More Help
 
