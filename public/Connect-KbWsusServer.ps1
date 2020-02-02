@@ -36,7 +36,7 @@ function Connect-KbWsusServer {
 
     .EXAMPLE
         PS C:\> Connect-KbWsusServer -ComputerName server1 -SecureConnection
-        PS C:\> Get-KbUpdate -Pattern KB2764916 -Source Wsus
+        PS C:\> Get-KbUpdate -Pattern KB2764916
 
         This command will make a secure connection (Default: 443) to a WSUS server.
 
@@ -51,7 +51,7 @@ function Connect-KbWsusServer {
     param(
         [Parameter(ValueFromPipeline)]
         [Alias("WsusServer")]
-        [string]$ComputerName,
+        [PSFComputer]$ComputerName,
         [pscredential]$Credential,
         [switch]$SecureConnection,
         [ValidateSet("80", "443", "8530", "8531" )]
@@ -85,7 +85,10 @@ function Connect-KbWsusServer {
                 $script:ConnectedWsus
             }
         } catch {
-            Stop-Function -Message "Failure" -EnableException:$EnableException -ErrorRecord $_
+            Stop-PSFFunction -Message "Failure" -EnableException:$EnableException -ErrorRecord $_
         }
     }
 }
+
+
+

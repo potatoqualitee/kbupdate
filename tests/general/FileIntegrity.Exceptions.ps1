@@ -17,3 +17,6 @@ $global:MayContainCommand = @{
     "Write-Information" = @()
     "Write-Debug"       = @()
 }
+
+
+

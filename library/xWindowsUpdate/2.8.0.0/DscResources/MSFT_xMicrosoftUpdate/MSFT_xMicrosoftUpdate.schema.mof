@@ -1,0 +1,6 @@
+
+[ClassVersion("0.1.0.0"), FriendlyName("xMicrosoftUpdate")]
+class MSFT_xMicrosoftUpdate : OMI_BaseResource
+{
+    [Key, Description("Indicates that the Microsoft Update is enabled or is disabled."), ValueMap{"Present","Absent"}, Values{"Present","Absent"}] String Ensure;
+};

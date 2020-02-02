@@ -24,7 +24,7 @@ function Select-DefaultView {
         if ($null -eq $InputObject) { return }
 
         if ($TypeName) {
-            $InputObject.PSObject.TypeNames.Insert(0, "dbatools.$TypeName")
+            $InputObject.PSObject.TypeNames.Insert(0, "kbupdate.$TypeName")
         }
 
         if ($ExcludeProperty) {
@@ -62,3 +62,6 @@ function Select-DefaultView {
         $inputobject
     }
 }
+
+
+

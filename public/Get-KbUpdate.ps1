@@ -24,7 +24,7 @@ function Get-KbUpdate {
         Specify one or more operating systems. Tab complete to see what's available. If anything is missing, please file an issue.
 
     .PARAMETER ComputerName
-        Get the Operating System and architecture information automatically
+        Used to connect to a remote host - gets the Operating System and architecture information automatically
 
     .PARAMETER Credential
         The optional alternative credential to be used when connecting to ComputerName
@@ -47,7 +47,6 @@ function Get-KbUpdate {
         Using this switch turns this "nice by default" feature off and enables you to catch exceptions with your own try/catch.
 
     .NOTES
-        Tags: Update
         Author: Chrissy LeMaire (@cl), netnerds.net
         Copyright: (c) licensed under MIT
         License: MIT https://opensource.org/licenses/MIT
@@ -95,11 +94,11 @@ function Get-KbUpdate {
     [CmdletBinding()]
     param(
         [Parameter(Mandatory)]
-        [Alias("Name")]
+        [Alias("Name", "HotfixId", "KBUpdate", "Id")]
         [string[]]$Pattern,
         [string[]]$Architecture,
         [string[]]$OperatingSystem,
-        [string[]]$ComputerName,
+        [PSFComputer[]]$ComputerName,
         [pscredential]$Credential,
         [string[]]$Product,
         [string[]]$Language,
@@ -122,7 +121,7 @@ function Get-KbUpdate {
                 $items = Invoke-SqliteQuery -DataSource $db  -Query "select *, NULL AS SupersededBy, NULL AS Supersedes, NULL AS Link from kb where UpdateId in (select UpdateId from kb where UpdateId = '$kb' or Title like '%$kb%' or Id like '%$kb%' or Description like '%$kb%' or MSRCNumber like '%$kb%')"
 
                 if (-not $items -and $Source -eq "Database") {
-                    Stop-PSFFunction -EnableException:$EnableException -Message "No results found for $kb"
+                    Stop-PSFFunction -EnableException:$EnableException -Message "No results found for $kb in the local database"
                 }
 
                 foreach ($item in $items) {
@@ -198,8 +197,8 @@ function Get-KbUpdate {
             Write-Progress -Activity "Searching catalog for $kb" -Id 1 -Completed
 
             $kbids = $results.InputFields |
-            Where-Object { $_.type -eq 'Button' -and $_.Value -eq 'Download' } |
-            Select-Object -ExpandProperty  ID
+                Where-Object { $_.type -eq 'Button' -and $_.Value -eq 'Download' } |
+                Select-Object -ExpandProperty  ID
 
             if (-not $kbids) {
                 try {
@@ -207,7 +206,7 @@ function Get-KbUpdate {
                     Stop-PSFFunction -EnableException:$EnableException -Message "Matches were found for $kb, but the results no longer exist in the catalog"
                     return
                 } catch {
-                    Stop-PSFFunction -EnableException:$EnableException -Message "No results found for $kb"
+                    Stop-PSFFunction -EnableException:$EnableException -Message "No results found for $kb at microsoft.com"
                     return
                 }
             }
@@ -215,8 +214,8 @@ function Get-KbUpdate {
             Write-PSFMessage -Level Verbose -Message "$kbids"
             # Thanks! https://keithga.wordpress.com/2017/05/21/new-tool-get-the-latest-windows-10-cumulative-updates/
             $resultlinks = $results.Links |
-            Where-Object ID -match '_link' |
-            Where-Object { $_.OuterHTML -match ( "(?=.*" + ( $Filter -join ")(?=.*" ) + ")" ) }
+                Where-Object ID -match '_link' |
+                Where-Object { $_.OuterHTML -match ( "(?=.*" + ( $Filter -join ")(?=.*" ) + ")" ) }
 
             # get the title too
             $guids = @()
@@ -468,7 +467,7 @@ function Get-KbUpdate {
     }
     process {
         if ($Source -contains "Wsus" -and -not $script:ConnectedWsus) {
-            Stop-Function -Message "Please use Connect-KbWsusServer before selecting WSUS as a Source" -EnableException:$EnableException
+            Stop-PSFFunction -Message "Please use Connect-KbWsusServer before selecting WSUS as a Source" -EnableException:$EnableException
             return
         }
 
@@ -524,6 +523,7 @@ function Get-KbUpdate {
         }
 
         foreach ($kb in $Pattern) {
+            $result = $null
             if ($Source -contains "Wsus") {
                 $result = Get-KbItemFromWsusApi $kb
             }
@@ -550,3 +550,4 @@ function Get-KbUpdate {
         }
     }
 }
+
