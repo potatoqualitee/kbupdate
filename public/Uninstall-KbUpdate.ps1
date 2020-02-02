@@ -146,8 +146,8 @@ function Uninstall-KbUpdate {
                 ComputerName = $env:ComputerName
                 Name         = $Name
                 HotfixID     = $hotfix
-                Results      = $output
                 ExitCode     = $results.ExitCode
+                Results      = $output
             }
         }
     }
