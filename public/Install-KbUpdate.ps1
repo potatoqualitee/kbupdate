@@ -197,7 +197,7 @@ function Install-KbUpdate {
 
             if ($FilePath.EndsWith("exe")) {
                 if (-not $ArgumentList -and $FilePath -match "sql") {
-                    $ArgumentList = "/qs /IAcceptSQLServerLicenseTerms /Action=Patch /AllInstances"
+                    $ArgumentList = "/action=patch /AllInstances /quiet /IAcceptSQLServerLicenseTerms"
                 }
 
                 if (-not $Guid) {
