@@ -121,7 +121,7 @@ function Get-KbUpdate {
                 $items = Invoke-SqliteQuery -DataSource $db  -Query "select *, NULL AS SupersededBy, NULL AS Supersedes, NULL AS Link from kb where UpdateId in (select UpdateId from kb where UpdateId = '$kb' or Title like '%$kb%' or Id like '%$kb%' or Description like '%$kb%' or MSRCNumber like '%$kb%')"
 
                 if (-not $items -and $Source -eq "Database") {
-                    Stop-PSFFunction -EnableException:$EnableException -Message "No results found for $kb in the local database"
+                    Write-PSFMessage -Level Verbose -Message -Message "No results found for $kb in the local database"
                 }
 
                 foreach ($item in $items) {
@@ -206,7 +206,7 @@ function Get-KbUpdate {
                     Stop-PSFFunction -EnableException:$EnableException -Message "Matches were found for $kb, but the results no longer exist in the catalog"
                     return
                 } catch {
-                    Stop-PSFFunction -EnableException:$EnableException -Message "No results found for $kb at microsoft.com"
+                    Write-PSFMessage -Level Verbose -Message "No results found for $kb at microsoft.com"
                     return
                 }
             }
