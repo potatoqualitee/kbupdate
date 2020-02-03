@@ -51,7 +51,7 @@ if (-not $script:compcollection) {
 
 
 $script:languages = . "$ModuleRoot\library\languages.ps1"
-
+$null = Import-Module kbupdate-library
 $kblib = Split-Path -Path (Get-Module -Name kbupdate-library).Path
 $script:db = (Get-ChildItem -Path "$kblib\*.sqlite").FullName
 $script:dailydb = (Get-ChildItem -Path "$PSScriptRoot\library\db\*.sqlite").FullName
