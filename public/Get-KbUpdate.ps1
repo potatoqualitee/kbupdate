@@ -197,8 +197,8 @@ function Get-KbUpdate {
             Write-Progress -Activity "Searching catalog for $kb" -Id 1 -Completed
 
             $kbids = $results.InputFields |
-                Where-Object { $_.type -eq 'Button' -and $_.Value -eq 'Download' } |
-                Select-Object -ExpandProperty  ID
+            Where-Object { $_.type -eq 'Button' -and $_.Value -eq 'Download' } |
+            Select-Object -ExpandProperty  ID
 
             if (-not $kbids) {
                 try {
@@ -214,8 +214,8 @@ function Get-KbUpdate {
             Write-PSFMessage -Level Verbose -Message "$kbids"
             # Thanks! https://keithga.wordpress.com/2017/05/21/new-tool-get-the-latest-windows-10-cumulative-updates/
             $resultlinks = $results.Links |
-                Where-Object ID -match '_link' |
-                Where-Object { $_.OuterHTML -match ( "(?=.*" + ( $Filter -join ")(?=.*" ) + ")" ) }
+            Where-Object ID -match '_link' |
+            Where-Object { $_.OuterHTML -match ( "(?=.*" + ( $Filter -join ")(?=.*" ) + ")" ) }
 
             # get the title too
             $guids = @()
@@ -275,9 +275,9 @@ function Get-KbUpdate {
             try {
                 $guids = Get-GuidsFromWeb -kb $kb
 
-                foreach ($item in $guids) {
-                    $guid = $item.Guid
-                    $itemtitle = $item.Title
+                $scriptblock = {
+                    $guid = $psitem.Guid
+                    $itemtitle = $psitem.Title
 
                     # cacher
                     $hashkey = "$guid-$Simple"
@@ -287,7 +287,7 @@ function Get-KbUpdate {
                     }
 
                     Write-ProgressHelper -Activity "Found up to $($guids.Count) results for $kb" -Message "Getting results for $itemtitle" -TotalSteps $guids.Guid.Count -StepNumber $guids.Guid.IndexOf($guid)
-                    Write-PSFMessage -Level Verbose -Message "Downloading information for $itemtitle"
+                    Write-Verbose -Message "Downloading information for $itemtitle"
                     $post = @{ size = 0; updateID = $guid; uidInfo = $guid } | ConvertTo-Json -Compress
                     $body = @{ updateIDs = "[$post]" }
                     $downloaddialog = Invoke-TlsWebRequest -Uri 'https://www.catalog.update.microsoft.com/DownloadDialog.aspx' -Method Post -Body $body | Select-Object -ExpandProperty Content
@@ -427,6 +427,9 @@ function Get-KbUpdate {
                         $script:kbcollection[$hashkey]
                     }
                 }
+
+                $guids | Invoke-Parallel -ImportVariables -ImportFunctions -ScriptBlock $scriptblock -ErrorAction Stop
+
             } catch {
                 Stop-PSFFunction -EnableException:$EnableException -Message "Failure" -ErrorRecord $_ -Continue
             }
