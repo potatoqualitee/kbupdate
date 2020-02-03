@@ -1,10 +1,10 @@
 function Uninstall-KbUpdate {
     <#
     .SYNOPSIS
-        Uninstalls KB updates
+        Uninstalls KB updates on Windows-based systems
 
     .DESCRIPTION
-        Uninstalls KB updates
+        Uninstalls KB updates on Windows-based systems
 
     .PARAMETER ComputerName
         Used to connect to a remote host
@@ -154,6 +154,11 @@ function Uninstall-KbUpdate {
         if (-not $PSBoundParameters.HotfixId -and -not $PSBoundParameters.InputObject.HotfixId) {
             # some just wont have hotfix i guess but you can pipe from the command and still get this error so fix the erorr
             Stop-PSFFunction -EnableException:$EnableException -Message "You must specify either HotfixId or pipe in the results from Get-KbInstalledUpdate"
+            return
+        }
+
+        if (-not (Test-PSFPowerShell -OperatingSystem Windows)) {
+            Stop-PSFFunction -Message "This command using remoting and only supports Windows at this time" -EnableException:$EnableException
             return
         }
 

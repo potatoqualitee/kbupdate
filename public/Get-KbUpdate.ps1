@@ -463,12 +463,23 @@ function Get-KbUpdate {
         }
         # if latest is used, needs a collection
         $allkbs = @()
-
     }
     process {
         if ($Source -contains "Wsus" -and -not $script:ConnectedWsus) {
             Stop-PSFFunction -Message "Please use Connect-KbWsusServer before selecting WSUS as a Source" -EnableException:$EnableException
             return
+        }
+
+        if (Test-PSFPowerShell -Edition Core) {
+            if (Was-Bound -Not -ParameterName Source) {
+                Write-PSFMessage -Level Verbose -Message "Core detected. Switching source to Web."
+                $Source = "Web"
+            } else {
+                if ($Source -ne "Web") {
+                    Stop-PSFFunction -Message "Core ony supports web scraping :(" -EnableException:$EnableException
+                    return
+                }
+            }
         }
 
         if ($Latest -and $Simple) {

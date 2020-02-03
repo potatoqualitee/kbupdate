@@ -75,6 +75,10 @@ function Connect-KbWsusServer {
         }
     }
     process {
+        if (Test-PSFPowerShell -Edition Core) {
+            Stop-PSFFunction -Message "Core not supported :( WSUS DLLs would have to support it, so doesn't seem likely." -EnableException:$EnableException
+            return
+        }
         try {
             $script:ConnectedWsus = Connect-PSWSUSServer -WSUSserver $ComputerName -SecureConnection:$SecureConnection -Port $Port -WarningAction SilentlyContinue -WarningVariable warning
             # Handle the way PoshWSUS deals with errors

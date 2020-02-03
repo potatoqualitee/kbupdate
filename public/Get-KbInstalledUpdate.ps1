@@ -331,6 +331,11 @@ function Get-KbInstalledUpdate {
         }
     }
     process {
+        if (-not (Test-PSFPowerShell -OperatingSystem Windows)) {
+            Stop-PSFFunction -Message "This command using remoting and only supports Windows at this time" -EnableException:$EnableException
+            return
+        }
+
         try {
             foreach ($computer in $ComputerName) {
                 Invoke-PSFCommand -ComputerName $computer -Credential $Credential -ErrorAction Stop -ScriptBlock $scriptblock -ArgumentList @($Pattern), $IncludeHidden, $VerbosePreference | Sort-Object -Property Name |

@@ -2,10 +2,14 @@
 function Install-KbUpdate {
     <#
     .SYNOPSIS
-        Installs KBs on local and remote servers
+        Installs KBs on local and remote servers on Windows-based systems
 
     .DESCRIPTION
-        Installs KBs on local and remote servers
+        Installs KBs on local and remote servers on Windows-based systems
+
+        PowerShell 5.1 must be installed and enabled on the target machine and the target machine must be Windows-based
+
+        Note that if you use a DSC Pull server, this may impact your LCM
 
     .PARAMETER ComputerName
         Used to connect to a remote host
@@ -31,7 +35,9 @@ function Install-KbUpdate {
         If the file is an exe and no Title is specified, we will have to get it from Get-KbUpdate
 
     .PARAMETER ArgumentList
-        If the file is an exe and no Title is specified, we will have to get it from Get-KbUpdate
+        This is an advanced parameter for those of you who need special argumentlists for your platform-specific update.
+
+        The argument list required by SQL updates are already accounted for.
 
     .PARAMETER InputObject
         Allows infos to be piped in from Get-KbUpdate
@@ -97,6 +103,11 @@ function Install-KbUpdate {
             return
         }
 
+        if (-not (Test-PSFPowerShell -OperatingSystem Windows)) {
+            Stop-PSFFunction -Message "This command using remoting and only supports Windows at this time" -EnableException:$EnableException
+            return
+        }
+
         if (-not $HotfixId.ToUpper().StartsWith("KB") -and $PSBoundParameters.HotfixId) {
             $HotfixId = "KB$HotfixId"
         }
@@ -110,7 +121,14 @@ function Install-KbUpdate {
             $hasxhotfix = Invoke-PSFCommand -ComputerName $computer -Credential $Credential -ScriptBlock {
                 Get-Module -ListAvailable xWindowsUpdate
             }
-            $remotesession = Get-PSSession -ComputerName $computer | Where-Object { $PsItem.Availability -eq 'Available' -and $PsItem.Name -match 'WinRM' } | Select-Object -First 1
+
+            if (-not $remotesession) {
+                $remotesession = Get-PSSession -ComputerName $computer | Where-Object { $PsItem.Availability -eq 'Available' -and ($PsItem.Name -match 'WinRM' -or $PsItem.Name -match 'Runspace') } | Select-Object -First 1
+            }
+
+            if (-not $remotesession) {
+                $remotesession = Get-PSSession -ComputerName $computer | Where-Object { $PsItem.Availability -eq 'Available' } | Select-Object -First 1
+            }
 
             if (-not $remotesession) {
                 Stop-PSFFunction -EnableException:$EnableException -Message "Session for $computer can't be found or no runspaces are available. Please file an issue on the GitHub repo at https://github.com/potatoqualitee/kbupdate/issues" -Continue
