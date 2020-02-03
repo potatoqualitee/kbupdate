@@ -59,7 +59,7 @@ function Get-KbInstalledUpdate {
     )
     begin {
         $scriptblock = {
-            param ($Search, $IncludeHidden, $VerbosePreference)
+            param ([string[]]$Pattern, $IncludeHidden, $VerbosePreference)
             $allhotfixids = New-Object System.Collections.ArrayList
             $allcbs = Get-ChildItem 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Component Based Servicing\Packages'
 
@@ -68,8 +68,6 @@ function Get-KbInstalledUpdate {
                 throw "$env:ComputerName is running PowerShell version $psversiontalbe. Please upgrade to PowerShell version 5.1 or greater"
             }
 
-            # i didnt know how else to preserve the array, it kept flattening to a single string
-            $pattern = $Search['Pattern']
             if ($pattern) {
                 $packages = @()
                 foreach ($name in $pattern) {
@@ -335,7 +333,7 @@ function Get-KbInstalledUpdate {
     process {
         try {
             foreach ($computer in $ComputerName) {
-                Invoke-PSFCommand -ComputerName $computer -Credential $Credential -ErrorAction Stop -ScriptBlock $scriptblock -ArgumentList @{ Pattern = $Pattern }, $IncludeHidden, $VerbosePreference | Sort-Object -Property Name |
+                Invoke-PSFCommand -ComputerName $computer -Credential $Credential -ErrorAction Stop -ScriptBlock $scriptblock -ArgumentList @($Pattern), $IncludeHidden, $VerbosePreference | Sort-Object -Property Name |
                     Select-Object -Property * -ExcludeProperty PSComputerName, RunspaceId | Select-DefaultView -ExcludeProperty InstallFile
             }
         } catch {
