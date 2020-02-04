@@ -42,13 +42,12 @@ foreach ($function in (Get-ChildItem "$ModuleRoot\public" -Filter "*.ps1" -Recur
 
 # Setup initial collections
 if (-not $script:kbcollection) {
-    $script:kbcollection = @{ }
+    $script:kbcollection = [hashtable]::Synchronized(@{ })
 }
 
 if (-not $script:compcollection) {
-    $script:compcollection = @{ }
+    $script:compcollection = [hashtable]::Synchronized(@{ })
 }
-
 
 $script:languages = . "$ModuleRoot\library\languages.ps1"
 
