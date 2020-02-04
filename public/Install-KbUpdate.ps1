@@ -295,7 +295,7 @@ function Install-KbUpdate {
                         } catch {
                             switch ($message = "$_") {
                                 # some things can be ignored
-                                { $message -match "Name does not match package details" } {
+                                { $message -match "Serialized XML is nested too deeply" -or $message -match "Name does not match package details" } {
                                     $null = 1
                                 }
                                 { $message -match "2359302" } {
