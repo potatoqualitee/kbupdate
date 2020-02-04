@@ -50,7 +50,8 @@
         'Connect-KbWsusServer',
         'Get-KbInstalledUpdate',
         'Install-KbUpdate',
-        'Uninstall-KbUpdate'
+        'Uninstall-KbUpdate',
+        'Select-KbLatest'
     )
 
     PrivateData       = @{

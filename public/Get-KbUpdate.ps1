@@ -113,6 +113,7 @@ function Get-KbUpdate {
             $Source = "Wsus"
         }
 
+        $script:allresults = @()
         function Get-KbItemFromDb {
             [CmdletBinding()]
             param($kb)
@@ -125,6 +126,7 @@ function Get-KbUpdate {
                 }
 
                 foreach ($item in $items) {
+                    $script:allresults += $item.UpdateId
                     $item.SupersededBy = Invoke-SqliteQuery -DataSource $db -Query "select KB, Description from SupersededBy where UpdateId = '$($item.UpdateId)'"
                     $item.Supersedes = Invoke-SqliteQuery -DataSource $db -Query "select KB, Description from Supersedes where UpdateId = '$($item.UpdateId)'"
                     $item.Link = (Invoke-SqliteQuery -DataSource $db -Query "select Link from Link where UpdateId = '$($item.UpdateId)'").Link
@@ -138,6 +140,7 @@ function Get-KbUpdate {
             foreach ($wsuskb in $results) {
                 # cacher
                 $guid = $wsuskb.UpdateID
+                $script:allresults += $guid
                 $hashkey = "$guid-$Simple"
                 if ($script:kbcollection.ContainsKey($hashkey)) {
                     $script:kbcollection[$hashkey]
@@ -193,12 +196,24 @@ function Get-KbUpdate {
         function Get-GuidsFromWeb ($kb) {
             Write-PSFMessage -Level Verbose -Message "$kb"
             Write-Progress -Activity "Searching catalog for $kb" -Id 1 -Status "Contacting catalog.update.microsoft.com"
-            $results = Invoke-TlsWebRequest -Uri "https://www.catalog.update.microsoft.com/Search.aspx?q=$kb"
+            if ($OperatingSystem) {
+                $url = "https://www.catalog.update.microsoft.com/Search.aspx?q=$kb+$OperatingSystem"
+                Write-PSFMessage -Level Verbose -Message "Accessing $url"
+                $results = Invoke-TlsWebRequest -Uri $url
+                $kbids = $results.InputFields |
+                Where-Object { $_.type -eq 'Button' -and $_.Value -eq 'Download' } |
+                Select-Object -ExpandProperty  ID
+            }
+            if (-not $kbids) {
+                $url = "https://www.catalog.update.microsoft.com/Search.aspx?q=$kb"
+                $boundparams.OperatingSystem = $OperatingSystem
+                Write-PSFMessage -Level Verbose -Message "Failing back to $url"
+                $results = Invoke-TlsWebRequest -Uri $url
+                $kbids = $results.InputFields |
+                Where-Object { $_.type -eq 'Button' -and $_.Value -eq 'Download' } |
+                Select-Object -ExpandProperty  ID
+            }
             Write-Progress -Activity "Searching catalog for $kb" -Id 1 -Completed
-
-            $kbids = $results.InputFields |
-            Where-Object { $_.type -eq 'Button' -and $_.Value -eq 'Download' } |
-            Select-Object -ExpandProperty  ID
 
             if (-not $kbids) {
                 try {
@@ -229,7 +244,7 @@ function Get-KbUpdate {
                     }
                 }
             }
-            return $guids
+            $guids | Where-Object Guid -notin $script:allresults
         }
 
         function Get-KbItemFromWeb ($kb) {
@@ -476,6 +491,12 @@ function Get-KbUpdate {
             $Simple = $false
         }
 
+        if ($Latest -and $PSBoundParameters.Source -and $Source -contains "Database") {
+            Write-PSFMessage -Level Warning -Message "Source is ignored when Latest is specified, as latest requires the freshest data"
+            $PSBoundParameters.Source = $null
+            $Source = "Web"
+        }
+
         if (Test-PSFPowerShell -Edition Core) {
             if (Was-Bound -Not -ParameterName Source) {
                 Write-PSFMessage -Level Verbose -Message "Core detected. Switching source to Web."
@@ -527,38 +548,46 @@ function Get-KbUpdate {
         }
 
         $boundparams = @{
-            Architecture    = $Architecture
-            OperatingSystem = $OperatingSystem
-            Product         = $PSBoundParameters.Product
-            Language        = $PSBoundParameters.Language
-            Source          = $Source
+            Architecture = $Architecture
+            Product      = $PSBoundParameters.Product
+            Language     = $PSBoundParameters.Language
+            Source       = $Source
         }
 
         foreach ($kb in $Pattern) {
-            $result = $null
-            if ($Source -contains "Wsus") {
-                $result = Get-KbItemFromWsusApi $kb
-            }
-
-            if (-not $result -and $Source -contains "Database") {
-                $result = Get-KbItemFromDb $kb
-            }
-
-            if (-not $result -and $Source -contains "Web") {
-                $result = Get-KbItemFromWeb $kb
-            }
-
             if ($Latest) {
+                $result = $null
+                if ($Source -contains "Wsus") {
+                    $result = Get-KbItemFromWsusApi $kb
+                }
+
+                if (-not $result -and $Source -contains "Database") {
+                    $result = Get-KbItemFromDb $kb
+                }
+
+                if (-not $result -and $Source -contains "Web") {
+                    $result = Get-KbItemFromWeb $kb
+                }
                 $allkbs += $result | Search-Kb @boundparams
             } else {
-                $result | Search-Kb @boundparams | Select-DefaultView -Property $properties
+                if ($Source -contains "Wsus") {
+                    Get-KbItemFromWsusApi $kb | Search-Kb @boundparams | Select-DefaultView -Property $properties
+                }
+
+                if (-not $result -and $Source -contains "Database") {
+                    Get-KbItemFromDb $kb | Search-Kb @boundparams | Select-DefaultView -Property $properties
+                }
+
+                if (-not $result -and $Source -contains "Web") {
+                    Get-KbItemFromWeb $kb | Search-Kb @boundparams | Select-DefaultView -Property $properties
+                }
             }
         }
     }
     end {
         # I'm not super awesome with the pipeline, and am open to suggestions if this is not the best way
         if ($Latest -and $allkbs) {
-            $allkbs | Select-Latest | Select-DefaultView -Property $properties
+            $allkbs | Select-KbLatest | Select-DefaultView -Property $properties
         }
     }
 }
