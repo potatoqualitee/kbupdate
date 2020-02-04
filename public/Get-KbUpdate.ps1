@@ -275,9 +275,9 @@ function Get-KbUpdate {
             try {
                 $guids = Get-GuidsFromWeb -kb $kb
 
-                $scriptblock = {
-                    $guid = $psitem.Guid
-                    $itemtitle = $psitem.Title
+                foreach ($item in $guids) {
+                    $guid = $item.Guid
+                    $itemtitle = $item.Title
 
                     # cacher
                     $hashkey = "$guid-$Simple"
@@ -427,9 +427,6 @@ function Get-KbUpdate {
                         $script:kbcollection[$hashkey]
                     }
                 }
-
-                $guids | Invoke-Parallel -ImportVariables -ImportFunctions -ScriptBlock $scriptblock -ErrorAction Stop
-
             } catch {
                 Stop-PSFFunction -EnableException:$EnableException -Message "Failure" -ErrorRecord $_ -Continue
             }
@@ -466,11 +463,17 @@ function Get-KbUpdate {
         }
         # if latest is used, needs a collection
         $allkbs = @()
+
     }
     process {
         if ($Source -contains "Wsus" -and -not $script:ConnectedWsus) {
             Stop-PSFFunction -Message "Please use Connect-KbWsusServer before selecting WSUS as a Source" -EnableException:$EnableException
             return
+        }
+
+        if ($Latest -and $Simple) {
+            Write-PSFMessage -Level Warning -Message "Simple is ignored when Latest is specified, as latest requires detailed data"
+            $Simple = $false
         }
 
         if (Test-PSFPowerShell -Edition Core) {
@@ -483,11 +486,6 @@ function Get-KbUpdate {
                     return
                 }
             }
-        }
-
-        if ($Latest -and $Simple) {
-            Write-PSFMessage -Level Warning -Message "Simple is ignored when Latest is specified, as latest requires detailed data"
-            $Simple = $false
         }
 
         foreach ($computer in $Computername) {
