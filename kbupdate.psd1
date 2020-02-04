@@ -37,8 +37,7 @@
             @{ ModuleName = 'PoshWSUS'; ModuleVersion = '2.3.1.6' }
         } else {
             # limited import in Linux and Mac
-            @{ ModuleName = 'PSFramework'; ModuleVersion = '1.0.19' },
-            @{ ModuleName = 'kbupdate-library'; ModuleVersion = '1.0.1' }
+            @{ ModuleName = 'PSFramework'; ModuleVersion = '1.0.19' }
         }
     )
 
