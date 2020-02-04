@@ -194,14 +194,18 @@ function Get-KbUpdate {
             Write-PSFMessage -Level Verbose -Message "$kb"
             Write-Progress -Activity "Searching catalog for $kb" -Id 1 -Status "Contacting catalog.update.microsoft.com"
             if ($OperatingSystem) {
-                $results = Invoke-TlsWebRequest -Uri "https://www.catalog.update.microsoft.com/Search.aspx?q=$kb+$OperatingSystem"
+                $url = "https://www.catalog.update.microsoft.com/Search.aspx?q=$kb+$OperatingSystem"
+                Write-PSFMessage -Level Verbose -Message "Accessing $url"
+                $results = Invoke-TlsWebRequest -Uri $url
                 $kbids = $results.InputFields |
                 Where-Object { $_.type -eq 'Button' -and $_.Value -eq 'Download' } |
                 Select-Object -ExpandProperty  ID
             }
             if (-not $kbids) {
+                $url = "https://www.catalog.update.microsoft.com/Search.aspx?q=$kb"
                 $boundparams.OperatingSystem = $OperatingSystem
-                $results = Invoke-TlsWebRequest -Uri "https://www.catalog.update.microsoft.com/Search.aspx?q=$kb"
+                Write-PSFMessage -Level Verbose -Message "Failing back to $url"
+                $results = Invoke-TlsWebRequest -Uri $url
                 $kbids = $results.InputFields |
                 Where-Object { $_.type -eq 'Button' -and $_.Value -eq 'Download' } |
                 Select-Object -ExpandProperty  ID
