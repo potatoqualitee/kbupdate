@@ -158,7 +158,7 @@ Describe "Integration Tests" -Tag "IntegrationTests" {
         }
 
         It "only get one of the latest" {
-            $results = Get-KbUpdate -Pattern 'sql 2019' | Where-Object Classification -eq Updates | Select-KbLatest
+            [array]$results = Get-KbUpdate -Pattern 'sql 2019' | Where-Object Classification -eq Updates | Select-KbLatest
             $results.Count | Should -Be 1
             $results.UpdateId | Should -Not -BeNullOrEmpty
         }

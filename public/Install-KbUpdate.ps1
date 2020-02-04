@@ -86,6 +86,7 @@ function Install-KbUpdate {
         [Parameter(ValueFromPipelineByPropertyName)]
         [Alias("Name", "KBUpdate", "Id")]
         [string]$HotfixId,
+        [Alias("Path")]
         [string]$FilePath,
         [Parameter(ValueFromPipelineByPropertyName)]
         [Alias("UpdateId")]
