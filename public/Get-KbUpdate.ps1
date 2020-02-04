@@ -193,12 +193,20 @@ function Get-KbUpdate {
         function Get-GuidsFromWeb ($kb) {
             Write-PSFMessage -Level Verbose -Message "$kb"
             Write-Progress -Activity "Searching catalog for $kb" -Id 1 -Status "Contacting catalog.update.microsoft.com"
-            $results = Invoke-TlsWebRequest -Uri "https://www.catalog.update.microsoft.com/Search.aspx?q=$kb"
+            if ($OperatingSystem) {
+                $results = Invoke-TlsWebRequest -Uri "https://www.catalog.update.microsoft.com/Search.aspx?q=$kb+$OperatingSystem"
+                $kbids = $results.InputFields |
+                Where-Object { $_.type -eq 'Button' -and $_.Value -eq 'Download' } |
+                Select-Object -ExpandProperty  ID
+            }
+            if (-not $kbids) {
+                $boundparams.OperatingSystem = $OperatingSystem
+                $results = Invoke-TlsWebRequest -Uri "https://www.catalog.update.microsoft.com/Search.aspx?q=$kb"
+                $kbids = $results.InputFields |
+                Where-Object { $_.type -eq 'Button' -and $_.Value -eq 'Download' } |
+                Select-Object -ExpandProperty  ID
+            }
             Write-Progress -Activity "Searching catalog for $kb" -Id 1 -Completed
-
-            $kbids = $results.InputFields |
-            Where-Object { $_.type -eq 'Button' -and $_.Value -eq 'Download' } |
-            Select-Object -ExpandProperty  ID
 
             if (-not $kbids) {
                 try {
@@ -527,11 +535,10 @@ function Get-KbUpdate {
         }
 
         $boundparams = @{
-            Architecture    = $Architecture
-            OperatingSystem = $OperatingSystem
-            Product         = $PSBoundParameters.Product
-            Language        = $PSBoundParameters.Language
-            Source          = $Source
+            Architecture = $Architecture
+            Product      = $PSBoundParameters.Product
+            Language     = $PSBoundParameters.Language
+            Source       = $Source
         }
 
         foreach ($kb in $Pattern) {
