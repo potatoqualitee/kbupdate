@@ -113,6 +113,7 @@ function Get-KbUpdate {
             $Source = "Wsus"
         }
 
+        $script:allresults = @()
         function Get-KbItemFromDb {
             [CmdletBinding()]
             param($kb)
@@ -125,6 +126,7 @@ function Get-KbUpdate {
                 }
 
                 foreach ($item in $items) {
+                    $script:allresults += $item.UpdateId
                     $item.SupersededBy = Invoke-SqliteQuery -DataSource $db -Query "select KB, Description from SupersededBy where UpdateId = '$($item.UpdateId)'"
                     $item.Supersedes = Invoke-SqliteQuery -DataSource $db -Query "select KB, Description from Supersedes where UpdateId = '$($item.UpdateId)'"
                     $item.Link = (Invoke-SqliteQuery -DataSource $db -Query "select Link from Link where UpdateId = '$($item.UpdateId)'").Link
@@ -138,6 +140,7 @@ function Get-KbUpdate {
             foreach ($wsuskb in $results) {
                 # cacher
                 $guid = $wsuskb.UpdateID
+                $script:allresults += $guid
                 $hashkey = "$guid-$Simple"
                 if ($script:kbcollection.ContainsKey($hashkey)) {
                     $script:kbcollection[$hashkey]
@@ -241,7 +244,7 @@ function Get-KbUpdate {
                     }
                 }
             }
-            return $guids
+            $guids | Where-Object Guid -notin $script:allresults
         }
 
         function Get-KbItemFromWeb ($kb) {
