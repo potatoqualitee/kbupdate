@@ -249,7 +249,7 @@ function Get-KbUpdate {
 
         function Get-KbItemFromWeb ($kb) {
             # Wishing Microsoft offered an RSS feed. Since they don't, we are forced to parse webpages.
-            $runspaces = $results = @()
+            $runspaces = @()
             try {
                 $guids = Get-GuidsFromWeb -kb $kb
 
@@ -293,7 +293,6 @@ function Get-KbUpdate {
                     $runspace.Pipe.EndInvoke($runspace.Status)
                     $runspace.Pipe.Dispose()
                 }
-                $script:kbcollection
 
                 $pool.Close()
                 $pool.Dispose()

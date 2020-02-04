@@ -160,6 +160,8 @@ $scriptblock = {
                     Link              = $link.matches.value
                     InputObject       = $kb
                 }))
+
+        $kbcollection[$hashkey]
     }
 }
 
