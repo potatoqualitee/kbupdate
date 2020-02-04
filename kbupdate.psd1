@@ -7,7 +7,7 @@
 #
 @{
     # Version number of this module.
-    ModuleVersion     = '1.1.8'
+    ModuleVersion     = '1.1.11'
 
     # ID used to uniquely identify this module
     GUID              = 'f292e190-ed32-4232-b9f3-b50b42a5655f'
@@ -29,10 +29,16 @@
 
     # Modules that must be imported into the global environment prior to importing this module
     RequiredModules   = @(
-        @{ ModuleName = 'PSFramework'; ModuleVersion = '1.0.19' },
-        @{ ModuleName = 'PSSQLite'; ModuleVersion = '1.0.3' },
-        @{ ModuleName = 'kbupdate-library'; ModuleVersion = '1.0.1' },
-        @{ ModuleName = 'PoshWSUS'; ModuleVersion = '2.3.1.6' }
+        if ($PSScriptRoot -like "*\*") {
+            # load up everything in Windows
+            @{ ModuleName = 'PSFramework'; ModuleVersion = '1.0.19' },
+            @{ ModuleName = 'kbupdate-library'; ModuleVersion = '1.0.1' },
+            @{ ModuleName = 'PSSQLite'; ModuleVersion = '1.0.3' },
+            @{ ModuleName = 'PoshWSUS'; ModuleVersion = '2.3.1.6' }
+        } else {
+            # limited import in Linux and Mac
+            @{ ModuleName = 'PSFramework'; ModuleVersion = '1.0.19' }
+        }
     )
 
     # Script module or binary module file associated with this manifest.

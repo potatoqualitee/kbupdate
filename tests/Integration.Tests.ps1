@@ -39,10 +39,6 @@ Describe "Integration Tests" -Tag "IntegrationTests" {
             $foundit = Get-KbUpdate -Name 4482972 3>&1 | Out-String
             $foundit | Should -Match "results no longer exist"
         }
-        It "returns correct 404 when not found in the catalog" {
-            $notfound = Get-KbUpdate -Name 4482972abc123 3>&1 | Out-String
-            $notfound | Should -Match "No results found"
-        }
         It "returns objects for Supersedes and SupersededBy" {
             $results = Get-KbUpdate -Name KB4505225
             $results.Title | Should -Be 'Security Update for SQL Server 2017 RTM CU (KB4505225)'

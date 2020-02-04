@@ -157,7 +157,7 @@ function Uninstall-KbUpdate {
             return
         }
 
-        if (-not (Test-PSFPowerShell -OperatingSystem Windows)) {
+        if ($IsLinux -or $IsMacOs) {
             Stop-PSFFunction -Message "This command using remoting and only supports Windows at this time" -EnableException:$EnableException
             return
         }
