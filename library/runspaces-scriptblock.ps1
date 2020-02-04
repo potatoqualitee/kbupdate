@@ -1,15 +1,14 @@
 # BLOCK 2: Create reusable scriptblock. This is the workhorse of the runspace. Think of it as a function.
 $scriptblock = {
     Param (
-        [string[]]$guiditem,
-        [switch]$Simple,
-        [string]$ModuleRoot,
-        $VerbosePreference
+        [pscustomobject]$paramhash
     )
-    $guid = $guiditem.Guid
-    $itemtitle = $guiditem.Title
 
-    write-warning $guid
+    $guid = $paramhash.guid
+    $title = $paramhash.$Title
+    $simple = $paramhash.$Simple
+    $moduleroot = $paramhash.Moduleroot
+
     . "$ModuleRoot\private\Get-Info.ps1"
     . "$ModuleRoot\private\Get-SuperInfo.ps1"
     . "$ModuleRoot\private\Invoke-TlsWebRequest.ps1"
@@ -17,12 +16,13 @@ $scriptblock = {
 
     # cacher
     $hashkey = "$guid-$Simple"
-    if ($script:kbcollection.ContainsKey($hashkey)) {
-        $script:kbcollection[$hashkey]
+
+    if ($kbcollection.ContainsKey($hashkey)) {
+        $kbcollection[$hashkey]
         continue
     }
 
-    Write-Verbose -Message "Downloading information for $itemtitle"
+    Write-Verbose -Message "Downloading information for $Title"
     $post = @{ size = 0; updateID = $guid; uidInfo = $guid } | ConvertTo-Json -Compress
     $body = @{ updateIDs = "[$post]" }
     $downloaddialog = Invoke-TlsWebRequest -Uri 'https://www.catalog.update.microsoft.com/DownloadDialog.aspx' -Method Post -Body $body | Select-Object -ExpandProperty Content
@@ -133,7 +133,8 @@ $scriptblock = {
 
         # may fix later
         $ishotfix = $null
-        $null = $script:kbcollection.Add($hashkey, (
+
+        $null = $kbcollection.Add($hashkey, (
                 [pscustomobject]@{
                     Title             = $title
                     Id                = $kbnumbers

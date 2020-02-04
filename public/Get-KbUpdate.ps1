@@ -249,199 +249,54 @@ function Get-KbUpdate {
 
         function Get-KbItemFromWeb ($kb) {
             # Wishing Microsoft offered an RSS feed. Since they don't, we are forced to parse webpages.
-            function Get-Info ($Text, $Pattern) {
-                if ($Pattern -match "labelTitle") {
-                    # this should work... not accounting for multiple divs however?
-                    [regex]::Match($Text, $Pattern + '[\s\S]*?\s*(.*?)\s*<\/div>').Groups[1].Value
-                } elseif ($Pattern -match "span ") {
-                    [regex]::Match($Text, $Pattern + '(.*?)<\/span>').Groups[1].Value
-                } else {
-                    [regex]::Match($Text, $Pattern + "\s?'?(.*?)'?;").Groups[1].Value
-                }
-            }
-
-            function Get-SuperInfo ($Text, $Pattern) {
-                # this works, but may also summon cthulhu
-                $span = [regex]::match($Text, $pattern + '[\s\S]*?<div id')
-
-                switch -Wildcard ($span.Value) {
-                    "*div style*" { $regex = '">\s*(.*?)\s*<\/div>' }
-                    "*a href*" { $regex = "<div[\s\S]*?'>(.*?)<\/a" }
-                    default { $regex = '"\s?>\s*(\S+?)\s*<\/div>' }
-                }
-
-                $spanMatches = [regex]::Matches($span, $regex).ForEach( { $_.Groups[1].Value })
-                if ($spanMatches -eq 'n/a') { $spanMatches = $null }
-
-                if ($spanMatches) {
-                    foreach ($superMatch in $spanMatches) {
-                        $detailedMatches = [regex]::Matches($superMatch, '\b[kK][bB]([0-9]{6,})\b')
-                        # $null -ne $detailedMatches can throw cant index null errors, get more detailed
-                        if ($null -ne $detailedMatches.Groups) {
-                            [PSCustomObject] @{
-                                'KB'          = $detailedMatches.Groups[1].Value
-                                'Description' = $superMatch
-                            } | Add-Member -MemberType ScriptMethod -Name ToString -Value { $this.Description } -PassThru -Force
-                        }
-                    }
-                }
-            }
-
+            $runspaces = $results = @()
             try {
                 $guids = Get-GuidsFromWeb -kb $kb
 
+                # The script block is huge so let's import it
+                . "$script:ModuleRoot\library\runspaces-scriptblock.ps1"
+
+                # add each guid to a runspace
                 foreach ($item in $guids) {
                     $guid = $item.Guid
-                    $itemtitle = $item.Title
-
-                    # cacher
-                    $hashkey = "$guid-$Simple"
-                    if ($script:kbcollection.ContainsKey($hashkey)) {
-                        $script:kbcollection[$hashkey]
-                        continue
+                    $title = $item.Title
+                    $paramhash = [pscustomobject]@{
+                        Guid       = $guid
+                        Title      = $title
+                        Simple     = $Simple
+                        ModuleRoot = $script:ModuleRoot
                     }
+                    Write-Progress -Activity "Found up to $($guids.Count) results for $kb" -Status "Getting results for $title"
+                    $runspacefactory = [runspacefactory]::CreateRunspace()
+                    $null = $runspacefactory.Open()
+                    $null = $runspacefactory.SessionStateProxy.SetVariable("kbcollection", $script:kbcollection)
+                    $runspace = [powershell]::Create()
+                    $null = $runspace.Runspace = $runspacefactory
+                    $null = $runspace.AddScript($scriptblock)
+                    $null = $runspace.AddArgument($paramhash)
 
-                    Write-ProgressHelper -Activity "Found up to $($guids.Count) results for $kb" -Message "Getting results for $itemtitle" -TotalSteps $guids.Guid.Count -StepNumber $guids.Guid.IndexOf($guid)
-                    Write-Verbose -Message "Downloading information for $itemtitle"
-                    $post = @{ size = 0; updateID = $guid; uidInfo = $guid } | ConvertTo-Json -Compress
-                    $body = @{ updateIDs = "[$post]" }
-                    $downloaddialog = Invoke-TlsWebRequest -Uri 'https://www.catalog.update.microsoft.com/DownloadDialog.aspx' -Method Post -Body $body | Select-Object -ExpandProperty Content
-
-                    $title = Get-Info -Text $downloaddialog -Pattern 'enTitle ='
-                    $arch = Get-Info -Text $downloaddialog -Pattern 'architectures ='
-                    $longlang = Get-Info -Text $downloaddialog -Pattern 'longLanguages ='
-                    $updateid = Get-Info -Text $downloaddialog -Pattern 'updateID ='
-                    $ishotfix = Get-Info -Text $downloaddialog -Pattern 'isHotFix ='
-
-                    if ($ishotfix) {
-                        $ishotfix = "True"
-                    } else {
-                        $ishotfix = "False"
-                    }
-                    if ($longlang -eq "all") {
-                        $longlang = "All"
-                    }
-                    if ($arch -eq "") {
-                        $arch = $null
-                    }
-                    if ($arch -eq "AMD64") {
-                        $arch = "x64"
-                    }
-                    if ($title -match '64-Bit' -and $title -notmatch '32-Bit' -and -not $arch) {
-                        $arch = "x64"
-                    }
-                    if ($title -notmatch '64-Bit' -and $title -match '32-Bit' -and -not $arch) {
-                        $arch = "x86"
-                    }
-
-                    if (-not $Simple) {
-                        $detaildialog = Invoke-TlsWebRequest -Uri "https://www.catalog.update.microsoft.com/ScopedViewInline.aspx?updateid=$updateid"
-                        $description = Get-Info -Text $detaildialog -Pattern '<span id="ScopedViewHandler_desc">'
-                        $lastmodified = Get-Info -Text $detaildialog -Pattern '<span id="ScopedViewHandler_date">'
-                        $size = Get-Info -Text $detaildialog -Pattern '<span id="ScopedViewHandler_size">'
-                        $classification = Get-Info -Text $detaildialog -Pattern '<span id="ScopedViewHandler_labelClassification_Separator" class="labelTitle">'
-                        $supportedproducts = Get-Info -Text $detaildialog -Pattern '<span id="ScopedViewHandler_labelSupportedProducts_Separator" class="labelTitle">'
-                        $msrcnumber = Get-Info -Text $detaildialog -Pattern '<span id="ScopedViewHandler_labelSecurityBulliten_Separator" class="labelTitle">'
-                        $msrcseverity = Get-Info -Text $detaildialog -Pattern '<span id="ScopedViewHandler_msrcSeverity">'
-                        $kbnumbers = Get-Info -Text $detaildialog -Pattern '<span id="ScopedViewHandler_labelKBArticle_Separator" class="labelTitle">'
-                        $rebootbehavior = Get-Info -Text $detaildialog -Pattern '<span id="ScopedViewHandler_rebootBehavior">'
-                        $requestuserinput = Get-Info -Text $detaildialog -Pattern '<span id="ScopedViewHandler_userInput">'
-                        $exclusiveinstall = Get-Info -Text $detaildialog -Pattern '<span id="ScopedViewHandler_installationImpact">'
-                        $networkrequired = Get-Info -Text $detaildialog -Pattern '<span id="ScopedViewHandler_connectivity">'
-                        $uninstallnotes = Get-Info -Text $detaildialog -Pattern '<span id="ScopedViewHandler_labelUninstallNotes_Separator" class="labelTitle">'
-                        $uninstallsteps = Get-Info -Text $detaildialog -Pattern '<span id="ScopedViewHandler_labelUninstallSteps_Separator" class="labelTitle">'
-                        $supersededby = Get-SuperInfo -Text $detaildialog -Pattern '<div id="supersededbyInfo" TABINDEX="1" >'
-                        $supersedes = Get-SuperInfo -Text $detaildialog -Pattern '<div id="supersedesInfo" TABINDEX="1">'
-
-                        if ($uninstallsteps -eq "n/a") {
-                            $uninstallsteps = $null
-                        }
-
-                        if ($msrcnumber -eq "n/a") {
-                            $msrcnumber = $null
-                        }
-
-                        $products = $supportedproducts -split ","
-                        if ($products.Count -gt 1) {
-                            $supportedproducts = @()
-                            foreach ($line in $products) {
-                                $clean = $line.Trim()
-                                if ($clean) { $supportedproducts += $clean }
-                            }
-                        }
-                    }
-
-                    $downloaddialog = $downloaddialog.Replace('www.download.windowsupdate', 'download.windowsupdate')
-                    $links = $downloaddialog | Select-String -AllMatches -Pattern "(http[s]?\://download\.windowsupdate\.com\/[^\'\""]*)" | Select-Object -Unique
-
-                    foreach ($link in $links) {
-                        if ($kbnumbers -eq "n/a") {
-                            $kbnumbers = $null
-                        }
-                        $properties = $baseproperties
-
-                        if ($Simple) {
-                            $properties = $properties | Where-Object { $PSItem -notin "LastModified", "Description", "Size", "Classification", "SupportedProducts", "MSRCNumber", "MSRCSeverity", "RebootBehavior", "RequestsUserInput", "ExclusiveInstall", "NetworkRequired", "UninstallNotes", "UninstallSteps", "SupersededBy", "Supersedes" }
-                        }
-
-                        $ishotfix = switch ($ishotfix) {
-                            'Yes' { $true }
-                            'No' { $false }
-                            default { $ishotfix }
-                        }
-
-                        $requestuserinput = switch ($requestuserinput) {
-                            'Yes' { $true }
-                            'No' { $false }
-                            default { $requestuserinput }
-                        }
-
-                        $exclusiveinstall = switch ($exclusiveinstall) {
-                            'Yes' { $true }
-                            'No' { $false }
-                            default { $exclusiveinstall }
-                        }
-
-                        $networkrequired = switch ($networkrequired) {
-                            'Yes' { $true }
-                            'No' { $false }
-                            default { $networkrequired }
-                        }
-
-                        if ('n/a' -eq $uninstallnotes) { $uninstallnotes = $null }
-                        if ('n/a' -eq $uninstallsteps) { $uninstallsteps = $null }
-
-                        # may fix later
-                        $ishotfix = $null
-                        $null = $script:kbcollection.Add($hashkey, (
-                                [pscustomobject]@{
-                                    Title             = $title
-                                    Id                = $kbnumbers
-                                    Architecture      = $arch
-                                    Language          = $longlang
-                                    Hotfix            = $ishotfix
-                                    Description       = $description
-                                    LastModified      = $lastmodified
-                                    Size              = $size
-                                    Classification    = $classification
-                                    SupportedProducts = $supportedproducts
-                                    MSRCNumber        = $msrcnumber
-                                    MSRCSeverity      = $msrcseverity
-                                    RebootBehavior    = $rebootbehavior
-                                    RequestsUserInput = $requestuserinput
-                                    ExclusiveInstall  = $exclusiveinstall
-                                    NetworkRequired   = $networkrequired
-                                    UninstallNotes    = $uninstallnotes
-                                    UninstallSteps    = $uninstallsteps
-                                    UpdateId          = $updateid
-                                    Supersedes        = $supersedes
-                                    SupersededBy      = $supersededby
-                                    Link              = $link.matches.value
-                                    InputObject       = $kb
-                                }))
-                        $script:kbcollection[$hashkey]
+                    # BLOCK 4: Add runspace to runspaces collection and "start" it
+                    # Asynchronously runs the commands of the PowerShell object pipeline
+                    $runspaces += [pscustomobject]@{
+                        Pipe   = $runspace
+                        Status = $runspace.BeginInvoke()
+                        Guid   = "$guiditem-$Simple"
                     }
                 }
+
+                # BLOCK 5: Wait for runspaces to finish
+                while ($runspaces.Status.IsCompleted -notcontains $true) { }
+
+                # BLOCK 6: Clean up
+                foreach ($runspace in $runspaces ) {
+                    # EndInvoke method retrieves the results of the asynchronous call
+                    $runspace.Pipe.EndInvoke($runspace.Status)
+                    $runspace.Pipe.Dispose()
+                }
+                $script:kbcollection
+
+                $pool.Close()
+                $pool.Dispose()
             } catch {
                 Stop-PSFFunction -EnableException:$EnableException -Message "Failure" -ErrorRecord $_ -Continue
             }
