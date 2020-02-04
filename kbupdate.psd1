@@ -7,7 +7,7 @@
 #
 @{
     # Version number of this module.
-    ModuleVersion     = '1.1.8'
+    ModuleVersion     = '1.1.9'
 
     # ID used to uniquely identify this module
     GUID              = 'f292e190-ed32-4232-b9f3-b50b42a5655f'
@@ -26,6 +26,11 @@
 
     # Minimum version of the Windows PowerShell engine required by this module
     PowerShellVersion = '3.0'
+
+    # Modules that must be imported into the global environment prior to importing this module
+    NestedModules     = @(
+        "prereqs.ps1"
+    )
 
     # Modules that must be imported into the global environment prior to importing this module
     RequiredModules   = @(
