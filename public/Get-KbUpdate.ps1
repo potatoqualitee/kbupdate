@@ -252,12 +252,16 @@ function Get-KbUpdate {
             $runspaces = @()
             try {
                 $guids = Get-GuidsFromWeb -kb $kb
+                $total = $($guids).Count
 
                 # The script block is huge so let's import it
                 . "$script:ModuleRoot\library\runspaces-scriptblock.ps1"
 
                 # add each guid to a runspace
                 foreach ($item in $guids) {
+                    if (-not $total) {
+                        $total = 1
+                    }
                     $guid = $item.Guid
                     $title = $item.Title
                     $paramhash = [pscustomobject]@{
@@ -266,7 +270,7 @@ function Get-KbUpdate {
                         Simple     = $Simple
                         ModuleRoot = $script:ModuleRoot
                     }
-                    Write-Progress -Activity "Found up to $($guids.Count) results for $kb" -Status "Getting results for $title"
+                    Write-Progress -Activity "Found up to $total results for $kb" -Status "Getting results for $title"
                     $runspacefactory = [runspacefactory]::CreateRunspace()
                     $null = $runspacefactory.Open()
                     $null = $runspacefactory.SessionStateProxy.SetVariable("kbcollection", $script:kbcollection)
