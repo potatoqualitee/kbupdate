@@ -1,5 +1,5 @@
 
-function Select-Latest {
+function Select-KbLatest {
     <#
     .SYNOPSIS
         Gets the latest from a batch

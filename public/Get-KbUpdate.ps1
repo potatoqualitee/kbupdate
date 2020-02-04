@@ -488,6 +488,12 @@ function Get-KbUpdate {
             $Simple = $false
         }
 
+        if ($Latest -and $PSBoundParameters.Source -and $Source -contains "Database") {
+            Write-PSFMessage -Level Warning -Message "Source is ignored when Latest is specified, as latest requires the freshest data"
+            $PSBoundParameters.Source = $null
+            $Source = "Web"
+        }
+
         if (Test-PSFPowerShell -Edition Core) {
             if (Was-Bound -Not -ParameterName Source) {
                 Write-PSFMessage -Level Verbose -Message "Core detected. Switching source to Web."
@@ -578,7 +584,7 @@ function Get-KbUpdate {
     end {
         # I'm not super awesome with the pipeline, and am open to suggestions if this is not the best way
         if ($Latest -and $allkbs) {
-            $allkbs | Select-Latest | Select-DefaultView -Property $properties
+            $allkbs | Select-KbLatest | Select-DefaultView -Property $properties
         }
     }
 }
