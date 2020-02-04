@@ -331,7 +331,7 @@ function Get-KbInstalledUpdate {
         }
     }
     process {
-        if (-not (Test-PSFPowerShell -OperatingSystem Windows)) {
+        if ($IsLinux -or $IsMacOs) {
             Stop-PSFFunction -Message "This command using remoting and only supports Windows at this time" -EnableException:$EnableException
             return
         }
@@ -339,7 +339,7 @@ function Get-KbInstalledUpdate {
         try {
             foreach ($computer in $ComputerName) {
                 Invoke-PSFCommand -ComputerName $computer -Credential $Credential -ErrorAction Stop -ScriptBlock $scriptblock -ArgumentList @($Pattern), $IncludeHidden, $VerbosePreference | Sort-Object -Property Name |
-                    Select-Object -Property * -ExcludeProperty PSComputerName, RunspaceId | Select-DefaultView -ExcludeProperty InstallFile
+                Select-Object -Property * -ExcludeProperty PSComputerName, RunspaceId | Select-DefaultView -ExcludeProperty InstallFile
             }
         } catch {
             Stop-PSFFunction -EnableException:$EnableException -Message "Failure" -ErrorRecord $_ -Continue
