@@ -535,23 +535,32 @@ function Get-KbUpdate {
         }
 
         foreach ($kb in $Pattern) {
-            $result = $null
-            if ($Source -contains "Wsus") {
-                $result = Get-KbItemFromWsusApi $kb
-            }
-
-            if (-not $result -and $Source -contains "Database") {
-                $result = Get-KbItemFromDb $kb
-            }
-
-            if (-not $result -and $Source -contains "Web") {
-                $result = Get-KbItemFromWeb $kb
-            }
-
             if ($Latest) {
+                $result = $null
+                if ($Source -contains "Wsus") {
+                    $result = Get-KbItemFromWsusApi $kb
+                }
+
+                if (-not $result -and $Source -contains "Database") {
+                    $result = Get-KbItemFromDb $kb
+                }
+
+                if (-not $result -and $Source -contains "Web") {
+                    $result = Get-KbItemFromWeb $kb
+                }
                 $allkbs += $result | Search-Kb @boundparams
             } else {
-                $result | Search-Kb @boundparams | Select-DefaultView -Property $properties
+                if ($Source -contains "Wsus") {
+                    Get-KbItemFromWsusApi $kb | Search-Kb @boundparams | Select-DefaultView -Property $properties
+                }
+
+                if (-not $result -and $Source -contains "Database") {
+                    Get-KbItemFromDb $kb | Search-Kb @boundparams | Select-DefaultView -Property $properties
+                }
+
+                if (-not $result -and $Source -contains "Web") {
+                    Get-KbItemFromWeb $kb | Search-Kb @boundparams | Select-DefaultView -Property $properties
+                }
             }
         }
     }
