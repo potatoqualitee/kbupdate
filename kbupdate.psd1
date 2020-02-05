@@ -7,7 +7,7 @@
 #
 @{
     # Version number of this module.
-    ModuleVersion     = '1.1.15'
+    ModuleVersion     = '1.1.20'
 
     # ID used to uniquely identify this module
     GUID              = 'f292e190-ed32-4232-b9f3-b50b42a5655f'
@@ -32,7 +32,7 @@
         if ($PSScriptRoot -like "*\*") {
             # load up everything in Windows
             @{ ModuleName = 'PSFramework'; ModuleVersion = '1.0.19' },
-            @{ ModuleName = 'kbupdate-library'; ModuleVersion = '1.0.1' },
+            @{ ModuleName = 'kbupdate-library'; ModuleVersion = '1.0.20' },
             @{ ModuleName = 'PSSQLite'; ModuleVersion = '1.0.3' },
             @{ ModuleName = 'PoshWSUS'; ModuleVersion = '2.3.1.6' }
         } else {
