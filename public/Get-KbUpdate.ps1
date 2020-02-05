@@ -119,21 +119,42 @@ function Get-KbUpdate {
             param($kb)
             process {
                 # Join to dupe and check dupe
-                $items = Invoke-SqliteQuery -DataSource $script:db  -Query "select *, NULL AS SupersededBy, NULL AS Supersedes, NULL AS Link from kb where UpdateId in (select UpdateId from kb where UpdateId = '$kb' or Title like '%$kb%' or Id like '%$kb%' or Description like '%$kb%' or MSRCNumber like '%$kb%')"
-
-                if (-not $items -and $Source -eq "Database") {
-                    Write-PSFMessage -Level Verbose -Message "No results found for $kb in the local database"
+                $kb = $kb.ToLower()
+                $newitems = Invoke-SqliteQuery -DataSource $script:dailydb  -Query "select *, NULL AS SupersededBy, NULL AS Supersedes, NULL AS Link from kb where UpdateId in (select UpdateId from kb where UpdateId = '$kb' or Title like '%$kb%' or Id like '%$kb%' or Description like '%$kb%' or MSRCNumber like '%$kb%')"
+                if ($newitems.UpdateId) {
+                    Write-PSFMessage -Level Verbose -Message "Found $([array]($newitems.UpdateId).count)  in the daily database"
                 }
-
-                foreach ($item in $items) {
+                foreach ($item in $newitems) {
                     $script:allresults += $item.UpdateId
                     # I do wish my import didn't return empties but sometimes it does so check for length of 3
-                    $item.SupersededBy = Invoke-SqliteQuery -DataSource $script:db -Query "select KB, Description from SupersededBy where UpdateId = '$($item.UpdateId)' and LENGTH(kb) > 3"
+                    $item.SupersededBy = Invoke-SqliteQuery -DataSource $script:dailydb -Query "select KB, Description from SupersededBy where UpdateId = '$($item.UpdateId)' and LENGTH(kb) > 3"
 
                     # I do wish my import didn't return empties but sometimes it does so check for length of 3
-                    $item.Supersedes = Invoke-SqliteQuery -DataSource $script:db -Query "select KB, Description from Supersedes where UpdateId = '$($item.UpdateId)' and LENGTH(kb) > 3"
-                    $item.Link = (Invoke-SqliteQuery -DataSource $script:db -Query "select Link from Link where UpdateId = '$($item.UpdateId)'").Link
+                    $item.Supersedes = Invoke-SqliteQuery -DataSource $script:dailydb -Query "select KB, Description from Supersedes where UpdateId = '$($item.UpdateId)' and LENGTH(kb) > 3"
+                    $item.Link = (Invoke-SqliteQuery -DataSource $script:dailydb -Query "select Link from Link where UpdateId = '$($item.UpdateId)'").Link
                     $item
+                }
+
+                $olditems = Invoke-SqliteQuery -DataSource $script:basedb  -Query "select *, NULL AS SupersededBy, NULL AS Supersedes, NULL AS Link from kb where UpdateId in (select UpdateId from kb where UpdateId = '$kb' or Title like '%$kb%' or Id like '%$kb%' or Description like '%$kb%' or MSRCNumber like '%$kb%')" |
+                Where-Object UpdateId -notin $script:allresults
+
+                if ($olditems.UpdateId) {
+                    Write-PSFMessage -Level Verbose -Message "Found $([array]($olditems.UpdateId).count) in the archive database"
+                }
+
+                foreach ($item in $olditems) {
+                    $script:allresults += $item.UpdateId
+                    # I do wish my import didn't return empties but sometimes it does so check for length of 3
+                    $item.SupersededBy = Invoke-SqliteQuery -DataSource $script:basedb -Query "select KB, Description from SupersededBy where UpdateId = '$($item.UpdateId)' and LENGTH(kb) > 3"
+
+                    # I do wish my import didn't return empties but sometimes it does so check for length of 3
+                    $item.Supersedes = Invoke-SqliteQuery -DataSource $script:basedb -Query "select KB, Description from Supersedes where UpdateId = '$($item.UpdateId)' and LENGTH(kb) > 3"
+                    $item.Link = (Invoke-SqliteQuery -DataSource $script:basedb -Query "select Link from Link where UpdateId = '$($item.UpdateId)'").Link
+                    $item
+                }
+
+                if (-not $item -and $Source -eq "Database") {
+                    Write-PSFMessage -Level Verbose -Message "No results found for $kb in the local database"
                 }
             }
         }

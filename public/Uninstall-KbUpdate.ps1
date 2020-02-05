@@ -127,6 +127,9 @@ function Uninstall-KbUpdate {
                 -2068052310 {
                     $output = "$output`n`nThe exit code suggests that you need to mount the SQL Server ISO so the uninstaller can find the setup files."
                 }
+                -2068643839 {
+                    $output = "$output`n`nThe exit code suggests that you need to mount the SQL Server ISO so the uninstaller can find the setup files."
+                }
                 3010 {
                     $output = "You have successfully uninstalled $Name. A restart is now required to finalize the uninstall."
                 }

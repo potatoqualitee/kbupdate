@@ -9,7 +9,7 @@ KB Viewer, Saver, Installer and Uninstaller
 Install-Module kbupdate -Scope CurrentUser
 ```
 
-## Examples - Get-KbUpdate
+## Get-KbUpdate
 
 ```powershell
 # Get detailed information about KB4057119. This works for SQL Server or any other KB.
@@ -22,7 +22,7 @@ Get-KbUpdate -Name KB4057119, 4057114
 Get-KbUpdate -Name KB4057119, 4057114 -Simple
 ```
 
-## Examples - Save-KbUpdate
+## Save-KbUpdate
 
 ```powershell
 # Download KB4057119 to the current directory. This works for SQL Server or any other KB.
@@ -35,7 +35,7 @@ Get-KbUpdate -Name 3118347 -Simple -Architecture x64 | Out-GridView -Passthru | 
 Save-KbUpdate -Name KB4057119, 4057114 -Architecture x64 -Path C:\temp
 ```
 
-## Examples - Install-KbUpdate
+## Install-KbUpdate
 
 ```powershell
 # Install KB4534273 from the \\fileshare\sql\ directory on server01
@@ -45,11 +45,11 @@ Install-KbUpdate -ComputerName server01 -FilePath \\fileshare\sql\windows10.0-kb
 Install-KbUpdate -ComputerName sql2017 -HotfixId kb4486129
 ```
 
-## Examples - Uninstall-KbUpdate
+## Uninstall-KbUpdate
 
 ```powershell
 # Uninstalls KB4498951 from server01
-Uninstall-KbUpdate -ComputerName server01 -HotfixId KB4498951     
+Uninstall-KbUpdate -ComputerName server01 -HotfixId KB4498951
 
 # Uninstalls KB4498951 on server01 without prompts
 Uninstall-KbUpdate -ComputerName server01 -HotfixId KB4498951 -Confirm:$false
@@ -58,7 +58,7 @@ Uninstall-KbUpdate -ComputerName server01 -HotfixId KB4498951 -Confirm:$false
 Get-KbInstalledUpdate -ComputerName server23, server24 -Pattern kb4498951 | Uninstall-KbUpdate
 ```
 
-## Examples - Get-KbInstalledUpdate
+## Get-KbInstalledUpdate
 
 ```powershell
 # Test to see if KB4057119 and get a bunch of info about it on server01
@@ -90,3 +90,8 @@ Get-Help Get-KbUpdate -Detailed
 - kbupdate-library - a sqlite db
 - PSFramework - for PowerShell goodness
 - PSSQLite - to query the included db
+- PoshWSUS - to query the WSUS server when `-Source WSUS` is specified
+
+
+## DSC Considerations
+The `Install-KbUpdate` command uses the `Invoke-DscResource` to run a method of the `Package` or `xHotFix` resource against the target node. Using `Invoke-DscResource` bypasses the Local Configuration Manager (LCM) on the target node so should not affect your current configuration.  However, if you are currently using DSC to control the desired state of your target node and you contradict the call to `Invoke-DscResource` you could sees issues. For example if the LCM has a `Package` resource saying that KB4527376 should not be installed, and then you install it with `Install-KbUpdate` after the install finishes the LCM will report it is not in the desired state, and depending on your LCM settings could uninstall the KB.
