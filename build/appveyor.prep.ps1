@@ -23,7 +23,7 @@ Install-Module -Name PoshWSUS -Force -SkipPublisherCheck | Out-Null
 
 #Get kbupdate-library (dependency)
 Write-Host -Object "appveyor.prep: Install kbupdate-library" -ForegroundColor DarkGreen
-Install-Module -Name kbupdate-library -Force -SkipPublisherCheck | Out-Null
+Install-Module -Name kbupdate-library -Force -SkipPublisherCheck -MinimumVersion 1.0.20 | Out-Null
 
 #Get kbupdate-library (dependency)
 Write-Host -Object "appveyor.prep: Install xWindowsUpdate" -ForegroundColor DarkGreen

@@ -13,7 +13,7 @@ if ($env:BUILD_BUILDURI -like "vstfs*") {
     Write-Host "Installing PSSQLite" -ForegroundColor Cyan
     Install-Module PoshWSUS -Force -SkipPublisherCheck
     Write-Host "Installing kbupdate-library" -ForegroundColor Cyan
-    Install-Module kbupdate-library -Force -SkipPublisherCheck
+    Install-Module kbupdate-library -Force -SkipPublisherCheck -MinimumVersion 1.0.20
     Write-Host "Installing xWindowsUpdate" -ForegroundColor Cyan
     Install-Module xWindowsUpdate -Force -SkipPublisherCheck
 }
