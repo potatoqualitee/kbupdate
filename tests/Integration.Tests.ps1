@@ -223,15 +223,19 @@ Describe "Integration Tests" -Tag "IntegrationTests" {
             $results = Get-KbInstalledUpdate -Pattern Windows | Where-Object FastPackageReference
             $results.Count | Should -BeGreaterThan 5
         }
-        It "gets some installed updates" {
+        It "confirms that KB4527377 was actually installed" {
             [array]$results = Get-KbInstalledUpdate -Pattern KB4527377
             $results.Count | Should -BeGreaterThan 0
         }
     }
 
     Context "Uninstall-KbUpdate works" {
-        It "Uninstalls a patch" {
+        It -Skip "Uninstalls a patch" {
             $results = Uninstall-KbUpdate -HotfixId KB4527377 -Confirm:$false
+            $results | Should -Not -BeNullOrEmpty
+        }
+        It -Skip "Uninstalls a patch" {
+            $results = Get-KbInstalledUpdate -Pattern KB4527377 | Uninstall-KbUpdate -Confirm:$false
             $results | Should -Not -BeNullOrEmpty
         }
     }
