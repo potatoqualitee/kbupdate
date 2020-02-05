@@ -218,19 +218,22 @@ Describe "Integration Tests" -Tag "IntegrationTests" {
         }
     }
 
-    Context "Uninstall-KbUpdate works" {
-        It -Skip "Uninstalls a patch" {
-            $results = Uninstall-KbUpdate -HotfixId KB4527377 -Confirm:$false
-            $results | Should -Not -BeNullOrEmpty
-        }
-    }
-
     Context "Get-KbInstalledUpdate works" {
         It "gets some installed updates" {
             $results = Get-KbInstalledUpdate -Pattern Windows | Where-Object FastPackageReference
             $results.Count | Should -BeGreaterThan 5
         }
+        It "gets some installed updates" {
+            [array]$results = Get-KbInstalledUpdate -Pattern KB4527377
+            $results.Count | Should -BeGreaterThan 0
+        }
+    }
 
+    Context "Uninstall-KbUpdate works" {
+        It "Uninstalls a patch" {
+            $results = Uninstall-KbUpdate -HotfixId KB4527377 -Confirm:$false
+            $results | Should -Not -BeNullOrEmpty
+        }
     }
 }
 
