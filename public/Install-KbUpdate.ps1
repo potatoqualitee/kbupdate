@@ -86,6 +86,7 @@ function Install-KbUpdate {
         [Parameter(ValueFromPipelineByPropertyName)]
         [Alias("Name", "KBUpdate", "Id")]
         [string]$HotfixId,
+        [Alias("Path")]
         [string]$FilePath,
         [Parameter(ValueFromPipelineByPropertyName)]
         [Alias("UpdateId")]
@@ -112,26 +113,29 @@ function Install-KbUpdate {
             $HotfixId = "KB$HotfixId"
         }
 
-        foreach ($computer in $ComputerName) {
+        foreach ($computer in $ComputerName.ComputerName) {
             # null out a couple things to be safe
             $remotefileexists = $remotehome = $remotesession = $null
 
-            # a lot of the file copy work will be done in the remote $home dir
-            $remotehome = Invoke-PSFCommand -ComputerName $computer -Credential $Credential -ScriptBlock { $home }
+            if ($computer -ne $env:ComputerName) {
+                # a lot of the file copy work will be done in the remote $home dir
+                $remotehome = Invoke-PSFCommand -ComputerName $computer -Credential $Credential -ScriptBlock { $home }
+
+                if (-not $remotesession) {
+                    $remotesession = Get-PSSession -ComputerName $computer | Where-Object { $PsItem.Availability -eq 'Available' -and ($PsItem.Name -match 'WinRM' -or $PsItem.Name -match 'Runspace') } | Select-Object -First 1
+                }
+
+                if (-not $remotesession) {
+                    $remotesession = Get-PSSession -ComputerName $computer | Where-Object { $PsItem.Availability -eq 'Available' } | Select-Object -First 1
+                }
+
+                if (-not $remotesession) {
+                    Stop-PSFFunction -EnableException:$EnableException -Message "Session for $computer can't be found or no runspaces are available. Please file an issue on the GitHub repo at https://github.com/potatoqualitee/kbupdate/issues" -Continue
+                }
+            }
+
             $hasxhotfix = Invoke-PSFCommand -ComputerName $computer -Credential $Credential -ScriptBlock {
                 Get-Module -ListAvailable xWindowsUpdate
-            }
-
-            if (-not $remotesession) {
-                $remotesession = Get-PSSession -ComputerName $computer | Where-Object { $PsItem.Availability -eq 'Available' -and ($PsItem.Name -match 'WinRM' -or $PsItem.Name -match 'Runspace') } | Select-Object -First 1
-            }
-
-            if (-not $remotesession) {
-                $remotesession = Get-PSSession -ComputerName $computer | Where-Object { $PsItem.Availability -eq 'Available' } | Select-Object -First 1
-            }
-
-            if (-not $remotesession) {
-                Stop-PSFFunction -EnableException:$EnableException -Message "Session for $computer can't be found or no runspaces are available. Please file an issue on the GitHub repo at https://github.com/potatoqualitee/kbupdate/issues" -Continue
             }
 
             if (-not $hasxhotfix) {
@@ -195,7 +199,7 @@ function Install-KbUpdate {
                 }
 
                 # ignore if it's on a file server
-                if ($updatefile -and -not "$($PSBoundParameters.FilePath)".StartsWith("\\")) {
+                if (($updatefile -and -not "$($PSBoundParameters.FilePath)".StartsWith("\\")) -or $computer -ne $env:ComputerName) {
                     try {
                         $exists = Invoke-PSFCommand -ComputerName $computer -Credential $Credential -ArgumentList $FilePath -ScriptBlock {
                             Get-ChildItem -Path $args -ErrorAction SilentlyContinue
@@ -291,7 +295,7 @@ function Install-KbUpdate {
                         } catch {
                             switch ($message = "$_") {
                                 # some things can be ignored
-                                { $message -match "Name does not match package details" } {
+                                { $message -match "Serialized XML is nested too deeply" -or $message -match "Name does not match package details" } {
                                     $null = 1
                                 }
                                 { $message -match "2359302" } {
