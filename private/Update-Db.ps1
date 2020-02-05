@@ -124,16 +124,21 @@ function Update-Db {
         try {
             foreach ($item in $SupersededBy) {
                 if ($null -ne $item.Kb -and '' -ne $item.Kb) {
-                    Invoke-SQLiteBulkCopy -DataTable ([pscustomobject]@{ UpdateId = $guid; Kb = $item.Kb; Description = $item.Description } |
-                        ConvertTo-DbaDataTable) -DataSource $dailydb -Table SupersededBy -Confirm:$false
+                    if ($item.Kb) {
+                        Invoke-SQLiteBulkCopy -DataTable ([pscustomobject]@{ UpdateId = $guid; Kb = $item.Kb; Description = $item.Description } |
+                            ConvertTo-DbaDataTable) -DataSource $dailydb -Table SupersededBy -Confirm:$false
+                    }
                 }
             }
             foreach ($item in $Supersedes) {
                 if ($null -ne $item.Kb -and '' -ne $item.Kb) {
-                    Invoke-SQLiteBulkCopy -DataTable ([pscustomobject]@{ UpdateId = $guid; Kb = $item.Kb; Description = $item.Description } |
-                        ConvertTo-DbaDataTable) -DataSource $dailydb -Table Supersedes -Confirm:$false
+                    if ($item.Kb) {
+                        Invoke-SQLiteBulkCopy -DataTable ([pscustomobject]@{ UpdateId = $guid; Kb = $item.Kb; Description = $item.Description } |
+                            ConvertTo-DbaDataTable) -DataSource $dailydb -Table Supersedes -Confirm:$false
+                    }
                 }
             }
+
             foreach ($item in $Link) {
                 Invoke-SQLiteBulkCopy -DataTable ([pscustomobject]@{UpdateId = $guid; Link = $item } |
                     ConvertTo-DbaDataTable) -DataSource $dailydb -Table Link -Confirm:$false
