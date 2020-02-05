@@ -93,3 +93,4 @@ Get-Help Get-KbUpdate -Detailed
 - kbupdate-library - a sqlite db
 - PSFramework - for PowerShell goodness
 - PSSQLite - to query the included db
+- PoshWSUS - to query the WSUS server when `-Source WSUS` is specified
