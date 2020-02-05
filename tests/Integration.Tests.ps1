@@ -204,7 +204,7 @@ Describe "Integration Tests" -Tag "IntegrationTests" {
 
     Context "Uninstall-KbUpdate works" {
         It "Uninstalls a patch" {
-            $results = Uninstall-KbUpdate -HotfixId KB4527377
+            $results = Uninstall-KbUpdate -HotfixId KB4527377 -Confirm:$false
             $results | Should -Not -BeNullOrEmpty
         }
     }
