@@ -321,9 +321,6 @@ function Get-KbUpdate {
                     $runspace.Pipe.EndInvoke($runspace.Status)
                     $runspace.Pipe.Dispose()
                 }
-
-                $pool.Close()
-                $pool.Dispose()
             } catch {
                 Stop-PSFFunction -EnableException:$EnableException -Message "Failure" -ErrorRecord $_ -Continue
             }
