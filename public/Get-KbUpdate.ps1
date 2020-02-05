@@ -303,8 +303,6 @@ function Get-KbUpdate {
                     $null = $runspace.AddScript($scriptblock)
                     $null = $runspace.AddArgument($paramhash)
 
-                    # BLOCK 4: Add runspace to runspaces collection and "start" it
-                    # Asynchronously runs the commands of the PowerShell object pipeline
                     $runspaces += [pscustomobject]@{
                         Pipe   = $runspace
                         Status = $runspace.BeginInvoke()
@@ -312,7 +310,6 @@ function Get-KbUpdate {
                     }
                 }
 
-                # BLOCK 5: Wait for runspaces to finish
                 while ($runspaces.Status.IsCompleted -notcontains $true) { }
 
                 # BLOCK 6: Clean up
@@ -321,6 +318,7 @@ function Get-KbUpdate {
                     $runspace.Pipe.EndInvoke($runspace.Status)
                     $runspace.Pipe.Dispose()
                 }
+                $runspacefactory.Close()
             } catch {
                 Stop-PSFFunction -EnableException:$EnableException -Message "Failure" -ErrorRecord $_ -Continue
             }
