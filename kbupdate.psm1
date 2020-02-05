@@ -52,11 +52,10 @@ if (-not $script:compcollection) {
 $script:languages = . "$ModuleRoot\library\languages.ps1"
 
 if (-not $IsLinux -and -not $IsMacOs) {
-    $script:db = @()
-    $null = Import-Module kbupdate-library
+    [array]$script:db = @()
     $kblib = Split-Path -Path (Get-Module -Name kbupdate-library | Select-Object -Last 1).Path
     $script:db = (Get-ChildItem -Path "$kblib\*.sqlite" -Recurse).FullName
-    write-warning "$PSScriptRoot\library\db\*.sqlite"
+
     $script:dailydb = (Get-ChildItem -Path "$PSScriptRoot\library\db\*.sqlite").FullName
     if ($script:dailydb) {
         $script:db += $script:dailydb
