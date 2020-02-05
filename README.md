@@ -9,6 +9,9 @@ KB Viewer, Saver, Installer and Uninstaller
 Install-Module kbupdate -Scope CurrentUser
 ```
 
+## DSC Considerations
+The `Install-KbUpdate` command uses the `Invoke-DscResource` to run a method of the `Package` or `xHotFix` resource against the target node. Using `Invoke-DscResource` bypasses the Local Configuration Manager (LCM) on the target node so should not affect your current configuration.  However, if you are currently using DSC to control the desired state of your target node and you contradict the call to `Invoke-DscResource` you could sees issues. For example if the LCM has a `Package` resource saying that KB4527376 should not be installed, and then you install it with `Install-KbUpdate` after the install finishes the LCM will report it is not in the desired state, and depending on your LCM settings could uninstall the KB.
+
 ## Examples - Get-KbUpdate
 
 ```powershell
@@ -49,7 +52,7 @@ Install-KbUpdate -ComputerName sql2017 -HotfixId kb4486129
 
 ```powershell
 # Uninstalls KB4498951 from server01
-Uninstall-KbUpdate -ComputerName server01 -HotfixId KB4498951     
+Uninstall-KbUpdate -ComputerName server01 -HotfixId KB4498951
 
 # Uninstalls KB4498951 on server01 without prompts
 Uninstall-KbUpdate -ComputerName server01 -HotfixId KB4498951 -Confirm:$false
