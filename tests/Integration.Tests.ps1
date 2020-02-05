@@ -8,7 +8,7 @@ Describe "Integration Tests" -Tag "IntegrationTests" {
         }
     }
 
-    Context "Get works" {
+    Context "Get-KbUpdate works" {
         It "returns correct detailed results" {
             $results = Get-KbUpdate -Name KB2992080
             $results.Id | Should -Be 2992080
@@ -152,22 +152,10 @@ Describe "Integration Tests" -Tag "IntegrationTests" {
             $db.Link | Should -Be $web.Link
         }
 
-        It "gets some installed updates" {
-            $results = Get-KbInstalledUpdate -Pattern Windows | Where-Object FastPackageReference
-            $results.Count | Should -BeGreaterThan 5
-        }
-
         It "only get one of the latest" {
             [array]$results = Get-KbUpdate -Pattern 'sql 2019' | Where-Object Classification -eq Updates | Select-KbLatest
             $results.Count | Should -Be 1
             $results.UpdateId | Should -Not -BeNullOrEmpty
-        }
-
-        It "installs a patch" {
-            $null = New-Item -Type Directory -Path C:\temp -ErrorAction SilentlyContinue
-            $update = Get-KbUpdate -Pattern KB4527377 | Save-KbUpdate -Path C:\temp
-            $results = Install-KbUpdate -Path $update
-            $results | Should -Not -BeNullOrEmpty
         }
 
         if ($env:USERDOMAIN -eq "BASE") {
@@ -179,7 +167,7 @@ Describe "Integration Tests" -Tag "IntegrationTests" {
         }
     }
 
-    Context "Save works" {
+    Context "Save-KbUpdate works" {
         It "supports multiple saves" {
             $results = Save-KbUpdate -Path C:\temp -Name KB2992080, KB2994397
             $results[0].Name -match 'aspnet'
@@ -204,6 +192,29 @@ Describe "Integration Tests" -Tag "IntegrationTests" {
             $results.LastWriteTime -ne $piperesults.LastWriteTime
             $results | Remove-Item -Confirm:$false
         }
+    }
+
+    Context "Install-KbUpdate works" {
+        It "installs a patch" {
+            $update = Get-KbUpdate -Pattern KB4527377 | Save-KbUpdate -Path C:\temp
+            $results = Install-KbUpdate -Path $update
+            $results | Should -Not -BeNullOrEmpty
+        }
+    }
+
+    Context "Uninstall-KbUpdate works" {
+        It "Uninstalls a patch" {
+            $results = Uninstall-KbUpdate -Path KB4527377
+            $results | Should -Not -BeNullOrEmpty
+        }
+    }
+
+    Context "Get-KbInstalledUpdate works" {
+        It "gets some installed updates" {
+            $results = Get-KbInstalledUpdate -Pattern Windows | Where-Object FastPackageReference
+            $results.Count | Should -BeGreaterThan 5
+        }
+
     }
 }
 
