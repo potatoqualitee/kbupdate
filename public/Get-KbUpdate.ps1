@@ -295,13 +295,14 @@ function Get-KbUpdate {
                         ModuleRoot = $script:ModuleRoot
                     }
                     Write-Progress -Activity "Found up to $total results for $kb" -Status "Getting results for $title"
-                    $runspacefactory = [runspacefactory]::CreateRunspace()
-                    $null = $runspacefactory.Open()
-                    $null = $runspacefactory.SessionStateProxy.SetVariable("kbcollection", $script:kbcollection)
+                    $sessionstate = [system.management.automation.runspaces.initialsessionstate]::CreateDefault()
+                    $pool = [runspacefactory]::CreateRunspacePool(1, [int]$env:NUMBER_OF_PROCESSORS + 1, $sessionstate, $Host)
+                    $pool.Open()
+
                     $runspace = [powershell]::Create()
-                    $null = $runspace.Runspace = $runspacefactory
                     $null = $runspace.AddScript($scriptblock)
                     $null = $runspace.AddArgument($paramhash)
+                    $runspace.RunspacePool = $pool
 
                     $runspaces += [pscustomobject]@{
                         Pipe   = $runspace
@@ -312,13 +313,13 @@ function Get-KbUpdate {
 
                 while ($runspaces.Status.IsCompleted -notcontains $true) { }
 
-                # BLOCK 6: Clean up
                 foreach ($runspace in $runspaces ) {
                     # EndInvoke method retrieves the results of the asynchronous call
                     $runspace.Pipe.EndInvoke($runspace.Status)
                     $runspace.Pipe.Dispose()
                 }
-                $runspacefactory.Close()
+                $pool.Close()
+                $pool.Dispose()
             } catch {
                 Stop-PSFFunction -EnableException:$EnableException -Message "Failure" -ErrorRecord $_ -Continue
             }
