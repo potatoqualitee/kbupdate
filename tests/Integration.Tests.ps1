@@ -176,6 +176,11 @@ Describe "Integration Tests" -Tag "IntegrationTests" {
                 $results.SupportedProducts | Should -Be 'Windows Server 2016'
             }
         }
+
+        It "always gets a Link" {
+            $results = Get-KbUpdate -Pattern KB4527377 -Source Database
+            $results.Link | Should -Not -BeNullOrEmpty
+        }
     }
 
     Context "Save-KbUpdate works" {
