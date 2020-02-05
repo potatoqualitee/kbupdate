@@ -83,6 +83,8 @@ function Update-Db {
     param()
     Import-Module C:\github\dbatools
 
+    $script:db = "C:\github\kbupdate-library\library\kb.sqlite"
+    $dailydb = "C:\github\kbupdate\library\db\kb.sqlite"
     #$query = "SELECT CAST(UpdateId AS VARCHAR(36)) as UpdateId FROM [SUSDB].[PUBLIC_VIEWS].[vUpdate] Where ArrivalDate >= DATEADD(hour,-4, GETDATE())"
     $query = "SELECT CAST(UpdateId AS VARCHAR(36)) as UpdateId FROM [SUSDB].[PUBLIC_VIEWS].[vUpdate] Where ArrivalDate >= DATEADD(hour,-24, GETDATE())"
     #$query = "SELECT CAST(UpdateId AS VARCHAR(36)) as UpdateId FROM [SUSDB].[PUBLIC_VIEWS].[vUpdate] Where ArrivalDate >= DATEADD(hour,-120, GETDATE())"
@@ -125,7 +127,7 @@ function Update-Db {
             foreach ($item in $SupersededBy) {
                 if ($null -ne $item.Kb -and '' -ne $item.Kb) {
                     if ($item.Kb) {
-                        Invoke-SQLiteBulkCopy -DataTable ([pscustomobject]@{ UpdateId = $guid; Kb = $item.Kb; Description = $item.Description } |
+                        Invoke-SQLiteBulkCopy -DataTable ([pscustomobject]@{ UpdateId = $update.UpdateId; Kb = $item.Kb; Description = $item.Description } |
                             ConvertTo-DbaDataTable) -DataSource $dailydb -Table SupersededBy -Confirm:$false
                     }
                 }
@@ -133,14 +135,14 @@ function Update-Db {
             foreach ($item in $Supersedes) {
                 if ($null -ne $item.Kb -and '' -ne $item.Kb) {
                     if ($item.Kb) {
-                        Invoke-SQLiteBulkCopy -DataTable ([pscustomobject]@{ UpdateId = $guid; Kb = $item.Kb; Description = $item.Description } |
+                        Invoke-SQLiteBulkCopy -DataTable ([pscustomobject]@{ UpdateId = $update.UpdateId; Kb = $item.Kb; Description = $item.Description } |
                             ConvertTo-DbaDataTable) -DataSource $dailydb -Table Supersedes -Confirm:$false
                     }
                 }
             }
 
             foreach ($item in $Link) {
-                Invoke-SQLiteBulkCopy -DataTable ([pscustomobject]@{UpdateId = $guid; Link = $item } |
+                Invoke-SQLiteBulkCopy -DataTable ([pscustomobject]@{UpdateId = $update.UpdateId; Link = $item } |
                     ConvertTo-DbaDataTable) -DataSource $dailydb -Table Link -Confirm:$false
             }
 
