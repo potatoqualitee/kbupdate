@@ -56,7 +56,8 @@ if (-not $IsLinux -and -not $IsMacOs) {
     $kblib = Split-Path -Path (Get-Module -Name kbupdate-library | Select-Object -Last 1).Path
     $script:db = (Get-ChildItem -Path "$kblib\*.sqlite" -Recurse).FullName
 
-    $script:dailydb = (Get-ChildItem -Path "$PSScriptRoot\library\db\*.sqlite").FullName
+    # REMOVING THIS UNTIL I FIX MY DBs
+    #$script:dailydb = (Get-ChildItem -Path "$PSScriptRoot\library\db\*.sqlite").FullName
     if ($script:dailydb) {
         $script:db += $script:dailydb
     }
