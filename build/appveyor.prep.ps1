@@ -25,6 +25,10 @@ Install-Module -Name PoshWSUS -Force -SkipPublisherCheck | Out-Null
 Write-Host -Object "appveyor.prep: Install kbupdate-library" -ForegroundColor DarkGreen
 Install-Module -Name kbupdate-library -Force -SkipPublisherCheck | Out-Null
 
+#Get kbupdate-library (dependency)
+Write-Host -Object "appveyor.prep: Install xWindowsUpdate" -ForegroundColor DarkGreen
+Install-Module -Name xWindowsUpdate -Force -SkipPublisherCheck | Out-Null
+
 $null = mkdir C:\temp
 
 $sw.Stop()

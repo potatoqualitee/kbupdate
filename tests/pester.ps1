@@ -14,6 +14,8 @@ if ($env:BUILD_BUILDURI -like "vstfs*") {
     Install-Module PoshWSUS -Force -SkipPublisherCheck
     Write-Host "Installing kbupdate-library" -ForegroundColor Cyan
     Install-Module kbupdate-library -Force -SkipPublisherCheck
+    Write-Host "Installing xWindowsUpdate" -ForegroundColor Cyan
+    Install-Module xWindowsUpdate -Force -SkipPublisherCheck
 }
 
 Write-Host "Loading constants"

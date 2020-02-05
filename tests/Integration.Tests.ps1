@@ -152,6 +152,24 @@ Describe "Integration Tests" -Tag "IntegrationTests" {
             $db.Link | Should -Be $web.Link
         }
 
+        It "gets some installed updates" {
+            $results = Get-KbInstalledUpdate -Pattern Windows | Where-Object FastPackageReference
+            $results.Count | Should -BeGreaterThan 5
+        }
+
+        It "only get one of the latest" {
+            [array]$results = Get-KbUpdate -Pattern 'sql 2019' | Where-Object Classification -eq Updates | Select-KbLatest
+            $results.Count | Should -Be 1
+            $results.UpdateId | Should -Not -BeNullOrEmpty
+        }
+
+        It "installs a patch" {
+            $null = New-Item -Type Directory -Path C:\temp -ErrorAction SilentlyContinue
+            $update = Get-KbUpdate -Pattern KB4527377 | Save-KbUpdate -Path C:\temp
+            $results = Install-KbUpdate -Path $update
+            $results | Should -Not -BeNullOrEmpty
+        }
+
         if ($env:USERDOMAIN -eq "BASE") {
             It "returns the proper results for -ComputerName" {
                 $results = Get-KbUpdate -Pattern KB4509475 -ComputerName sql2012
