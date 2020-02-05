@@ -119,7 +119,7 @@ function Get-KbUpdate {
             param($kb)
             process {
                 # Join to dupe and check dupe
-                $items = Invoke-SqliteQuery -DataSource $db  -Query "select *, NULL AS SupersededBy, NULL AS Supersedes, NULL AS Link from kb where UpdateId in (select UpdateId from kb where UpdateId = '$kb' or Title like '%$kb%' or Id like '%$kb%' or Description like '%$kb%' or MSRCNumber like '%$kb%')"
+                $items = Invoke-SqliteQuery -DataSource $script:db  -Query "select *, NULL AS SupersededBy, NULL AS Supersedes, NULL AS Link from kb where UpdateId in (select UpdateId from kb where UpdateId = '$kb' or Title like '%$kb%' or Id like '%$kb%' or Description like '%$kb%' or MSRCNumber like '%$kb%')"
 
                 if (-not $items -and $Source -eq "Database") {
                     Write-PSFMessage -Level Verbose -Message "No results found for $kb in the local database"
@@ -127,9 +127,9 @@ function Get-KbUpdate {
 
                 foreach ($item in $items) {
                     $script:allresults += $item.UpdateId
-                    $item.SupersededBy = Invoke-SqliteQuery -DataSource $db -Query "select KB, Description from SupersededBy where UpdateId = '$($item.UpdateId)'"
-                    $item.Supersedes = Invoke-SqliteQuery -DataSource $db -Query "select KB, Description from Supersedes where UpdateId = '$($item.UpdateId)'"
-                    $item.Link = (Invoke-SqliteQuery -DataSource $db -Query "select Link from Link where UpdateId = '$($item.UpdateId)'").Link
+                    $item.SupersededBy = Invoke-SqliteQuery -DataSource $script:db -Query "select KB, Description from SupersededBy where UpdateId = '$($item.UpdateId)'"
+                    $item.Supersedes = Invoke-SqliteQuery -DataSource $script:db -Query "select KB, Description from Supersedes where UpdateId = '$($item.UpdateId)'"
+                    $item.Link = (Invoke-SqliteQuery -DataSource $script:db -Query "select Link from Link where UpdateId = '$($item.UpdateId)'").Link
                     $item
                 }
             }
