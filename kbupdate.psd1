@@ -29,16 +29,11 @@
 
     # Modules that must be imported into the global environment prior to importing this module
     RequiredModules   = @(
-        if ($PSScriptRoot -like "*\*") {
-            # load up everything in Windows
-            @{ ModuleName = 'PSFramework'; ModuleVersion = '1.0.19' },
-            @{ ModuleName = 'kbupdate-library'; ModuleVersion = '1.0.20' },
-            @{ ModuleName = 'PSSQLite'; ModuleVersion = '1.0.3' },
-            @{ ModuleName = 'PoshWSUS'; ModuleVersion = '2.3.1.6' }
-        } else {
-            # limited import in Linux and Mac
-            @{ ModuleName = 'PSFramework'; ModuleVersion = '1.0.19' }
-        }
+        # load up everything in Windows
+        @{ ModuleName = 'PSFramework'; ModuleVersion = '1.0.19' },
+        @{ ModuleName = 'kbupdate-library'; ModuleVersion = '1.0.20' },
+        @{ ModuleName = 'PSSQLite'; ModuleVersion = '1.0.3' },
+        @{ ModuleName = 'PoshWSUS'; ModuleVersion = '2.3.1.6' }
     )
 
     # Script module or binary module file associated with this manifest.
