@@ -289,10 +289,11 @@ function Get-KbUpdate {
                     $guid = $item.Guid
                     $title = $item.Title
                     $paramhash = [pscustomobject]@{
-                        Guid       = $guid
-                        Title      = $title
-                        Simple     = $Simple
-                        ModuleRoot = $script:ModuleRoot
+                        Guid         = $guid
+                        Title        = $title
+                        Simple       = $Simple
+                        ModuleRoot   = $script:ModuleRoot
+                        KBCollection = $script:kbcollection
                     }
                     Write-Progress -Activity "Found up to $total results for $kb" -Status "Getting results for $title"
                     $sessionstate = [system.management.automation.runspaces.initialsessionstate]::CreateDefault()
@@ -318,6 +319,7 @@ function Get-KbUpdate {
                     $runspace.Pipe.EndInvoke($runspace.Status)
                     $runspace.Pipe.Dispose()
                 }
+
                 $pool.Close()
                 $pool.Dispose()
             } catch {

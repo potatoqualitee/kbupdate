@@ -5,9 +5,10 @@ $scriptblock = {
     )
 
     $guid = $paramhash.guid
-    $title = $paramhash.$Title
-    $simple = $paramhash.$Simple
+    $title = $paramhash.Title
+    $simple = $paramhash.Simple
     $moduleroot = $paramhash.Moduleroot
+    $kbcollection = $paramhash.KBCollection
 
     . "$ModuleRoot\private\Get-Info.ps1"
     . "$ModuleRoot\private\Get-SuperInfo.ps1"
