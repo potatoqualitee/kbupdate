@@ -35,6 +35,17 @@ Describe "Integration Tests" -Tag "IntegrationTests" {
             $results.LastModified | Should -Be "10/14/2014"
             $results.Link | Should -Be "http://download.windowsupdate.com/c/msdownload/update/software/secu/2014/10/aspnetwebfxupdate_kb2992080_55c239c6b443cb122b04667a9be948b03046bf88.exe"
         }
+
+        It "finds results in the daily database" {
+            $results = Get-KbUpdate -Name e86b7a53-d7b2-42af-b960-d165391b0fe3 -Source Database
+            $results.UpdateId | Should -eq 'e86b7a53-d7b2-42af-b960-d165391b0fe3'
+        }
+
+        It "finds results in the archive database" {
+            $results = Get-KbUpdate -Name 0c84df7a-e685-466c-a545-a24de5ad2601 -Source Database
+            $results.UpdateId | Should -eq '0c84df7a-e685-466c-a545-a24de5ad2601'
+        }
+
         It "returns correct 404 when found in the catalog" {
             $foundit = Get-KbUpdate -Name 4482972 3>&1 | Out-String
             $foundit | Should -Match "results no longer exist"
