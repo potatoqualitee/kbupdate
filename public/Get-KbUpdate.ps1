@@ -127,8 +127,11 @@ function Get-KbUpdate {
 
                 foreach ($item in $items) {
                     $script:allresults += $item.UpdateId
-                    $item.SupersededBy = Invoke-SqliteQuery -DataSource $script:db -Query "select KB, Description from SupersededBy where UpdateId = '$($item.UpdateId)'"
-                    $item.Supersedes = Invoke-SqliteQuery -DataSource $script:db -Query "select KB, Description from Supersedes where UpdateId = '$($item.UpdateId)'"
+                    # I do wish my import didn't return empties but sometimes it does so check for length of 3
+                    $item.SupersededBy = Invoke-SqliteQuery -DataSource $script:db -Query "select KB, Description from SupersededBy where UpdateId = '$($item.UpdateId)' and LENGTH(kb) > 3"
+
+                    # I do wish my import didn't return empties but sometimes it does so check for length of 3
+                    $item.Supersedes = Invoke-SqliteQuery -DataSource $script:db -Query "select KB, Description from Supersedes where UpdateId = '$($item.UpdateId)' and LENGTH(kb) > 3"
                     $item.Link = (Invoke-SqliteQuery -DataSource $script:db -Query "select Link from Link where UpdateId = '$($item.UpdateId)'").Link
                     $item
                 }
