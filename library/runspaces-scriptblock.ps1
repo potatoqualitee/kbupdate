@@ -8,7 +8,6 @@ $scriptblock = {
     $title = $paramhash.Title
     $simple = $paramhash.Simple
     $moduleroot = $paramhash.Moduleroot
-    $kbcollection = $paramhash.KBCollection
 
     . "$ModuleRoot\private\Get-Info.ps1"
     . "$ModuleRoot\private\Get-SuperInfo.ps1"
@@ -17,11 +16,6 @@ $scriptblock = {
 
     # cacher
     $hashkey = "$guid-$Simple"
-
-    if ($kbcollection.ContainsKey($hashkey)) {
-        $kbcollection[$hashkey]
-        continue
-    }
 
     Write-Verbose -Message "Downloading information for $Title"
     $post = @{ size = 0; updateID = $guid; uidInfo = $guid } | ConvertTo-Json -Compress
@@ -135,34 +129,32 @@ $scriptblock = {
         # may fix later
         $ishotfix = $null
 
-        $null = $kbcollection.Add($hashkey, (
-                [pscustomobject]@{
-                    Title             = $title
-                    Id                = $kbnumbers
-                    Architecture      = $arch
-                    Language          = $longlang
-                    Hotfix            = $ishotfix
-                    Description       = $description
-                    LastModified      = $lastmodified
-                    Size              = $size
-                    Classification    = $classification
-                    SupportedProducts = $supportedproducts
-                    MSRCNumber        = $msrcnumber
-                    MSRCSeverity      = $msrcseverity
-                    RebootBehavior    = $rebootbehavior
-                    RequestsUserInput = $requestuserinput
-                    ExclusiveInstall  = $exclusiveinstall
-                    NetworkRequired   = $networkrequired
-                    UninstallNotes    = $uninstallnotes
-                    UninstallSteps    = $uninstallsteps
-                    UpdateId          = $updateid
-                    Supersedes        = $supersedes
-                    SupersededBy      = $supersededby
-                    Link              = $link.matches.value
-                    InputObject       = $kb
-                }))
-
-        $kbcollection[$hashkey]
+        @{ $hashkey =
+            [pscustomobject]@{
+                Title             = $title
+                Id                = $kbnumbers
+                Architecture      = $arch
+                Language          = $longlang
+                Hotfix            = $ishotfix
+                Description       = $description
+                LastModified      = $lastmodified
+                Size              = $size
+                Classification    = $classification
+                SupportedProducts = $supportedproducts
+                MSRCNumber        = $msrcnumber
+                MSRCSeverity      = $msrcseverity
+                RebootBehavior    = $rebootbehavior
+                RequestsUserInput = $requestuserinput
+                ExclusiveInstall  = $exclusiveinstall
+                NetworkRequired   = $networkrequired
+                UninstallNotes    = $uninstallnotes
+                UninstallSteps    = $uninstallsteps
+                UpdateId          = $updateid
+                Supersedes        = $supersedes
+                SupersededBy      = $supersededby
+                Link              = $link.matches.value
+                InputObject       = $kb
+            }
+        }
     }
 }
-

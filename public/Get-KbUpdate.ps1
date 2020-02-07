@@ -274,56 +274,63 @@ function Get-KbUpdate {
         function Get-KbItemFromWeb ($kb) {
             # Wishing Microsoft offered an RSS feed. Since they don't, we are forced to parse webpages.
             $runspaces = @()
-            try {
-                $guids = Get-GuidsFromWeb -kb $kb
-                $total = $($guids).Count
+            [pscustomobject[]]$guids = Get-GuidsFromWeb -kb $kb
+            $total = $($guids).Count
+            if (-not $total) {
+                $total = 1
+            }
+            # The script block is huge so let's import it
+            . "$script:ModuleRoot\library\runspaces-scriptblock.ps1"
 
-                # The script block is huge so let's import it
-                . "$script:ModuleRoot\library\runspaces-scriptblock.ps1"
-
-                # add each guid to a runspace
-                foreach ($item in $guids) {
-                    if (-not $total) {
-                        $total = 1
-                    }
-                    $guid = $item.Guid
-                    $title = $item.Title
-                    $paramhash = [pscustomobject]@{
-                        Guid         = $guid
-                        Title        = $title
-                        Simple       = $Simple
-                        ModuleRoot   = $script:ModuleRoot
-                        KBCollection = $script:kbcollection
-                    }
-                    Write-Progress -Activity "Found up to $total results for $kb" -Status "Getting results for $title"
-                    $sessionstate = [system.management.automation.runspaces.initialsessionstate]::CreateDefault()
-                    $pool = [runspacefactory]::CreateRunspacePool(1, [int]$env:NUMBER_OF_PROCESSORS + 1, $sessionstate, $Host)
-                    $pool.Open()
-
-                    $runspace = [powershell]::Create()
-                    $null = $runspace.AddScript($scriptblock)
-                    $null = $runspace.AddArgument($paramhash)
-                    $runspace.RunspacePool = $pool
-
-                    $runspaces += [pscustomobject]@{
-                        Pipe   = $runspace
-                        Status = $runspace.BeginInvoke()
-                        Guid   = "$guiditem-$Simple"
-                    }
+            foreach ($item in $guids) {
+                $hashkey = "$($item.Guid)-$Simple"
+                write-warning $hashkey
+                if ($script:kbcollection.ContainsKey($hashkey)) {
+                    $guids = $guids | Where-Object { $PSItem –ne $item }
+                    $script:kbcollection[$hashkey]
+                    continue
                 }
+            }
 
-                while ($runspaces.Status.IsCompleted -notcontains $true) { }
-
-                foreach ($runspace in $runspaces ) {
-                    # EndInvoke method retrieves the results of the asynchronous call
-                    $runspace.Pipe.EndInvoke($runspace.Status)
-                    $runspace.Pipe.Dispose()
+            # add each guid to a runspace
+            foreach ($item in $guids) {
+                $guid = $item.Guid
+                $title = $item.Title
+                $paramhash = [pscustomobject]@{
+                    Guid       = $guid
+                    Title      = $title
+                    Simple     = $Simple
+                    ModuleRoot = $script:ModuleRoot
                 }
+                Write-Progress -Activity "Found up to $total results for $kb" -Status "Getting results for $title"
+                $sessionstate = [system.management.automation.runspaces.initialsessionstate]::CreateDefault()
+                $pool = [runspacefactory]::CreateRunspacePool(1, [int]$env:NUMBER_OF_PROCESSORS + 1, $sessionstate, $Host)
+                $pool.Open()
 
-                $pool.Close()
-                $pool.Dispose()
-            } catch {
-                Stop-PSFFunction -EnableException:$EnableException -Message "Failure" -ErrorRecord $_ -Continue
+                $runspace = [powershell]::Create()
+                $null = $runspace.AddScript($scriptblock)
+                $null = $runspace.AddArgument($paramhash)
+                $runspace.RunspacePool = $pool
+
+                $runspaces += [pscustomobject]@{
+                    Pipe   = $runspace
+                    Status = $runspace.BeginInvoke()
+                    Guid   = "$guiditem-$Simple"
+                }
+            }
+
+            while ($runspaces.Status.IsCompleted -notcontains $true) { }
+            $pool.Close()
+            $pool.Dispose()
+            Start-Sleep 5
+            foreach ($runspace in $runspaces ) {
+                # EndInvoke method retrieves the results of the asynchronous call
+                $json = ($runspace.Pipe.EndInvoke($runspace.Status)) | ConvertTo-Json
+                $runspace.Pipe.Dispose()
+                $thing = $json | ConvertFrom-Json
+                $null = $script:kbcollection.Add(($thing.Keys), ($thing.Values))
+                $script:kbcollection[$($thing.Keys)]
+                return
             }
         }
 
