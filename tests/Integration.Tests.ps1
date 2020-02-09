@@ -173,7 +173,7 @@ Describe "Integration Tests" -Tag "IntegrationTests" {
             It "returns the proper results for -ComputerName" {
                 $results = Get-KbUpdate -Pattern KB4468550 -ComputerName sql2012
                 $results.Title.Count -eq 1
-                $results.SupportedProducts | Should -Contain 'Windows Server 2016'
+                $results.Title | Should -match 'Windows Server 2016'
             }
         }
 
