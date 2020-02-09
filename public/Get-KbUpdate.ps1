@@ -314,28 +314,39 @@ function Get-KbUpdate {
             try {
                 $guids = Get-GuidsFromWeb -kb $kb
 
+
                 foreach ($item in $guids) {
                     $guid = $item.Guid
                     $itemtitle = $item.Title
-
-                    # cacher
                     $hashkey = "$guid-$Simple"
                     if ($script:kbcollection.ContainsKey($hashkey)) {
+                        $guids = $guids | Where-Object Guid -notin $guid
                         $script:kbcollection[$hashkey]
                         continue
                     }
+                }
 
-                    Write-ProgressHelper -Activity "Found up to $($guids.Count) results for $kb" -Message "Getting results for $itemtitle" -TotalSteps $guids.Guid.Count -StepNumber $guids.Guid.IndexOf($guid)
+                $scriptblock = {
+                    $guid = $psitem.Guid
+                    $itemtitle = $psitem.Title
+                    $guids = $using:guids
                     Write-Verbose -Message "Downloading information for $itemtitle"
                     $post = @{ size = 0; updateID = $guid; uidInfo = $guid } | ConvertTo-Json -Compress
                     $body = @{ updateIDs = "[$post]" }
-                    $downloaddialog = Invoke-TlsWebRequest -Uri 'https://www.catalog.update.microsoft.com/DownloadDialog.aspx' -Method Post -Body $body | Select-Object -ExpandProperty Content
+                    Invoke-TlsWebRequest -Uri 'https://www.catalog.update.microsoft.com/DownloadDialog.aspx' -Method Post -Body $body | Select-Object -ExpandProperty Content
+                }
 
+                if ($guids) {
+                    $downloaddialogs = $guids | Invoke-Parallel -ImportVariables -ImportFunctions -ScriptBlock $scriptblock -ErrorAction Stop
+                }
+
+                foreach ($downloaddialog in $downloaddialogs) {
                     $title = Get-Info -Text $downloaddialog -Pattern 'enTitle ='
                     $arch = Get-Info -Text $downloaddialog -Pattern 'architectures ='
                     $longlang = Get-Info -Text $downloaddialog -Pattern 'longLanguages ='
                     $updateid = Get-Info -Text $downloaddialog -Pattern 'updateID ='
                     $ishotfix = Get-Info -Text $downloaddialog -Pattern 'isHotFix ='
+                    $hashkey = "$updateid-$Simple"
 
                     if ($ishotfix) {
                         $ishotfix = "True"
