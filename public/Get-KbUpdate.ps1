@@ -336,7 +336,9 @@ function Get-KbUpdate {
                     Invoke-TlsWebRequest -Uri 'https://www.catalog.update.microsoft.com/DownloadDialog.aspx' -Method Post -Body $body | Select-Object -ExpandProperty Content
                 }
 
-                $downloaddialogs = $guids | Invoke-Parallel -ImportVariables -ImportFunctions -ScriptBlock $scriptblock -ErrorAction Stop
+                if ($guids) {
+                    $downloaddialogs = $guids | Invoke-Parallel -ImportVariables -ImportFunctions -ScriptBlock $scriptblock -ErrorAction Stop
+                }
 
                 foreach ($downloaddialog in $downloaddialogs) {
                     $title = Get-Info -Text $downloaddialog -Pattern 'enTitle ='
