@@ -41,6 +41,9 @@ function Get-KbUpdate {
     .PARAMETER Source
         Search source. By default, Database is searched first, then if no matches are found, it tries finding it on the web.
 
+    .PARAMETER NoMultithreading
+        Get results one-by-one if three or more matches are returned
+
     .PARAMETER EnableException
         By default, when something goes wrong we try to catch it, interpret it and give you a friendly warning message.
         This avoids overwhelming you with "sea of red" exceptions, but is inconvenient because it basically disables advanced scripting.
@@ -104,6 +107,7 @@ function Get-KbUpdate {
         [string[]]$Language,
         [switch]$Simple,
         [switch]$Latest,
+        [switch]$NoMultithreading,
         [ValidateSet("Wsus", "Web", "Database")]
         [string[]]$Source = @("Web", "Database"),
         [switch]$EnableException
@@ -329,15 +333,17 @@ function Get-KbUpdate {
                 $scriptblock = {
                     $guid = $psitem.Guid
                     $itemtitle = $psitem.Title
-                    $guids = $using:guids
                     Write-Verbose -Message "Downloading information for $itemtitle"
                     $post = @{ size = 0; updateID = $guid; uidInfo = $guid } | ConvertTo-Json -Compress
                     $body = @{ updateIDs = "[$post]" }
                     Invoke-TlsWebRequest -Uri 'https://www.catalog.update.microsoft.com/DownloadDialog.aspx' -Method Post -Body $body | Select-Object -ExpandProperty Content
                 }
 
-                if ($guids) {
-                    $downloaddialogs = $guids | Invoke-Parallel -ImportVariables -ImportFunctions -ScriptBlock $scriptblock -ErrorAction Stop
+
+                if ($guids.Count -gt 2 -and -not $NoMultithreading) {
+                    $downloaddialogs = $guids | Invoke-Parallel -ImportVariables -ImportFunctions -ScriptBlock $scriptblock -ErrorAction Stop -RunspaceTimeout 30
+                } else {
+                    $downloaddialogs = $guids | ForEach-Object -Process $scriptblock
                 }
 
                 foreach ($downloaddialog in $downloaddialogs) {
