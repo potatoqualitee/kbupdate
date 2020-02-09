@@ -1,16 +1,14 @@
-function Write-DeprecatedMessage
-{
+function Write-DeprecatedMessage {
     Write-Warning -Message 'xMicrosoftUpdate is deprecated.  Please use xWindows Update Agent'
 }
 
-function Get-TargetResource
-{
+function Get-TargetResource {
     [CmdletBinding()]
     [OutputType([System.Collections.Hashtable])]
     param
     (
         [parameter(Mandatory = $true)]
-        [ValidateSet("Present","Absent")]
+        [ValidateSet("Present", "Absent")]
         [System.String]
         $Ensure
     )
@@ -21,67 +19,52 @@ function Get-TargetResource
     $UpdateServices = (New-Object -ComObject Microsoft.Update.ServiceManager).Services
 
     $returnValue = @{
-                        Ensure = $Ensure
-                    }
+        Ensure = $Ensure
+    }
 
     #Check if the microsoft update service is registered
-    if($UpdateServices | Where-Object {$_.ServiceID -eq '7971f918-a847-4430-9279-4a52d1efe18d'})
-    {
+    if ($UpdateServices | Where-Object { $_.ServiceID -eq '7971f918-a847-4430-9279-4a52d1efe18d' }) {
         Write-Verbose -Message "Microsoft Update Present..."
         $returnValue.Ensure = 'Present'
-    }
-    Else
-    {
+    } Else {
         Write-Verbose -Message "Microsoft Update Absent..."
         $returnValue.Ensure = 'Absent'
     }
-    
+
     $returnValue
 }
 
 
-function Set-TargetResource
-{
-    [CmdletBinding(SupportsShouldProcess=$true)]
+function Set-TargetResource {
+    [CmdletBinding(SupportsShouldProcess = $true)]
     param
     (
         [parameter(Mandatory = $true)]
-        [ValidateSet("Present","Absent")]
+        [ValidateSet("Present", "Absent")]
         [System.String]
         $Ensure
     )
 
     Write-DeprecatedMessage
-    Switch($Ensure)
-    {
-        'Present'
-        {
-            If($PSCmdlet.ShouldProcess("Enable Microsoft Update"))
-            {
-                Try
-                {
+    Switch ($Ensure) {
+        'Present' {
+            If ($PSCmdlet.ShouldProcess("Enable Microsoft Update")) {
+                Try {
                     Write-Verbose -Message "Enable the Microsoft Update setting"
-                    (New-Object -ComObject Microsoft.Update.ServiceManager).AddService2('7971f918-a847-4430-9279-4a52d1efe18d',7,"")
+                    (New-Object -ComObject Microsoft.Update.ServiceManager).AddService2('7971f918-a847-4430-9279-4a52d1efe18d', 7, "")
                     Restart-Service wuauserv -ErrorAction SilentlyContinue
-                }
-                Catch
-                {
+                } Catch {
                     $ErrorMsg = $_.Exception.Message
                     Write-Verbose $ErrorMsg
                 }
             }
         }
-        'Absent'
-        {
-            If($PSCmdlet.ShouldProcess("$Drive","Disable Microsoft Update"))
-            {
-                Try
-                {
+        'Absent' {
+            If ($PSCmdlet.ShouldProcess("$Drive", "Disable Microsoft Update")) {
+                Try {
                     Write-Verbose -Message "Disable the Microsoft Update setting"
                     (New-Object -ComObject Microsoft.Update.ServiceManager).RemoveService('7971f918-a847-4430-9279-4a52d1efe18d')
-                }
-                Catch
-                {
+                } Catch {
                     $ErrorMsg = $_.Exception.Message
                     Write-Verbose $ErrorMsg
                 }
@@ -90,8 +73,7 @@ function Set-TargetResource
     }
 }
 
-function Test-TargetResource
-{
+function Test-TargetResource {
     # Verbose messages are written in Get.
     [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSDSCUseVerboseMessageInDSCResource", "")]
     [CmdletBinding()]
@@ -99,21 +81,18 @@ function Test-TargetResource
     param
     (
         [parameter(Mandatory = $true)]
-        [ValidateSet("Present","Absent")]
+        [ValidateSet("Present", "Absent")]
         [System.String]
         $Ensure
     )
 
     #Output the result of Get-TargetResource function.
-    
+
     $Get = Get-TargetResource -Ensure $Ensure
 
-    If($Ensure -eq $Get.Ensure)
-    {
+    If ($Ensure -eq $Get.Ensure) {
         return $true
-    }
-    Else
-    {
+    } Else {
         return $false
     }
 }

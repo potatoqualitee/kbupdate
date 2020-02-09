@@ -592,46 +592,35 @@ function Get-KbUpdate {
         }
 
         $boundparams = @{
-            Architecture = $Architecture
-            Product      = $PSBoundParameters.Product
-            Language     = $PSBoundParameters.Language
-            Source       = $Source
+            OperatingSystem = $OperatingSystem
+            Architecture    = $Architecture
+            Product         = $PSBoundParameters.Product
+            Language        = $PSBoundParameters.Language
+            Source          = $Source
         }
 
         foreach ($kb in $Pattern) {
-            if ($Latest) {
-                $result = $null
-                if ($Source -contains "Wsus") {
-                    $result = Get-KbItemFromWsusApi $kb
-                }
-
-                if (-not $result -and $Source -contains "Database") {
-                    $result = Get-KbItemFromDb $kb
-                }
-
-                if (-not $result -and $Source -contains "Web") {
-                    $result = Get-KbItemFromWeb $kb
-                }
-                $allkbs += $result | Search-Kb @boundparams
-            } else {
-                if ($Source -contains "Wsus") {
-                    Get-KbItemFromWsusApi $kb | Search-Kb @boundparams | Select-DefaultView -Property $properties
-                }
-
-                if ($Source -contains "Database") {
-                    Get-KbItemFromDb $kb | Search-Kb @boundparams | Select-DefaultView -Property $properties
-                }
-
-                if ($Source -contains "Web") {
-                    Get-KbItemFromWeb $kb | Search-Kb @boundparams | Select-DefaultView -Property $properties
-                }
+            $results = @()
+            if ($Source -contains "Wsus") {
+                $results += Get-KbItemFromWsusApi $kb
             }
+
+            if ($Source -contains "Database") {
+                $results += Get-KbItemFromDb $kb
+            }
+
+            if ($Source -contains "Web") {
+                $results += Get-KbItemFromWeb $kb
+            }
+            $allkbs += $results
         }
     }
     end {
         # I'm not super awesome with the pipeline, and am open to suggestions if this is not the best way
         if ($Latest -and $allkbs) {
-            $allkbs | Select-KbLatest | Select-DefaultView -Property $properties
+            $allkbs | Search-Kb @boundparams | Select-KbLatest | Select-DefaultView -Property $properties
+        } else {
+            $allkbs | Search-Kb @boundparams | Select-DefaultView -Property $properties
         }
     }
 }

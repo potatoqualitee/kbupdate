@@ -17,9 +17,12 @@ function Search-Kb {
     process {
         if (-not $OperatingSystem -and -not $Architecture -and -not $Product -and -not $Language -and -not $script:ConnectedWsus) {
             return $InputObject
+        } else {
+            $allobjects += $InputObject
         }
-
-        foreach ($object in $InputObject) {
+    }
+    end {
+        foreach ($object in $allobjects) {
             if ($script:ConnectedWsus -and $Source -contains "WSUS") {
                 if ($object.Id) {
                     $result = Get-PSWSUSUpdate -Update $object.Id | Select-Object -First 1
@@ -36,22 +39,34 @@ function Search-Kb {
 
             if ($OperatingSystem) {
                 $match = @()
+                $allmatch = @()
+                foreach ($os in $OperatingSystem) {
+                    $allmatch += $allobjects | Where-Object SupportedProducts -match $os.Replace(' ', '.*')
+                    $allmatch += $allobjects | Where-Object Title -match $os.Replace(' ', '.*')
+                }
+
                 foreach ($os in $OperatingSystem) {
                     $match += $object | Where-Object SupportedProducts -match $os.Replace(' ', '.*')
                     $match += $object | Where-Object Title -match $os.Replace(' ', '.*')
                 }
-                if (-not $match) {
+                if (-not $match -and $allmatch) {
                     continue
                 }
             }
 
             if ($Product) {
                 $match = @()
+                $allmatch = @()
+                foreach ($os in $OperatingSystem) {
+                    $allmatch += $allobjects | Where-Object SupportedProducts -match $os.Replace(' ', '.*')
+                    $allmatch += $allobjects | Where-Object Title -match $os.Replace(' ', '.*')
+                }
+
                 foreach ($item in $Product) {
                     $match += $object | Where-Object SupportedProducts -match $item.Replace(' ', '.*')
                     $match += $object | Where-Object Title -match $item.Replace(' ', '.*')
                 }
-                if (-not $match) {
+                if (-not $match -and $allmatch) {
                     continue
                 }
             }
@@ -66,7 +81,6 @@ function Search-Kb {
                     if ($object.Link -match '-.._' -or $object.Link -match "-$($code)_" -or (($object.Language -match '_' -and $object.Language -match $shortname) -or $object.Title -match $shortname -or $object.Description -match $shortname)) {
                         $languagespecific = $true
                     }
-
                 }
 
                 if ($languagespecific) {

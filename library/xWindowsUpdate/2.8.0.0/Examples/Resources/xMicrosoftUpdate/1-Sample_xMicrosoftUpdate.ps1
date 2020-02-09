@@ -1,7 +1,7 @@
 ﻿<#
     .EXAMPLE
     Enables Mircosoft Update on Server1, Server2 and Server3
-#>    
+#>
 
 Configuration Example
 {
@@ -9,8 +9,7 @@ Configuration Example
 
     Node localhost
     {
-        xMicrosoftUpdate "EnableMSUpdate"
-        {
+        xMicrosoftUpdate "EnableMSUpdate" {
             Ensure = "Present"
         }
     }

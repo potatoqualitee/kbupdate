@@ -262,6 +262,3 @@ function Add-Kb {
         }
     }
 }
-
-
-
