@@ -340,7 +340,7 @@ function Get-KbUpdate {
 
 
                 if ($guids.Count -gt 2 -and -not $NoMultithreading) {
-                    $downloaddialogs = $guids | Invoke-Parallel -ImportVariables -ImportFunctions -ScriptBlock $scriptblock -ErrorAction Stop -RunspaceTimeout 30
+                    $downloaddialogs = $guids | Invoke-Parallel -ImportVariables -ImportFunctions -ScriptBlock $scriptblock -ErrorAction Stop -RunspaceTimeout 60
                 } else {
                     $downloaddialogs = $guids | ForEach-Object -Process $scriptblock
                 }
@@ -611,14 +611,14 @@ function Get-KbUpdate {
                 $allkbs += $result | Search-Kb @boundparams
             } else {
                 if ($Source -contains "Wsus") {
-                    Get-KbItemFromWsusApi $kb -OutVariable result | Search-Kb @boundparams | Select-DefaultView -Property $properties
+                    Get-KbItemFromWsusApi $kb | Search-Kb @boundparams | Select-DefaultView -Property $properties
                 }
 
-                if (-not $result -and $Source -contains "Database") {
-                    Get-KbItemFromDb $kb -OutVariable result | Search-Kb @boundparams | Select-DefaultView -Property $properties
+                if ($Source -contains "Database") {
+                    Get-KbItemFromDb $kb | Search-Kb @boundparams | Select-DefaultView -Property $properties
                 }
 
-                if (-not $result -and $Source -contains "Web") {
+                if ($Source -contains "Web") {
                     Get-KbItemFromWeb $kb | Search-Kb @boundparams | Select-DefaultView -Property $properties
                 }
             }
