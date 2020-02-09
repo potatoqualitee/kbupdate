@@ -35,6 +35,9 @@ function Get-KbUpdate {
     .PARAMETER Latest
         Filters out any patches that have been superseded by other patches in the batch
 
+    .PARAMETER Force
+        When using Latest, the Web is required to get the freshest data unless Force is used.
+
     .PARAMETER Simple
         A lil faster. Returns, at the very least: Title, Architecture, Language, UpdateId and Link
 
@@ -107,6 +110,7 @@ function Get-KbUpdate {
         [string[]]$Language,
         [switch]$Simple,
         [switch]$Latest,
+        [switch]$Force,
         [switch]$NoMultithreading,
         [ValidateSet("Wsus", "Web", "Database")]
         [string[]]$Source = @("Web", "Database"),
@@ -531,7 +535,7 @@ function Get-KbUpdate {
             $Simple = $false
         }
 
-        if ($Latest -and $PSBoundParameters.Source -and $Source -contains "Database") {
+        if ($Latest -and $PSBoundParameters.Source -and $Source -contains "Database" -and -not $Force) {
             Write-PSFMessage -Level Warning -Message "Source is ignored when Latest is specified, as latest requires the freshest data"
             $PSBoundParameters.Source = $null
             $Source = "Web"
