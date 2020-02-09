@@ -132,6 +132,12 @@ function Uninstall-KbUpdate {
                 -2068643839 {
                     $output = "$output`n`nThe exit code suggests that you need to mount the SQL Server ISO so the uninstaller can find the setup files."
                 }
+                -2068709375 {
+                    $output = "$output`n`nYou likely need to reboot $env:ComputerName."
+                }
+                -2067919934 {
+                    $output = "$output`n`nThe exit code suggests that something is corrupt. See if this tutorial helps:  http://www.sqlcoffee.com/Tips0026.htm"
+                }
                 3010 {
                     $output = "You have successfully uninstalled $Name. A restart is now required to finalize the uninstall."
                 }

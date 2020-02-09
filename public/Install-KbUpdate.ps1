@@ -304,6 +304,9 @@ function Install-KbUpdate {
                                 { $message -match "2042429437" } {
                                     throw "Error -2042429437. Configuration is likely not correct. The requested features may not be installed or features are already at a higher patch level."
                                 }
+                                { $message -match "2068709375" } {
+                                    throw "Error -2068709375. The exit code suggests that something is corrupt. See if this tutorial helps:  http://www.sqlcoffee.com/Tips0026.htm"
+                                }
                                 { $message -match "2067919934" } {
                                     throw "Error -2067919934 You likely need to reboot $env:ComputerName."
                                 }
