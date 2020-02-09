@@ -6,6 +6,8 @@ function Uninstall-KbUpdate {
     .DESCRIPTION
         Uninstalls KB updates on Windows-based systems
 
+        Note that sometimes, an uninstall will leave registry entries and Get-KbInstalledUpdate will report the product is installed. This is the behavior of some patches and happens even when using the Windows uninstall GUI.
+
     .PARAMETER ComputerName
         Used to connect to a remote host
 
