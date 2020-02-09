@@ -318,7 +318,6 @@ function Get-KbUpdate {
             try {
                 $guids = Get-GuidsFromWeb -kb $kb
 
-
                 foreach ($item in $guids) {
                     $guid = $item.Guid
                     $itemtitle = $item.Title
@@ -612,11 +611,11 @@ function Get-KbUpdate {
                 $allkbs += $result | Search-Kb @boundparams
             } else {
                 if ($Source -contains "Wsus") {
-                    Get-KbItemFromWsusApi $kb | Search-Kb @boundparams | Select-DefaultView -Property $properties
+                    Get-KbItemFromWsusApi $kb -OutVariable result | Search-Kb @boundparams | Select-DefaultView -Property $properties
                 }
 
                 if (-not $result -and $Source -contains "Database") {
-                    Get-KbItemFromDb $kb | Search-Kb @boundparams | Select-DefaultView -Property $properties
+                    Get-KbItemFromDb $kb -OutVariable result | Search-Kb @boundparams | Select-DefaultView -Property $properties
                 }
 
                 if (-not $result -and $Source -contains "Web") {
