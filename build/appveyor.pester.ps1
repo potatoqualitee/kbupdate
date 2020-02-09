@@ -33,6 +33,3 @@ param (
 )
 
 & "$($ModuleBase)\tests\Pester.ps1"
-
-
-

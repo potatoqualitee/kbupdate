@@ -235,6 +235,3 @@ function Save-KbUpdate {
         }
     }
 }
-
-
-

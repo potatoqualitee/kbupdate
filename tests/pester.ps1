@@ -56,6 +56,3 @@ $testresults | Sort-Object Describe, Context, Name, Result, Message | Format-Lis
 if ($totalFailed -gt 0) {
     throw "$totalFailed / $totalRun tests failed"
 }
-
-
-

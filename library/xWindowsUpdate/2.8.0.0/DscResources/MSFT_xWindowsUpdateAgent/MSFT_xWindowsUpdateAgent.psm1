@@ -1,22 +1,20 @@
 Set-StrictMode -Version latest
 $script:WuaSearchString = 'IsAssigned=1 and IsHidden=0 and IsInstalled=0'
-function Get-WuaServiceManager
-{
+function Get-WuaServiceManager {
     return (New-Object -ComObject Microsoft.Update.ServiceManager)
 }
 
-function Add-WuaService
-{
+function Add-WuaService {
     param(
-    [Parameter(Mandatory=$true)]
-    [string]
-    $ServiceId,
+        [Parameter(Mandatory = $true)]
+        [string]
+        $ServiceId,
 
-    [int]
-    $Flags = 7,
+        [int]
+        $Flags = 7,
 
-    [string]
-    $AuthorizationCabPath = [string]::Empty
+        [string]
+        $AuthorizationCabPath = [string]::Empty
 
     )
 
@@ -24,20 +22,18 @@ function Add-WuaService
     $wuaServiceManager.AddService2($ServiceId, $Flags, $AuthorizationCabPath)
 }
 
-function Remove-WuaService
-{
+function Remove-WuaService {
     param(
-    [Parameter(Mandatory=$true)]
-    [string]
-    $ServiceId
+        [Parameter(Mandatory = $true)]
+        [string]
+        $ServiceId
     )
 
     $wuaServiceManager = Get-WuaServiceManager
     $wuaServiceManager.RemoveService($ServiceId)
 }
 
-function Get-WuaSearchString
-{
+function Get-WuaSearchString {
     param(
         [switch]
         $security,
@@ -57,8 +53,7 @@ function Get-WuaSearchString
     #>
     # security and optional and important
     # not security and optional and important
-    if($optional -and $important)
-    {
+    if ($optional -and $important) {
         # Installing everything not hidden and not already installed
         return 'IsHidden=0 and IsInstalled=0'
     }
@@ -68,12 +63,11 @@ function Get-WuaSearchString
         return "(IsAssigned=0 and IsHidden=0 and IsInstalled=0) or (CategoryIds contains $securityCategoryId and IsHidden=0 and IsInstalled=0)"
     }
     # security and not optional and important
-    elseif($security -and $important ){
+    elseif ($security -and $important ) {
         # Installing everything not hidden,
         # not optional (optional are not assigned) and not already installed
         return 'IsAssigned=1 and IsHidden=0 and IsInstalled=0'
-    }
-    elseif ($optional -and $important) {
+    } elseif ($optional -and $important) {
         # Installing everything not hidden,
         # not optional (optional are not assigned) and not already installed
         return 'IsHidden=0 and IsInstalled=0'
@@ -107,13 +101,11 @@ function Get-WuaSearchString
 
 }
 
-function Get-WuaAu
-{
+function Get-WuaAu {
     return (New-Object -ComObject 'Microsoft.Update.AutoUpdate')
 }
 
-function Get-WuaAuSettings
-{
+function Get-WuaAuSettings {
     return (Get-WuaAu).Settings
 }
 
@@ -121,17 +113,14 @@ function Get-WuaWrapper {
     param(
         [ScriptBlock] $tryBlock,
         [object[]] $argumentList,
-        [Parameter(ParameterSetName='OneValue')]
+        [Parameter(ParameterSetName = 'OneValue')]
         [object] $ExceptionReturnValue = $null
     )
 
     try {
         return Invoke-Command -ScriptBlock $tryBlock -NoNewScope -ArgumentList $argumentList
-    }
-    catch [System.Runtime.InteropServices.COMException]
-    {
-        switch($_.Exception.HResult)
-        {
+    } catch [System.Runtime.InteropServices.COMException] {
+        switch ($_.Exception.HResult) {
             # 0x8024001e    -2145124322    WU_E_SERVICE_STOP    Operation did not complete because the service or system was being shut down.    wuerror.h
             -2145124322 {
                 Write-Warning 'Got an error that WU service is stopping.  Handling the error.'
@@ -162,8 +151,7 @@ function Get-WuaWrapper {
     }
 }
 
-function Get-WuaAuNotificationLevel
-{
+function Get-WuaAuNotificationLevel {
     return Get-WuaWrapper -tryBlock {
         switch ((Get-WuaAuSettings).NotificationLevel) {
             0 { return 'Not Configured' }
@@ -171,15 +159,14 @@ function Get-WuaAuNotificationLevel
             2 { return 'Notify before download' }
             3 { return 'Notify before installation' }
             4 { return 'Scheduled installation' }
-            default { return 'Reserved'}
+            default { return 'Reserved' }
         }
     } -ExceptionReturnValue [string]::Empty
 }
 
-function Invoke-WuaDownloadUpdates
-{
+function Invoke-WuaDownloadUpdates {
     param(
-        [Parameter(Mandatory=$true)]
+        [Parameter(Mandatory = $true)]
         [ValidateNotNullOrEmpty()]
         [object] $UpdateCollection
     )
@@ -191,10 +178,9 @@ function Invoke-WuaDownloadUpdates
     $downloadResult = $downloader.Download()
 }
 
-function Invoke-WuaInstallUpdates
-{
+function Invoke-WuaInstallUpdates {
     param(
-        [Parameter(Mandatory=$true)]
+        [Parameter(Mandatory = $true)]
         [ValidateNotNullOrEmpty()]
         [object] $UpdateCollection
     )
@@ -206,10 +192,9 @@ function Invoke-WuaInstallUpdates
     $installResult = $installer.Install()
 }
 
-function Set-WuaAuNotificationLevel
-{
+function Set-WuaAuNotificationLevel {
     param(
-        [ValidateSet('Not Configured','Disabled','Notify before download','Notify before installation','Scheduled installation','ScheduledInstallation')]
+        [ValidateSet('Not Configured', 'Disabled', 'Notify before download', 'Notify before installation', 'Scheduled installation', 'ScheduledInstallation')]
         [string]
         $notificationLevel
     )
@@ -222,11 +207,11 @@ function Set-WuaAuNotificationLevel
 
 function Get-WuaAuNotificationLevelInt {
     param(
-        [ValidateSet('Not Configured','Disabled','Notify before download','Notify before installation','Scheduled installation','ScheduledInstallation')]
+        [ValidateSet('Not Configured', 'Disabled', 'Notify before download', 'Notify before installation', 'Scheduled installation', 'ScheduledInstallation')]
         [string]
         $notificationLevel
     )
-    $intNotificationLevel =0
+    $intNotificationLevel = 0
 
     switch -Regex ($notificationLevel) {
         '^Not\s*Configured$' { $intNotificationLevel = 0 }
@@ -234,19 +219,17 @@ function Get-WuaAuNotificationLevelInt {
         '^Notify\s*before\s*download$' { $intNotificationLevel = 2 }
         '^Notify\s*before\s*installation$' { $intNotificationLevel = 3 }
         '^Scheduled\s*installation$' { $intNotificationLevel = 4 }
-        default { throw 'Invalid notification level'}
+        default { throw 'Invalid notification level' }
     }
 
     return $intNotificationLevel
 }
 
-function Get-WuaSystemInfo
-{
+function Get-WuaSystemInfo {
     return (New-Object -ComObject 'Microsoft.Update.SystemInfo')
 }
 
-function Get-WuaRebootRequired
-{
+function Get-WuaRebootRequired {
     return Get-WuaWrapper -tryBlock {
         Write-Verbose -Message 'TryGet RebootRequired...' -Verbose
         $rebootRequired = (Get-WuaSystemInfo).rebootRequired
@@ -255,35 +238,31 @@ function Get-WuaRebootRequired
     } -ExceptionReturnValue $true
 
 }
-function Get-WuaSession
-{
+function Get-WuaSession {
     return (New-Object -ComObject 'Microsoft.Update.Session')
 }
 
-function get-WuaSearcher
-{
-    [cmdletbinding(DefaultParameterSetName='category')]
+function get-WuaSearcher {
+    [cmdletbinding(DefaultParameterSetName = 'category')]
     param(
         [parameter(Mandatory = $true, ParameterSetName = 'searchString')]
         [System.String]
         $SearchString,
 
         [parameter(ParameterSetName = 'category')]
-        [ValidateSet("Security","Important","Optional")]
+        [ValidateSet("Security", "Important", "Optional")]
         [AllowEmptyCollection()]
         [AllowNull()]
         [System.String[]]
-        $Category= @('Security')
+        $Category = @('Security')
 
     )
 
     $memberSearchString = $SearchString
-    if($PSCmdlet.ParameterSetName -eq 'category')
-    {
-        $searchStringParams = @{}
-        foreach($CategoryItem in $Category)
-        {
-            $searchStringParams[$CategoryItem]=$true
+    if ($PSCmdlet.ParameterSetName -eq 'category') {
+        $searchStringParams = @{ }
+        foreach ($CategoryItem in $Category) {
+            $searchStringParams[$CategoryItem] = $true
         }
         $memberSearchString = (Get-WuaSearchString @searchStringParams)
     }
@@ -299,8 +278,7 @@ function get-WuaSearcher
     } -argumentList @($memberSearchString)
 }
 
-function Test-SearchResult
-{
+function Test-SearchResult {
     [CmdletBinding()]
     [OutputType([bool])]
     param
@@ -311,21 +289,18 @@ function Test-SearchResult
         $SearchResult
     )
 
-    if(!(@($SearchResult | get-member |Select-Object -ExpandProperty Name) -contains 'Updates'))
-    {
+    if (!(@($SearchResult | get-member | Select-Object -ExpandProperty Name) -contains 'Updates')) {
         Write-Verbose 'Did not find updates on SearchResult'
         return $false
     }
-    if(!(@(Get-Member -InputObject $SearchResult.Updates |Select-Object -ExpandProperty Name) -contains 'Count'))
-    {
+    if (!(@(Get-Member -InputObject $SearchResult.Updates | Select-Object -ExpandProperty Name) -contains 'Count')) {
         Write-Verbose 'Did not find count on updates on SearchResult'
         return $false
     }
     return $true
 }
 
-function Get-TargetResource
-{
+function Get-TargetResource {
     [CmdletBinding()]
     [OutputType([System.Collections.Hashtable])]
     param
@@ -335,18 +310,18 @@ function Get-TargetResource
         [System.String]
         $IsSingleInstance,
 
-        [ValidateSet("Security","Important","Optional")]
+        [ValidateSet("Security", "Important", "Optional")]
         [AllowEmptyCollection()]
         [AllowNull()]
         [System.String[]]
-        $Category= @('Security'),
+        $Category = @('Security'),
 
-        [ValidateSet("Disabled","ScheduledInstallation")]
+        [ValidateSet("Disabled", "ScheduledInstallation")]
         [System.String]
         $Notifications,
 
         [parameter(Mandatory = $true)]
-        [ValidateSet("WindowsUpdate","MicrosoftUpdate","WSUS")]
+        [ValidateSet("WindowsUpdate", "MicrosoftUpdate", "WSUS")]
         [System.String]
         $Source,
 
@@ -358,18 +333,15 @@ function Get-TargetResource
     $totalUpdatesNotInstalled = $null
     $UpdateNowReturn = $null
     $rebootRequired = $null
-    if($UpdateNow)
-    {
+    if ($UpdateNow) {
         $rebootRequired = Get-WuaRebootRequired
         $SearchResult = (get-WuaSearcher -Category $Category)
         $totalUpdatesNotInstalled = 0
-        if($SearchResult -and (Test-SearchResult -SearchResult $SearchResult))
-        {
+        if ($SearchResult -and (Test-SearchResult -SearchResult $SearchResult)) {
             $totalUpdatesNotInstalled = $SearchResult.Updates.Count
         }
         $UpdateNowReturn = $false
-        if($totalUpdatesNotInstalled -eq 0 -and !$rebootRequired)
-        {
+        if ($totalUpdatesNotInstalled -eq 0 -and !$rebootRequired) {
             $UpdateNowReturn = $true
         }
     }
@@ -382,35 +354,32 @@ function Get-TargetResource
     $SourceReturn = 'WindowsUpdate'
     $UpdateServices = (Get-WuaServiceManager).Services
     #Check if the microsoft update service is registered
-    $defaultService = @($UpdateServices).where{$_.IsDefaultAuService}
+    $defaultService = @($UpdateServices).where{ $_.IsDefaultAuService }
     Write-Verbose -Message "Get default search service: $($defaultService.ServiceId)"
-    if($defaultService.ServiceId -eq '7971f918-a847-4430-9279-4a52d1efe18d')
-    {
+    if ($defaultService.ServiceId -eq '7971f918-a847-4430-9279-4a52d1efe18d') {
         $SourceReturn = 'MicrosoftUpdate'
-    }
-    elseif ($defaultService.IsManaged) {
+    } elseif ($defaultService.IsManaged) {
         $SourceReturn = 'WSUS'
     }
 
     $returnValue = @{
-                        IsSingleInstance = 'Yes'
-                        Category = $CategoryReturn
-                        AutomaticUpdatesNotificationSetting = $notificationLevel
-                        TotalUpdatesNotInstalled = $totalUpdatesNotInstalled
-                        RebootRequired = $rebootRequired
-                        Notifications = $notificationLevel
-                        Source = $SourceReturn
-                        UpdateNow = $UpdateNowReturn
-                    }
+        IsSingleInstance                    = 'Yes'
+        Category                            = $CategoryReturn
+        AutomaticUpdatesNotificationSetting = $notificationLevel
+        TotalUpdatesNotInstalled            = $totalUpdatesNotInstalled
+        RebootRequired                      = $rebootRequired
+        Notifications                       = $notificationLevel
+        Source                              = $SourceReturn
+        UpdateNow                           = $UpdateNowReturn
+    }
     $returnValue
 }
 
 
-function Set-TargetResource
-{
+function Set-TargetResource {
     # should be [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSAvoidGlobalVars", "DSCMachineStatus")], but it doesn't work
     [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSAvoidGlobalVars", "")]
-    [CmdletBinding(SupportsShouldProcess=$true)]
+    [CmdletBinding(SupportsShouldProcess = $true)]
     param
     (
         [parameter(Mandatory = $true)]
@@ -418,16 +387,16 @@ function Set-TargetResource
         [System.String]
         $IsSingleInstance,
 
-        [ValidateSet("Security","Important","Optional")]
+        [ValidateSet("Security", "Important", "Optional")]
         [System.String[]]
-        $Category= @('Security'),
+        $Category = @('Security'),
 
-        [ValidateSet("Disabled","ScheduledInstallation")]
+        [ValidateSet("Disabled", "ScheduledInstallation")]
         [System.String]
         $Notifications,
 
         [parameter(Mandatory = $true)]
-        [ValidateSet("WindowsUpdate","MicrosoftUpdate","WSUS")]
+        [ValidateSet("WindowsUpdate", "MicrosoftUpdate", "WSUS")]
         [System.String]
         $Source,
 
@@ -446,75 +415,60 @@ function Set-TargetResource
     $SourceCompliant = (!$Source -or $Source -eq $Get.Source)
     Write-Verbose "service compliant: $SourceCompliant"
 
-            If(!$updateCompliant -and $PSCmdlet.ShouldProcess("Install Updates"))
-            {
-                $SearchResult = (get-WuaSearcher -Category $Category)
-                if($SearchResult -and $SearchResult.Updates.Count -gt 0)
-                {
-                    Write-Verbose -Verbose -Message 'Installing updates...'
-                    #Write Results
-                    foreach($update in $SearchResult.Updates)
-                    {
-                        $title = $update.Title
-                        Write-Verbose -Message "Found update: $Title" -Verbose
-                    }
-
-                    Invoke-WuaDownloadUpdates -UpdateCollection $SearchResult.Updates
-
-                    Invoke-WuaInstallUpdates -UpdateCollection $SearchResult.Updates
-
-
-                }
-                else
-                {
-                    Write-Verbose -Verbose -Message 'No updates'
-                }
-                Write-Verbose -Verbose -Message 'Checking for a reboot...'
-                $rebootRequired = (Get-WuaRebootRequired)
-                if($rebootRequired)
-                {
-                    Write-Verbose -Verbose -Message 'A reboot was required'
-                    $global:DSCMachineStatus = 1
-                }
-                else {
-                    Write-Verbose -Verbose -Message 'A reboot was NOT required'
-                }
+    If (!$updateCompliant -and $PSCmdlet.ShouldProcess("Install Updates")) {
+        $SearchResult = (get-WuaSearcher -Category $Category)
+        if ($SearchResult -and $SearchResult.Updates.Count -gt 0) {
+            Write-Verbose -Verbose -Message 'Installing updates...'
+            #Write Results
+            foreach ($update in $SearchResult.Updates) {
+                $title = $update.Title
+                Write-Verbose -Message "Found update: $Title" -Verbose
             }
 
-            If(!$notificationCompliant -and $PSCmdlet.ShouldProcess("Set notifications to: $notifications"))
-            {
-                Try
-                {
-                    #TODO verify that group policy is not overriding this settings
-                    # if it is throw an error, if it conflicts
-                    Set-WuaAuNotificationLevel -notificationLevel $Notifications
-                }
-                Catch
-                {
-                    $ErrorMsg = $_.Exception.Message
-                    Write-Verbose $ErrorMsg
-                }
-            }
+            Invoke-WuaDownloadUpdates -UpdateCollection $SearchResult.Updates
 
-            If(!$SourceCompliant )
-            {
-                if($Source -eq 'MicrosoftUpdate' -and $PSCmdlet.ShouldProcess("Enable Microsoft Update Service"))
-                {
-                    Write-Verbose "Enable the Microsoft Update setting"
-                    Add-WuaService -ServiceId '7971f918-a847-4430-9279-4a52d1efe18d'
-                    Restart-Service wuauserv -ErrorAction SilentlyContinue
-                }
-                elseif($PSCmdlet.ShouldProcess("Disable Microsoft Update Service")) {
-                    Write-Verbose "Disable the Microsoft Update setting"
-                    Remove-WuaService -ServiceId '7971f918-a847-4430-9279-4a52d1efe18d'
-                }
+            Invoke-WuaInstallUpdates -UpdateCollection $SearchResult.Updates
 
-            }
+
+        } else {
+            Write-Verbose -Verbose -Message 'No updates'
+        }
+        Write-Verbose -Verbose -Message 'Checking for a reboot...'
+        $rebootRequired = (Get-WuaRebootRequired)
+        if ($rebootRequired) {
+            Write-Verbose -Verbose -Message 'A reboot was required'
+            $global:DSCMachineStatus = 1
+        } else {
+            Write-Verbose -Verbose -Message 'A reboot was NOT required'
+        }
+    }
+
+    If (!$notificationCompliant -and $PSCmdlet.ShouldProcess("Set notifications to: $notifications")) {
+        Try {
+            #TODO verify that group policy is not overriding this settings
+            # if it is throw an error, if it conflicts
+            Set-WuaAuNotificationLevel -notificationLevel $Notifications
+        } Catch {
+            $ErrorMsg = $_.Exception.Message
+            Write-Verbose $ErrorMsg
+        }
+    }
+
+    If (!$SourceCompliant ) {
+        if ($Source -eq 'MicrosoftUpdate' -and $PSCmdlet.ShouldProcess("Enable Microsoft Update Service")) {
+            Write-Verbose "Enable the Microsoft Update setting"
+            Add-WuaService -ServiceId '7971f918-a847-4430-9279-4a52d1efe18d'
+            Restart-Service wuauserv -ErrorAction SilentlyContinue
+        } elseif ($PSCmdlet.ShouldProcess("Disable Microsoft Update Service")) {
+            Write-Verbose "Disable the Microsoft Update setting"
+            Remove-WuaService -ServiceId '7971f918-a847-4430-9279-4a52d1efe18d'
+        }
+
+    }
 }
 
 
-function Test-TargetResource
-{
+function Test-TargetResource {
     [CmdletBinding()]
     [OutputType([System.Boolean])]
     param
@@ -524,16 +478,16 @@ function Test-TargetResource
         [System.String]
         $IsSingleInstance,
 
-        [ValidateSet("Security","Important","Optional")]
+        [ValidateSet("Security", "Important", "Optional")]
         [System.String[]]
-        $Category= @('Security'),
+        $Category = @('Security'),
 
-        [ValidateSet("Disabled","ScheduledInstallation")]
+        [ValidateSet("Disabled", "ScheduledInstallation")]
         [System.String]
         $Notifications,
 
         [parameter(Mandatory = $true)]
-        [ValidateSet("WindowsUpdate","MicrosoftUpdate","WSUS")]
+        [ValidateSet("WindowsUpdate", "MicrosoftUpdate", "WSUS")]
         [System.String]
         $Source,
 
@@ -551,18 +505,14 @@ function Test-TargetResource
     Write-Verbose "notifications compliant: $notificationCompliant"
     $SourceCompliant = (!$Source -or $Source -eq $Get.Source)
     Write-Verbose "service compliant: $SourceCompliant"
-    If($updateCompliant -and $notificationCompliant -and $SourceCompliant)
-    {
+    If ($updateCompliant -and $notificationCompliant -and $SourceCompliant) {
         return $true
-    }
-    Else
-    {
+    } Else {
         return $false
     }
 }
 
-function Test-TargetResourceProperties
-{
+function Test-TargetResourceProperties {
     param
     (
         [parameter(Mandatory = $true)]
@@ -570,43 +520,38 @@ function Test-TargetResourceProperties
         [System.String]
         $IsSingleInstance,
 
-        [ValidateSet("Security","Important","Optional")]
+        [ValidateSet("Security", "Important", "Optional")]
         [AllowEmptyCollection()]
         [AllowNull()]
         [System.String[]]
         $Category,
 
-        [ValidateSet("Disabled","ScheduledInstallation")]
+        [ValidateSet("Disabled", "ScheduledInstallation")]
         [System.String]
         $Notifications,
 
         [parameter(Mandatory = $true)]
-        [ValidateSet("WindowsUpdate","MicrosoftUpdate","WSUS")]
+        [ValidateSet("WindowsUpdate", "MicrosoftUpdate", "WSUS")]
         [System.String]
         $Source,
 
         [bool]
         $UpdateNow
     )
-    $searchStringParams = @{}
-    foreach($CategoryItem in $Category)
-    {
-        $searchStringParams[$CategoryItem.ToLowerInvariant()]=$true
+    $searchStringParams = @{ }
+    foreach ($CategoryItem in $Category) {
+        $searchStringParams[$CategoryItem.ToLowerInvariant()] = $true
     }
 
-    if($UpdateNow -and (!$Category -or $Category.Count -eq 0))
-    {
+    if ($UpdateNow -and (!$Category -or $Category.Count -eq 0)) {
         Write-Warning 'Defaulting to updating to security updates only.  Please specify Category to avoid this warning.'
-    }
-    elseif ($searchStringParams.ContainsKey('important') -and !$searchStringParams.ContainsKey('security') ) {
+    } elseif ($searchStringParams.ContainsKey('important') -and !$searchStringParams.ContainsKey('security') ) {
         Write-Warning "Important updates will include security updates.  Please include Security in category to avoid this warning."
-    }
-    elseif ($searchStringParams.ContainsKey('optional') -and !$searchStringParams.ContainsKey('security') ) {
+    } elseif ($searchStringParams.ContainsKey('optional') -and !$searchStringParams.ContainsKey('security') ) {
         Write-Verbose "Optional updates may include security updates."
     }
 
-    if($Source -eq 'WSUS')
-    {
+    if ($Source -eq 'WSUS') {
         throw 'The WSUS service option is not implemented.'
     }
 }
