@@ -1,0 +1,45 @@
+PoshWSUS 2.3.1.2 Release Notes
+Last Updated: 
+
+
+-------------
+|MISC Updates|
+-------------
+* Updated Type and Format files
+* Changed Global scope WSUS variable to Script
+* Added Script scope _wsusconfig variable
+
+-------------------
+|Updated Functions|
+-------------------
+Get-PSWSUSUpdateApproval
+Disconnect-PSWSUSServer
+Connect-PSWSUSServer
+Disconnect-PSWSUSServer
+Get-PSWSUSConfigEnabledUpdateLanguages
+Get-PSWSUSConfigSupportedUpdateLanguages
+Get-PSWSUSConfigUpdateFiles
+Get-PSWSUSConfigUpdateSource
+Set-PSWSUSConfigEnabledUpdateLanguages
+Set-PSWSUSConfigTargetingMode
+Set-PSWSUSConfigUpdateFiles
+Set-PSWSUSConfigUpdateSource
+Get-PSWSUSClientGroupMembership
+Get-PSWSUSCommand
+Get-PSWSUSEvent
+Get-PSWSUSSyncHistory
+Resume-PSWSUSUpdateDownload
+Remove-PSWSUSClientFromGroup
+Remove-PSWSUSClient
+Add-PSWSUSClientToGroup
+Get-PSWSUSClientPerUpdate
+
+---------------
+|New Functions|
+---------------
+
+-------------------
+|Removed Functions|
+-------------------
+Get-PSWSUSSyncEvent
+Resume-PSWSUSDownload

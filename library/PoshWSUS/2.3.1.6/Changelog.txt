@@ -1,0 +1,3 @@
+2.3.1.2-01
+* fixed $wsus.DeleteUpdate($guid)
+-- JUB, 2017-06-15 14:50:29 W. Europe Daylight Time
