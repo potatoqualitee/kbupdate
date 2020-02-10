@@ -1,0 +1,17 @@
+name: CI
+on: [pull_request]
+
+jobs:
+  build:
+    name: Module imports on all platforms
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macOS-latest]
+
+    steps:
+    - uses: actions/checkout@v1
+    - name: Perform the import
+      shell: pwsh
+      run: Import-Module ./kbupdate.psd1 -ErrorAction Stop; (Get-KbUpdate -Name KB2992080 -Source Web).Title -ne $null
