@@ -59,8 +59,17 @@ function Connect-KbWsusServer {
         [switch]$EnableException
     )
     begin {
+        If ($IsLinux -or $IsMacOs) {
+            Stop-Function -EnableException:$EnableException -Message "Linux and Mac not supported"
+            return
+        }
+        try {
+            Import-Module -Name PoshWSUS -ErrorAction Stop
+        } catch {
+            Import-Module "$script:ModuleRoot\library\PoshWSUS"
+        }
+
         # load the DLLs, does not load properly by default
-        Import-Module -Name PoshWSUS
         $path = Split-Path -Path (Get-Module -Name PoshWSUS).Path
         $arch = "$env:PROCESSOR_ARCHITECTURE".Replace("AMD", "")
         $dir = "$path\Libraries\x$($arch)"

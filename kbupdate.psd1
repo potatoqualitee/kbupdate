@@ -32,8 +32,7 @@
         # load up everything in Windows
         @{ ModuleName = 'PSFramework'; ModuleVersion = '1.0.19' },
         @{ ModuleName = 'kbupdate-library'; ModuleVersion = '1.0.20' },
-        @{ ModuleName = 'PSSQLite'; ModuleVersion = '1.0.3' },
-        @{ ModuleName = 'PoshWSUS'; ModuleVersion = '2.3.1.6' }
+        @{ ModuleName = 'PSSQLite'; ModuleVersion = '1.0.3' }
     )
 
     # Script module or binary module file associated with this manifest.
