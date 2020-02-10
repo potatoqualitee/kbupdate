@@ -7,7 +7,7 @@
 #
 @{
     # Version number of this module.
-    ModuleVersion     = '1.1.21'
+    ModuleVersion     = '1.1.22'
 
     # ID used to uniquely identify this module
     GUID              = 'f292e190-ed32-4232-b9f3-b50b42a5655f'
@@ -19,7 +19,7 @@
     CompanyName       = 'Chrissy LeMaire'
 
     # Copyright statement for this module
-    Copyright         = '2019 Chrissy LeMaire'
+    Copyright         = '2020 Chrissy LeMaire'
 
     # Description of the functionality provided by this module
     Description       = 'KB Viewer, Saver, Installer and Uninstaller'
