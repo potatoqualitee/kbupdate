@@ -60,7 +60,6 @@ function Connect-KbWsusServer {
     )
     begin {
         If ($IsLinux -or $IsMacOs) {
-            Stop-Function -EnableException:$EnableException -Message "Linux and Mac not supported"
             return
         }
         try {
