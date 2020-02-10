@@ -3,12 +3,12 @@ on: [pull_request]
 
 jobs:
   build:
-    name: Module imports on all platforms
+    name: Module imports on macOS
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, windows-latest, macOS-latest]
+        os: [macOS-latest]
 
     steps:
     - uses: actions/checkout@v1
