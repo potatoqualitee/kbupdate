@@ -41,7 +41,7 @@ Save-KbUpdate -Name KB4057119, 4057114 -Architecture x64 -Path C:\temp
 # Install KB4534273 from the \\fileshare\sql\ directory on server01
 Install-KbUpdate -ComputerName server01 -FilePath \\fileshare\sql\windows10.0-kb4532947-x64_20103b70445e230e5994dc2a89dc639cd5756a66.msu
 
-# Automatically an update, stores it in Downloads and install it from there
+# Automatically save an update, stores it in Downloads and install it from there
 Install-KbUpdate -ComputerName sql2017 -HotfixId kb4486129
 ```
 
