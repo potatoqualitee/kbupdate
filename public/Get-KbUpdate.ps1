@@ -99,7 +99,7 @@ function Get-KbUpdate {
 #>
     [CmdletBinding()]
     param(
-        [Parameter(Mandatory)]
+        [Parameter(Mandatory,ValueFromPipeline)]
         [Alias("Name", "HotfixId", "KBUpdate", "Id")]
         [string[]]$Pattern,
         [string[]]$Architecture,
@@ -128,7 +128,7 @@ function Get-KbUpdate {
             process {
                 # Join to dupe and check dupe
                 $kb = $kb.ToLower()
-                $newitems = Invoke-SqliteQuery -DataSource $script:dailydb  -Query "select *, NULL AS SupersededBy, NULL AS Supersedes, NULL AS Link from kb where UpdateId in (select UpdateId from kb where UpdateId = '$kb' or Title like '%$kb%' or Id like '%$kb%' or Description like '%$kb%' or MSRCNumber like '%$kb%')"
+                $newitems = Invoke-SqliteQuery -DataSource $script:dailydb -Query "select *, NULL AS SupersededBy, NULL AS Supersedes, NULL AS Link from kb where UpdateId in (select UpdateId from kb where UpdateId = '$kb' or Title like '%$kb%' or Id like '%$kb%' or Description like '%$kb%' or MSRCNumber like '%$kb%')"
                 if ($newitems.UpdateId) {
                     Write-PSFMessage -Level Verbose -Message "Found $([array]($newitems.UpdateId).count)  in the daily database"
                 }
@@ -143,11 +143,11 @@ function Get-KbUpdate {
                     $item
                 }
 
-                $olditems = Invoke-SqliteQuery -DataSource $script:basedb  -Query "select *, NULL AS SupersededBy, NULL AS Supersedes, NULL AS Link from kb where UpdateId in (select UpdateId from kb where UpdateId = '$kb' or Title like '%$kb%' or Id like '%$kb%' or Description like '%$kb%' or MSRCNumber like '%$kb%')" |
-                Where-Object UpdateId -notin $script:allresults
+                $olditems = Invoke-SqliteQuery -DataSource $script:basedb -Query "select *, NULL AS SupersededBy, NULL AS Supersedes, NULL AS Link from kb where UpdateId in (select UpdateId from kb where UpdateId = '$kb' or Title like '%$kb%' or Id like '%$kb%' or Description like '%$kb%' or MSRCNumber like '%$kb%')" |
+                    Where-Object UpdateId -notin $script:allresults
 
                 if ($olditems.UpdateId) {
-                    Write-PSFMessage -Level Verbose -Message "Found $([array]($olditems.UpdateId).count) in the archive database"
+                    Write-PSFMessage -Level Verbose -Message "Found $([array]($olditems.UpdateId).count) in the archive database for $kb"
                 }
 
                 foreach ($item in $olditems) {
@@ -233,8 +233,8 @@ function Get-KbUpdate {
                 Write-PSFMessage -Level Verbose -Message "Accessing $url"
                 $results = Invoke-TlsWebRequest -Uri $url
                 $kbids = $results.InputFields |
-                Where-Object { $_.type -eq 'Button' -and $_.Value -eq 'Download' } |
-                Select-Object -ExpandProperty  ID
+                    Where-Object { $_.type -eq 'Button' -and $_.Value -eq 'Download' } |
+                    Select-Object -ExpandProperty ID
             }
             if (-not $kbids) {
                 $url = "https://www.catalog.update.microsoft.com/Search.aspx?q=$kb"
@@ -242,8 +242,8 @@ function Get-KbUpdate {
                 Write-PSFMessage -Level Verbose -Message "Failing back to $url"
                 $results = Invoke-TlsWebRequest -Uri $url
                 $kbids = $results.InputFields |
-                Where-Object { $_.type -eq 'Button' -and $_.Value -eq 'Download' } |
-                Select-Object -ExpandProperty  ID
+                    Where-Object { $_.type -eq 'Button' -and $_.Value -eq 'Download' } |
+                    Select-Object -ExpandProperty ID
             }
             Write-Progress -Activity "Searching catalog for $kb" -Id 1 -Completed
 
@@ -261,8 +261,8 @@ function Get-KbUpdate {
             Write-PSFMessage -Level Verbose -Message "$kbids"
             # Thanks! https://keithga.wordpress.com/2017/05/21/new-tool-get-the-latest-windows-10-cumulative-updates/
             $resultlinks = $results.Links |
-            Where-Object ID -match '_link' |
-            Where-Object { $_.OuterHTML -match ( "(?=.*" + ( $Filter -join ")(?=.*" ) + ")" ) }
+                Where-Object ID -match '_link' |
+                Where-Object { $_.OuterHTML -match ( "(?=.*" + ( $Filter -join ")(?=.*" ) + ")" ) }
 
             # get the title too
             $guids = @()

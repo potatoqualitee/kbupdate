@@ -45,7 +45,8 @@
         'Get-KbInstalledUpdate',
         'Install-KbUpdate',
         'Uninstall-KbUpdate',
-        'Select-KbLatest'
+        'Select-KbLatest',
+        'Get-KbWSUSSCNFile'
     )
 
     PrivateData       = @{
