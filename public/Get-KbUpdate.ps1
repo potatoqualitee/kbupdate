@@ -302,7 +302,7 @@ function Get-KbUpdate {
                     default { $regex = '"\s?>\s*(\S+?)\s*<\/div>' }
                 }
 
-                $spanMatches = [regex]::Matches($span, $regex).ForEach( { $_.Groups[1].Value })
+                $spanMatches = [regex]::Matches($Text.Content, $regex).ForEach( { $_.Groups[1].Value })
                 if ($spanMatches -eq 'n/a') { $spanMatches = $null }
 
                 if ($spanMatches) {
