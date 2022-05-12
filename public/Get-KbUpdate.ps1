@@ -405,8 +405,8 @@ function Get-KbUpdate {
                         $uninstallnotes = Get-Info -Text $detaildialog -Pattern '<span id="ScopedViewHandler_labelUninstallNotes_Separator" class="labelTitle">'
                         $uninstallsteps = Get-Info -Text $detaildialog -Pattern '<span id="ScopedViewHandler_labelUninstallSteps_Separator" class="labelTitle">'
                         # Thanks @klorgas! https://github.com/potatoqualitee/kbupdate/issues/131
-                        $supersededby = Get-SuperInfo -Text $detaildialog -Pattern 'div id="supersededbyInfo'
-                        $supersedes = Get-SuperInfo -Text $detaildialog -Pattern 'div id="supersedesInfo'
+                        $supersededby = Get-SuperInfo -Text $detaildialog -Pattern '<div id="supersededbyInfo".*>'
+                        $supersedes = Get-SuperInfo -Text $detaildialog -Pattern '<div id="supersedesInfo".*>'
 
                         if ($uninstallsteps -eq "n/a") {
                             $uninstallsteps = $null
