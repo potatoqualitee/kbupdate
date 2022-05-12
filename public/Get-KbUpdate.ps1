@@ -408,7 +408,6 @@ function Get-KbUpdate {
                         $supersededby = Get-SuperInfo -Text $detaildialog -Pattern 'div id="supersededbyInfo'
                         $supersedes = Get-SuperInfo -Text $detaildialog -Pattern 'div id="supersedesInfo'
 
-                        "$supersedes" | write-warning
                         if ($uninstallsteps -eq "n/a") {
                             $uninstallsteps = $null
                         }
