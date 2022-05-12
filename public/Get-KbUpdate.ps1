@@ -18,7 +18,7 @@ function Get-KbUpdate {
         Can be x64, x86, ia64, or ARM.
 
     .PARAMETER Language
-        Specify one or more Language. Tab complete to see what's available. This is not an exact science, as the data itself is miscategorized.
+        Language selections no longer appear to be supported by Microsoft. This parameter may be removed in future versions of this functionality does not return after their recent (~Jan 2022) update.
 
     .PARAMETER OperatingSystem
         Specify one or more operating systems. Tab complete to see what's available. If anything is missing, please file an issue.
@@ -123,6 +123,11 @@ function Get-KbUpdate {
     begin {
         if ($NoMultithreading) {
             Write-PSFMessage -Level Warning -Message "Multithreading now disabled by default. This parameter will likely be removed in future versions."
+        }
+
+
+        if ($Language) {
+            Write-PSFMessage -Level Warning -Message "Language selections no longer supported by Microsoft. This parameter may be removed in future versions."
         }
 
         if ($script:ConnectedWsus -and -not $PSBoundParameters.Source) {
