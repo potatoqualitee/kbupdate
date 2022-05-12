@@ -310,9 +310,9 @@ function Get-KbUpdate {
                     default { $regex = '"\s?>\s*(\S+?)\s*<\/div>' }
                 }
 
-                #$spanMatches = [regex]::Matches($span, $regex).ForEach( { $_.Groups[1].Value })
+                $spanMatches = [regex]::Matches($span, $regex).ForEach( { $_.Groups[1].Value })
                 # Previous PR change
-                $spanMatches = [regex]::Matches($Text.Content, $regex).ForEach( { $_.Groups[1].Value })
+                #$spanMatches = [regex]::Matches($Text.Content, $regex).ForEach( { $_.Groups[1].Value })
                 if ($spanMatches -eq 'n/a') { $spanMatches = $null }
 
                 if ($spanMatches) {
@@ -389,7 +389,7 @@ function Get-KbUpdate {
                     }
 
                     if (-not $Simple) {
-                        $detaildialog = Invoke-TlsWebRequest "https://www.catalog.update.microsoft.com/ScopedViewInline.aspx?updateid$updateid"
+                        $detaildialog = Invoke-TlsWebRequest "https://www.catalog.update.microsoft.com/ScopedViewInline.aspx?updateid=$updateid"
                         $description = Get-Info -Text $detaildialog -Pattern '<span id="ScopedViewHandler_desc">'
                         $lastmodified = Get-Info -Text $detaildialog -Pattern '<span id="ScopedViewHandler_date">'
                         $size = Get-Info -Text $detaildialog -Pattern '<span id="ScopedViewHandler_size">'
