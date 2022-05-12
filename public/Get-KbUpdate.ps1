@@ -249,7 +249,7 @@ function Get-KbUpdate {
 
             if (-not $kbids) {
                 try {
-                    $null = Invoke-TlsWebRequest -Uri "https://support.microsoft.com/app/content/api/content/help/en-us/$kb"
+                    $null = Invoke-TlsWebRequest -Uri "https://support.microsoft.com/en-us/topic/$kb"
                     Stop-PSFFunction -EnableException:$EnableException -Message "Matches were found for $kb, but the results no longer exist in the catalog"
                     return
                 } catch {
@@ -379,8 +379,8 @@ function Get-KbUpdate {
                     }
 
                     if (-not $Simple) {
-                        $detaildialog = Invoke-TlsWebRequest -Uri "https://www.catalog.update.microsoft.com/ScopedViewInline.aspx?updateid=$updateid"						
-                        $description = Get-Info -Text $detaildialog -Pattern '<span id="ScopedViewHandler_desc">'						
+                        $detaildialog = Invoke-TlsWebRequest -Uri "https://www.catalog.update.microsoft.com/ScopedViewInline.aspx?updateid=$updateid"
+                        $description = Get-Info -Text $detaildialog -Pattern '<span id="ScopedViewHandler_desc">'
                         $lastmodified = Get-Info -Text $detaildialog -Pattern '<span id="ScopedViewHandler_date">'
                         $size = Get-Info -Text $detaildialog -Pattern '<span id="ScopedViewHandler_size">'
                         $classification = Get-Info -Text $detaildialog -Pattern '<span id="ScopedViewHandler_labelClassification_Separator" class="labelTitle">'
