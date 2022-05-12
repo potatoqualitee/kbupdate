@@ -195,7 +195,7 @@ function Get-KbInstalledUpdate {
                 }
             }
 
-            $allcim = Get-CimInstance -ClassName Win32_QuickFixEngineering | Sort-Object Name -Unique
+            $allcim = Get-CimInstance -ClassName Win32_QuickFixEngineering | Sort-Object HotFixID -Unique
 
             if ($pattern) {
                 $allcim = $allcim | Where-Object HotfixId -in $pattern
@@ -339,7 +339,7 @@ function Get-KbInstalledUpdate {
         try {
             foreach ($computer in $ComputerName) {
                 Invoke-PSFCommand -ComputerName $computer -Credential $Credential -ErrorAction Stop -ScriptBlock $scriptblock -ArgumentList @($Pattern), $IncludeHidden, $VerbosePreference | Sort-Object -Property Name |
-                Select-Object -Property * -ExcludeProperty PSComputerName, RunspaceId | Select-DefaultView -ExcludeProperty InstallFile
+                    Select-Object -Property * -ExcludeProperty PSComputerName, RunspaceId | Select-DefaultView -ExcludeProperty InstallFile
             }
         } catch {
             Stop-PSFFunction -EnableException:$EnableException -Message "Failure" -ErrorRecord $_ -Continue
