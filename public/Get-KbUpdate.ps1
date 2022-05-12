@@ -44,8 +44,11 @@ function Get-KbUpdate {
     .PARAMETER Source
         Search source. By default, Database is searched first, then if no matches are found, it tries finding it on the web.
 
+    .PARAMETER Multithread
+        Multithread when three or more matches are returned. This is a lot faster than the default singlethread but also a lot less reliable.
+
     .PARAMETER NoMultithreading
-        Get results one-by-one if three or more matches are returned
+        Obsolete as multithreading is no longer enabled by default. It's too unreliable.
 
     .PARAMETER EnableException
         By default, when something goes wrong we try to catch it, interpret it and give you a friendly warning message.
@@ -111,12 +114,17 @@ function Get-KbUpdate {
         [switch]$Simple,
         [switch]$Latest,
         [switch]$Force,
+        [switch]$Multithread,
         [switch]$NoMultithreading,
         [ValidateSet("Wsus", "Web", "Database")]
         [string[]]$Source = @("Web", "Database"),
         [switch]$EnableException
     )
     begin {
+        if ($NoMultithreading) {
+            Write-PSFMessage -Level Warning -Message "Multithreading now disabled by default. This parameter will likely be removed in future versions."
+        }
+
         if ($script:ConnectedWsus -and -not $PSBoundParameters.Source) {
             $Source = "Wsus"
         }
@@ -302,6 +310,8 @@ function Get-KbUpdate {
                     default { $regex = '"\s?>\s*(\S+?)\s*<\/div>' }
                 }
 
+                #$spanMatches = [regex]::Matches($span, $regex).ForEach( { $_.Groups[1].Value })
+                # Previous PR change
                 $spanMatches = [regex]::Matches($Text.Content, $regex).ForEach( { $_.Groups[1].Value })
                 if ($spanMatches -eq 'n/a') { $spanMatches = $null }
 
@@ -343,7 +353,7 @@ function Get-KbUpdate {
                 }
 
 
-                if ($guids.Count -gt 2 -and -not $NoMultithreading) {
+                if ($guids.Count -gt 2 -and $Multithread) {
                     $downloaddialogs = $guids | Invoke-Parallel -ImportVariables -ImportFunctions -ScriptBlock $scriptblock -ErrorAction Stop -RunspaceTimeout 60
                 } else {
                     $downloaddialogs = $guids | ForEach-Object -Process $scriptblock
@@ -379,7 +389,7 @@ function Get-KbUpdate {
                     }
 
                     if (-not $Simple) {
-                        $detaildialog = Invoke-TlsWebRequest -Uri "https://www.catalog.update.microsoft.com/ScopedViewInline.aspx?updateid=$updateid"
+                        $detaildialog = Invoke-TlsWebRequest "https://www.catalog.update.microsoft.com/ScopedViewInline.aspx?updateid$updateid"
                         $description = Get-Info -Text $detaildialog -Pattern '<span id="ScopedViewHandler_desc">'
                         $lastmodified = Get-Info -Text $detaildialog -Pattern '<span id="ScopedViewHandler_date">'
                         $size = Get-Info -Text $detaildialog -Pattern '<span id="ScopedViewHandler_size">'
@@ -394,8 +404,16 @@ function Get-KbUpdate {
                         $networkrequired = Get-Info -Text $detaildialog -Pattern '<span id="ScopedViewHandler_connectivity">'
                         $uninstallnotes = Get-Info -Text $detaildialog -Pattern '<span id="ScopedViewHandler_labelUninstallNotes_Separator" class="labelTitle">'
                         $uninstallsteps = Get-Info -Text $detaildialog -Pattern '<span id="ScopedViewHandler_labelUninstallSteps_Separator" class="labelTitle">'
+                        #$supersededby = Get-SuperInfo -Text $detaildialog -Pattern 'div id="supersededbyInfo'
+                        #$supersedes = Get-SuperInfo -Text $detaildialog -Pattern 'div id="supersedesInfo'
+
                         $supersededby = Get-SuperInfo -Text $detaildialog -Pattern '<div id="supersededbyInfo" TABINDEX="1" >'
                         $supersedes = Get-SuperInfo -Text $detaildialog -Pattern '<div id="supersedesInfo" TABINDEX="1">'
+                        "$supersedes" | write-warning
+                        <#
+                        $supersededby = Get-SuperInfo -Text $detaildialog -Pattern '<div id="supersededbyInfo">' div id="supersededbyInfo
+                        $supersedes = Get-SuperInfo -Text $detaildialog -Pattern '<div id="supersedesInfo">'
+                        #>
 
                         if ($uninstallsteps -eq "n/a") {
                             $uninstallsteps = $null
