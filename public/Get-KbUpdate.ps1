@@ -417,7 +417,7 @@ function Get-KbUpdate {
                             $uninstallsteps = $null
                         }
 
-                        if ($msrcnumber -eq "n/a") {
+                        if ($msrcnumber -eq "n/a" -or "Unspecified") {
                             $msrcnumber = $null
                         }
 
