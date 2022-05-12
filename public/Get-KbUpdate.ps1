@@ -389,7 +389,7 @@ function Get-KbUpdate {
                     }
 
                     if (-not $Simple) {
-                        $detaildialog = Invoke-TlsWebRequest "https://www.catalog.update.microsoft.com/ScopedViewInline.aspx?updateid=$updateid"
+                        $detaildialog = Invoke-TlsWebRequest -Uri "https://www.catalog.update.microsoft.com/ScopedViewInline.aspx?updateid=$updateid"
                         $description = Get-Info -Text $detaildialog -Pattern '<span id="ScopedViewHandler_desc">'
                         $lastmodified = Get-Info -Text $detaildialog -Pattern '<span id="ScopedViewHandler_date">'
                         $size = Get-Info -Text $detaildialog -Pattern '<span id="ScopedViewHandler_size">'
