@@ -54,7 +54,11 @@ $script:languages = . "$ModuleRoot\library\languages.ps1"
 if (-not $IsLinux -and -not $IsMacOs) {
     [array]$script:basedb = @()
     # for those of us who are loading the psm1 directly
-    Import-Module -Name kbupdate-library
+    try {
+        Import-Module -Name kbupdate-library -ErrorAction Stop
+    } catch {
+        throw "kbupdate-library is required to import this module"
+    }
     $kblib = Split-Path -Path (Get-Module -Name kbupdate-library | Select-Object -Last 1).Path
     $script:basedb = (Get-ChildItem -Path "$kblib\*.sqlite" -Recurse).FullName
     $script:dailydb = (Get-ChildItem -Path "$PSScriptRoot\library\db\*.sqlite").FullName

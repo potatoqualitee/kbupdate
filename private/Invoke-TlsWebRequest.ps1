@@ -32,7 +32,8 @@ function Invoke-TlsWebRequest {
     if ($script:websession) {
         Invoke-WebRequest @Args -WebSession $script:websession -UseBasicParsing -ErrorAction Stop
     } else {
-        Invoke-WebRequest @Args -SessionVariable websession -UseBasicParsing -ErrorAction Stop
+        $headers = @{"Accept-Language" = "en-US;q=0.5,en;q=0.3" }
+        Invoke-WebRequest @Args -SessionVariable websession -UseBasicParsing -Headers $headers -ErrorAction Stop
         $script:websession = $websession
     }
 

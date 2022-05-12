@@ -18,7 +18,7 @@ function Get-KbUpdate {
         Can be x64, x86, ia64, or ARM.
 
     .PARAMETER Language
-        Specify one or more Language. Tab complete to see what's available. This is not an exact science, as the data itself is miscategorized.
+        Language selections no longer appear to be supported by Microsoft. This parameter may be removed in future versions of this functionality does not return after their recent (~Jan 2022) update.
 
     .PARAMETER OperatingSystem
         Specify one or more operating systems. Tab complete to see what's available. If anything is missing, please file an issue.
@@ -44,8 +44,11 @@ function Get-KbUpdate {
     .PARAMETER Source
         Search source. By default, Database is searched first, then if no matches are found, it tries finding it on the web.
 
+    .PARAMETER Multithread
+        Multithread when three or more matches are returned. This is a lot faster than the default singlethread but also a lot less reliable.
+
     .PARAMETER NoMultithreading
-        Get results one-by-one if three or more matches are returned
+        Obsolete as multithreading is no longer enabled by default. It's too unreliable.
 
     .PARAMETER EnableException
         By default, when something goes wrong we try to catch it, interpret it and give you a friendly warning message.
@@ -111,12 +114,22 @@ function Get-KbUpdate {
         [switch]$Simple,
         [switch]$Latest,
         [switch]$Force,
+        [switch]$Multithread,
         [switch]$NoMultithreading,
         [ValidateSet("Wsus", "Web", "Database")]
         [string[]]$Source = @("Web", "Database"),
         [switch]$EnableException
     )
     begin {
+        if ($NoMultithreading) {
+            Write-PSFMessage -Level Warning -Message "Multithreading now disabled by default. This parameter will likely be removed in future versions."
+        }
+
+
+        if ($Language) {
+            Write-PSFMessage -Level Warning -Message "Language selections no longer supported by Microsoft. This parameter may be removed in future versions."
+        }
+
         if ($script:ConnectedWsus -and -not $PSBoundParameters.Source) {
             $Source = "Wsus"
         }
@@ -249,7 +262,7 @@ function Get-KbUpdate {
 
             if (-not $kbids) {
                 try {
-                    $null = Invoke-TlsWebRequest -Uri "https://support.microsoft.com/app/content/api/content/help/en-us/$kb"
+                    $null = Invoke-TlsWebRequest -Uri "https://support.microsoft.com/en-us/topic/$kb"
                     Stop-PSFFunction -EnableException:$EnableException -Message "Matches were found for $kb, but the results no longer exist in the catalog"
                     return
                 } catch {
@@ -302,7 +315,9 @@ function Get-KbUpdate {
                     default { $regex = '"\s?>\s*(\S+?)\s*<\/div>' }
                 }
 
-                $spanMatches = [regex]::Matches($Text.Content, $regex).ForEach( { $_.Groups[1].Value })
+                $spanMatches = [regex]::Matches($span, $regex).ForEach( { $_.Groups[1].Value })
+                # Previous PR change
+                #$spanMatches = [regex]::Matches($Text.Content, $regex).ForEach( { $_.Groups[1].Value })
                 if ($spanMatches -eq 'n/a') { $spanMatches = $null }
 
                 if ($spanMatches) {
@@ -343,7 +358,7 @@ function Get-KbUpdate {
                 }
 
 
-                if ($guids.Count -gt 2 -and -not $NoMultithreading) {
+                if ($guids.Count -gt 2 -and $Multithread) {
                     $downloaddialogs = $guids | Invoke-Parallel -ImportVariables -ImportFunctions -ScriptBlock $scriptblock -ErrorAction Stop -RunspaceTimeout 60
                 } else {
                     $downloaddialogs = $guids | ForEach-Object -Process $scriptblock
@@ -379,8 +394,8 @@ function Get-KbUpdate {
                     }
 
                     if (-not $Simple) {
-                        $detaildialog = Invoke-TlsWebRequest -Uri "https://www.catalog.update.microsoft.com/ScopedViewInline.aspx?updateid=$updateid"						
-                        $description = Get-Info -Text $detaildialog -Pattern '<span id="ScopedViewHandler_desc">'						
+                        $detaildialog = Invoke-TlsWebRequest -Uri "https://www.catalog.update.microsoft.com/ScopedViewInline.aspx?updateid=$updateid"
+                        $description = Get-Info -Text $detaildialog -Pattern '<span id="ScopedViewHandler_desc">'
                         $lastmodified = Get-Info -Text $detaildialog -Pattern '<span id="ScopedViewHandler_date">'
                         $size = Get-Info -Text $detaildialog -Pattern '<span id="ScopedViewHandler_size">'
                         $classification = Get-Info -Text $detaildialog -Pattern '<span id="ScopedViewHandler_labelClassification_Separator" class="labelTitle">'
@@ -394,14 +409,15 @@ function Get-KbUpdate {
                         $networkrequired = Get-Info -Text $detaildialog -Pattern '<span id="ScopedViewHandler_connectivity">'
                         $uninstallnotes = Get-Info -Text $detaildialog -Pattern '<span id="ScopedViewHandler_labelUninstallNotes_Separator" class="labelTitle">'
                         $uninstallsteps = Get-Info -Text $detaildialog -Pattern '<span id="ScopedViewHandler_labelUninstallSteps_Separator" class="labelTitle">'
-                        $supersededby = Get-SuperInfo -Text $detaildialog -Pattern '<div id="supersededbyInfo" TABINDEX="1" >'
-                        $supersedes = Get-SuperInfo -Text $detaildialog -Pattern '<div id="supersedesInfo" TABINDEX="1">'
+                        # Thanks @klorgas! https://github.com/potatoqualitee/kbupdate/issues/131
+                        $supersededby = Get-SuperInfo -Text $detaildialog -Pattern '<div id="supersededbyInfo".*>'
+                        $supersedes = Get-SuperInfo -Text $detaildialog -Pattern '<div id="supersedesInfo".*>'
 
                         if ($uninstallsteps -eq "n/a") {
                             $uninstallsteps = $null
                         }
 
-                        if ($msrcnumber -eq "n/a") {
+                        if ($msrcnumber -eq "n/a" -or "Unspecified") {
                             $msrcnumber = $null
                         }
 
