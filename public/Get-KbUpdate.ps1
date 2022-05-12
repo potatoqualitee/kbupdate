@@ -379,8 +379,8 @@ function Get-KbUpdate {
                     }
 
                     if (-not $Simple) {
-                        $detaildialog = Invoke-TlsWebRequest -Uri "https://www.catalog.update.microsoft.com/ScopedViewInline.aspx?updateid=$updateid"
-                        $description = Get-Info -Text $detaildialog -Pattern '<span id="ScopedViewHandler_desc">'
+                        $detaildialog = Invoke-TlsWebRequest -Uri "https://www.catalog.update.microsoft.com/ScopedViewInline.aspx?updateid=$updateid"						
+                        $description = Get-Info -Text $detaildialog -Pattern '<span id="ScopedViewHandler_desc">'						
                         $lastmodified = Get-Info -Text $detaildialog -Pattern '<span id="ScopedViewHandler_date">'
                         $size = Get-Info -Text $detaildialog -Pattern '<span id="ScopedViewHandler_size">'
                         $classification = Get-Info -Text $detaildialog -Pattern '<span id="ScopedViewHandler_labelClassification_Separator" class="labelTitle">'
@@ -416,7 +416,7 @@ function Get-KbUpdate {
                     }
 
                     $downloaddialog = $downloaddialog.Replace('www.download.windowsupdate', 'download.windowsupdate')
-                    $links = $downloaddialog | Select-String -AllMatches -Pattern "(http[s]?\://download\.windowsupdate\.com\/[^\'\""]*)" | Select-Object -Unique
+                    $links = $downloaddialog | Select-String -AllMatches -Pattern "(http[s]?\://.*download\.windowsupdate\.com\/[^\'\""]*)" | Select-Object -Unique
 
                     foreach ($link in $links) {
                         if ($kbnumbers -eq "n/a") {
