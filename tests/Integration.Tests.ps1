@@ -123,8 +123,8 @@ Describe "Integration Tests" -Tag "IntegrationTests" {
             "$($results.Link)" -match "kor_"
         }
 
-        # seems this is working again -- microsoft's CDN appears to be having massive issues
-        It "x64 should work when AMD64 is used (#52)" {
+        # microsoft's CDN appears to be having massive issues and sometimes this does not appear
+        It -Skip "x64 should work when AMD64 is used (#52)" {
             $results = Get-KbUpdate 2864dff9-d197-48b8-82e3-f36ad242928d -Architecture x64 -Source Web
             $results.Architecture | Should -Be "IA64_AMD64_X86_ARM_ARM64"
         }
