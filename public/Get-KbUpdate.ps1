@@ -404,17 +404,11 @@ function Get-KbUpdate {
                         $networkrequired = Get-Info -Text $detaildialog -Pattern '<span id="ScopedViewHandler_connectivity">'
                         $uninstallnotes = Get-Info -Text $detaildialog -Pattern '<span id="ScopedViewHandler_labelUninstallNotes_Separator" class="labelTitle">'
                         $uninstallsteps = Get-Info -Text $detaildialog -Pattern '<span id="ScopedViewHandler_labelUninstallSteps_Separator" class="labelTitle">'
-                        #$supersededby = Get-SuperInfo -Text $detaildialog -Pattern 'div id="supersededbyInfo'
-                        #$supersedes = Get-SuperInfo -Text $detaildialog -Pattern 'div id="supersedesInfo'
+                        # Thanks @klorgas! https://github.com/potatoqualitee/kbupdate/issues/131
+                        $supersededby = Get-SuperInfo -Text $detaildialog -Pattern 'div id="supersededbyInfo'
+                        $supersedes = Get-SuperInfo -Text $detaildialog -Pattern 'div id="supersedesInfo'
 
-                        $supersededby = Get-SuperInfo -Text $detaildialog -Pattern '<div id="supersededbyInfo" TABINDEX="1" >'
-                        $supersedes = Get-SuperInfo -Text $detaildialog -Pattern '<div id="supersedesInfo" TABINDEX="1">'
                         "$supersedes" | write-warning
-                        <#
-                        $supersededby = Get-SuperInfo -Text $detaildialog -Pattern '<div id="supersededbyInfo">' div id="supersededbyInfo
-                        $supersedes = Get-SuperInfo -Text $detaildialog -Pattern '<div id="supersedesInfo">'
-                        #>
-
                         if ($uninstallsteps -eq "n/a") {
                             $uninstallsteps = $null
                         }
