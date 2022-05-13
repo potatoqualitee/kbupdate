@@ -80,158 +80,222 @@ function Save-KbUpdate {
 
         Downloads all versions of KB4057114 and the x86 version of KB4057114 to C:\temp.
     #>
-    [CmdletBinding()]
+    [CmdletBinding(DefaultParameterSetName = 'default')]
     param(
+        [Parameter(ParameterSetName = 'default')]
         [Alias("Name", "HotfixId", "KBUpdate", "Id")]
         [string[]]$Pattern,
+
+        [Parameter(ParameterSetName = 'default')]
+        [Parameter(ParameterSetName = 'link')]
         [string]$Path = ".",
+
+        [Parameter(ParameterSetName = 'default')]
+        [Parameter(ParameterSetName = 'link')]
         [string]$FilePath,
+
+        [Parameter(ParameterSetName = 'default')]
         [string[]]$Architecture,
+
+        [Parameter(ParameterSetName = 'default')]
         [string[]]$OperatingSystem,
+
+        [Parameter(ParameterSetName = 'default')]
         [string[]]$Product,
+
+        [Parameter(ParameterSetName = 'default')]
         [string[]]$Language,
-        [parameter(ValueFromPipeline)]
+
+        [parameter(ValueFromPipeline, ParameterSetName = 'default')]
         [pscustomobject[]]$InputObject,
+
+        [Parameter(ParameterSetName = 'default')]
         [switch]$Latest,
+
+        [Parameter(ParameterSetName = 'default')]
         [switch]$AllowClobber,
+
+        [Parameter(ParameterSetName = 'default')]
         [ValidateSet("Wsus", "Web", "Database")]
         [string[]]$Source = @("Web", "Database"),
+
+        [Parameter(ParameterSetName = 'default')]
         [switch]$Strict,
-        [switch]$EnableException
+
+        [Parameter(ParameterSetName = 'default')]
+        [switch]$EnableException,
+
+        [Parameter(Mandatory, ParameterSetName = 'link')]
+        [string[]]
+        $Link
     )
     begin {
         $files = @()
     }
     process {
-        if ($Pattern.Count -gt 0 -and $PSBoundParameters.FilePath) {
-            Stop-PSFFunction -EnableException:$EnableException -Message "You can only specify one KB when using FilePath"
-            return
-        }
 
-        if (-not $PSBoundParameters.InputObject -and -not $PSBoundParameters.Pattern) {
-            Stop-PSFFunction -EnableException:$EnableException -Message "You must specify a KB name or pipe in results from Get-KbUpdate"
-            return
-        }
+        switch ($PSCmdlet.ParameterSetName) {
+            'link' {
+                $Link | Foreach-Object {
 
-        if (-not $PSBoundParameters.InputObject -and ($PSBoundParameters.OperatingSystem -or $PSBoundParameters.Product)) {
-            Stop-PSFFunction -EnableException:$EnableException -Message "When piping, please do not use OperatingSystem or Product filters. It's assumed that you are piping the results that you wish to download, so unexpected results may occur."
-            return
-        }
-
-        foreach ($kb in $Pattern) {
-            if ($Latest) {
-                $simple = $false
-            } else {
-                $simple = $true
-            }
-            $params = @{
-                Pattern         = $kb
-                Architecture    = $Architecture
-                OperatingSystem = $OperatingSystem
-                Product         = $Product
-                Language        = $Language
-                EnableException = $EnableException
-                Simple          = $Simple
-                Latest          = $Latest
-                Source          = $Source
-            }
-            $InputObject += Get-KbUpdate @params
-        }
-
-        foreach ($object in $InputObject) {
-            if ($Architecture) {
-                $templinks = @()
-                foreach ($arch in $Architecture) {
-                    $templinks += $object.Link | Where-Object { $PSItem -match "$($arch)_" }
-
-                    if ("x64" -eq $arch) {
-                        $templinks += $object.Link | Where-Object { $PSItem -match "64_" }
-                        $templinks = $templinks | Where-Object { $PSItem -notmatch "-rt-" }
-                    }
-                    if (-not $templinks) {
-                        $templinks += $object | Where-Object Architecture -eq $arch | Select-Object -ExpandProperty Link
-                    }
-                }
-
-                if ($templinks) {
-                    $object.Link = ($templinks | Sort-Object -Unique)
-                } else {
-                    Stop-PSFFunction -EnableException:$EnableException -Message "Could not find architecture match, downloading all"
-                }
-            }
-
-            foreach ($link in $object.Link) {
-                $Strict = $true
-                # Microsoft's KB Language field cannot be relied upon. It'll say English then contain Chinese files.
-                if ($Language -and ($object.Link.Count -gt 1 -or $Strict)) {
-                    # are there any language matches at all? if not, download it unless Strict
-                    if ($Strict) {
-                        $languagespecific = $true
+                    $fileName = Split-Path $_ -Leaf
+                    $file = Join-Path $Path -ChildPath $fileName
+                    if ((Get-Command Start-BitsTransfer -ErrorAction Ignore)) {
+                        try {
+                            Start-BitsTransfer -Source $_ -Destination $Path -ErrorAction Stop
+                        } catch {
+                            Write-Host "Going to use uri: $_" -ForegroundColor Green
+                            Write-Progress -Activity "Downloading $FilePath" -Id 1
+                            Invoke-TlsWebRequest -OutFile $file -Uri $_
+                            Write-Progress -Activity "Downloading $FilePath" -Id 1 -Completed
+                        }
                     } else {
-                        $languagespecific = $false
-                    }
-
-                    foreach ($code in $script:languages.Values) {
-                        if ($link -match "-$($code)_") {
-                            $languagespecific = $true
+                        try {
+                            # IWR is crazy slow for large downloads
+                            Write-Progress -Activity "Downloading $FilePath" -Id 1
+                            Invoke-TlsWebRequest -OutFile $file -Uri $_
+                            Write-Progress -Activity "Downloading $FilePath" -Id 1 -Completed
+                        } catch {
+                            Stop-PSFFunction -EnableException:$EnableException -Message "Failure" -ErrorRecord $_ -Continue
                         }
                     }
+                }
 
-                    if ($languagespecific) {
-                        $matches = @()
-                        foreach ($value in $Language) {
-                            $code = $script:languages[$value]
-                            $matches += $object.Link -match "$($code)_"
+            }
+
+            default {
+                if ($Pattern.Count -gt 0 -and $PSBoundParameters.FilePath) {
+                    Stop-PSFFunction -EnableException:$EnableException -Message "You can only specify one KB when using FilePath"
+                    return
+                }
+
+                if (-not $PSBoundParameters.InputObject -and -not $PSBoundParameters.Pattern) {
+                    Stop-PSFFunction -EnableException:$EnableException -Message "You must specify a KB name or pipe in results from Get-KbUpdate"
+                    return
+                }
+
+                if (-not $PSBoundParameters.InputObject -and ($PSBoundParameters.OperatingSystem -or $PSBoundParameters.Product)) {
+                    Stop-PSFFunction -EnableException:$EnableException -Message "When piping, please do not use OperatingSystem or Product filters. It's assumed that you are piping the results that you wish to download, so unexpected results may occur."
+                    return
+                }
+
+                foreach ($kb in $Pattern) {
+                    if ($Latest) {
+                        $simple = $false
+                    } else {
+                        $simple = $true
+                    }
+                    $params = @{
+                        Pattern         = $kb
+                        Architecture    = $Architecture
+                        OperatingSystem = $OperatingSystem
+                        Product         = $Product
+                        Language        = $Language
+                        EnableException = $EnableException
+                        Simple          = $Simple
+                        Latest          = $Latest
+                        Source          = $Source
+                    }
+                    $InputObject += Get-KbUpdate @params
+                }
+
+                foreach ($object in $InputObject) {
+                    if ($Architecture) {
+                        $templinks = @()
+                        foreach ($arch in $Architecture) {
+                            $templinks += $object.Link | Where-Object { $PSItem -match "$($arch)_" }
+
+                            if ("x64" -eq $arch) {
+                                $templinks += $object.Link | Where-Object { $PSItem -match "64_" }
+                                $templinks = $templinks | Where-Object { $PSItem -notmatch "-rt-" }
+                            }
+                            if (-not $templinks) {
+                                $templinks += $object | Where-Object Architecture -eq $arch | Select-Object -ExpandProperty Link
+                            }
                         }
-                        if ($matches) {
-                            $object.Link = $matches
+
+                        if ($templinks) {
+                            $object.Link = ($templinks | Sort-Object -Unique)
                         } else {
-                            Write-PSFMessage -Level Verbose -Message "Skipping $link - no match to $Language"
+                            Stop-PSFFunction -EnableException:$EnableException -Message "Could not find architecture match, downloading all"
+                        }
+                    }
+
+                    foreach ($link in $object.Link) {
+                        $Strict = $true
+                        # Microsoft's KB Language field cannot be relied upon. It'll say English then contain Chinese files.
+                        if ($Language -and ($object.Link.Count -gt 1 -or $Strict)) {
+                            # are there any language matches at all? if not, download it unless Strict
+                            if ($Strict) {
+                                $languagespecific = $true
+                            } else {
+                                $languagespecific = $false
+                            }
+
+                            foreach ($code in $script:languages.Values) {
+                                if ($link -match "-$($code)_") {
+                                    $languagespecific = $true
+                                }
+                            }
+
+                            if ($languagespecific) {
+                                $matches = @()
+                                foreach ($value in $Language) {
+                                    $code = $script:languages[$value]
+                                    $matches += $object.Link -match "$($code)_"
+                                }
+                                if ($matches) {
+                                    $object.Link = $matches
+                                } else {
+                                    Write-PSFMessage -Level Verbose -Message "Skipping $link - no match to $Language"
+                                    continue
+                                }
+                            }
+                        }
+
+                        if (-not $PSBoundParameters.FilePath) {
+                            $FilePath = Split-Path -Path $link -Leaf
+                        } else {
+                            $Path = Split-Path -Path $FilePath
+                        }
+
+                        $file = "$Path$([IO.Path]::DirectorySeparatorChar)$FilePath"
+
+                        if ((Test-Path -Path $file) -and -not $AllowClobber) {
+                            Get-ChildItem -Path $file
+                            $files += $file
                             continue
                         }
+
+                        # could also Get-ChildItem for the path prior to download
+                        if ($file -in $files) { continue }
+
+                        if ((Get-Command Start-BitsTransfer -ErrorAction Ignore)) {
+                            try {
+                                Start-BitsTransfer -Source $link -Destination $file -ErrorAction Stop
+                            } catch {
+                                Write-Progress -Activity "Downloading $FilePath" -Id 1
+                                Invoke-TlsWebRequest -OutFile $file -Uri $link
+                                Write-Progress -Activity "Downloading $FilePath" -Id 1 -Completed
+                            }
+                        } else {
+                            try {
+                                # IWR is crazy slow for large downloads
+                                Write-Progress -Activity "Downloading $FilePath" -Id 1
+                                Invoke-TlsWebRequest -OutFile $file -Uri $link
+                                Write-Progress -Activity "Downloading $FilePath" -Id 1 -Completed
+                            } catch {
+                                Stop-PSFFunction -EnableException:$EnableException -Message "Failure" -ErrorRecord $_ -Continue
+                            }
+                        }
+                        if (Test-Path -Path $file) {
+                            Get-ChildItem -Path $file
+                            $files += $file
+                        }
                     }
-                }
-
-                if (-not $PSBoundParameters.FilePath) {
-                    $FilePath = Split-Path -Path $link -Leaf
-                } else {
-                    $Path = Split-Path -Path $FilePath
-                }
-
-                $file = "$Path$([IO.Path]::DirectorySeparatorChar)$FilePath"
-
-                if ((Test-Path -Path $file) -and -not $AllowClobber) {
-                    Get-ChildItem -Path $file
-                    $files += $file
-                    continue
-                }
-
-                # could also Get-ChildItem for the path prior to download
-                if ($file -in $files) { continue }
-
-                if ((Get-Command Start-BitsTransfer -ErrorAction Ignore)) {
-                    try {
-                        Start-BitsTransfer -Source $link -Destination $file -ErrorAction Stop
-                    } catch {
-                        Write-Progress -Activity "Downloading $FilePath" -Id 1
-                        Invoke-TlsWebRequest -OutFile $file -Uri $link
-                        Write-Progress -Activity "Downloading $FilePath" -Id 1 -Completed
-                    }
-                } else {
-                    try {
-                        # IWR is crazy slow for large downloads
-                        Write-Progress -Activity "Downloading $FilePath" -Id 1
-                        Invoke-TlsWebRequest -OutFile $file -Uri $link
-                        Write-Progress -Activity "Downloading $FilePath" -Id 1 -Completed
-                    } catch {
-                        Stop-PSFFunction -EnableException:$EnableException -Message "Failure" -ErrorRecord $_ -Continue
-                    }
-                }
-                if (Test-Path -Path $file) {
-                    Get-ChildItem -Path $file
-                    $files += $file
                 }
             }
         }
+
     }
 }
