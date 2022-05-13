@@ -146,7 +146,7 @@ function Install-KbUpdate {
             $programhome = Invoke-PSFCommand -ScriptBlock { $home }
 
             # fix for SYSTEM which doesn't have a downloads directory by default
-            Write-PSFMessage -Level Verbose -Message "Checking for home directory"
+            Write-PSFMessage -Level Verbose -Message "Checking for home downloads directory"
             Invoke-PSFCommand -ScriptBlock {
                 if (-not (Test-Path -Path "$home\Downloads")) {
                     Write-Warning "Creating Downloads directory at $home\Downloads"
@@ -211,6 +211,14 @@ function Install-KbUpdate {
                     } else {
                         if ($PSCmdlet.ShouldProcess($computer, "File not detected, downloading now to $home\Downloads and copying to remote computer")) {
                             $warnatbottom = $true
+
+                            # fix for SYSTEM which doesn't have a downloads directory by default
+                            Write-PSFMessage -Level Verbose -Message "Checking for home downloads directory"
+                            if (-not (Test-Path -Path "$home\Downloads")) {
+                                Write-Warning "Creating Downloads directory at $home\Downloads"
+                                $null = New-Item -ItemType Directory -Force -Path "$home\Downloads"
+                            }
+
                             $updatefile = $InputObject | Select-Object -First 1 | Save-KbUpdate -Path "$home\Downloads"
                         }
                     }
@@ -221,7 +229,7 @@ function Install-KbUpdate {
                 }
 
                 # ignore if it's on a file server
-                if (($updatefile -and -not "$($PSBoundParameters.FilePath)".StartsWith("\\")) -or $computer -ne $env:ComputerName) {
+                if (($updatefile -and -not "$($PSBoundParameters.FilePath)".StartsWith("\\")) -or -not $item.IsLocalHost) {
                     try {
                         $exists = Invoke-PSFCommand -ArgumentList $FilePath -ScriptBlock {
                             Get-ChildItem -Path $args -ErrorAction SilentlyContinue
