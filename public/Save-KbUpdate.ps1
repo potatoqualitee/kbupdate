@@ -49,6 +49,9 @@ function Save-KbUpdate {
         This avoids overwhelming you with "sea of red" exceptions, but is inconvenient because it basically disables advanced scripting.
         Using this switch turns this "nice by default" feature off and enables you to catch exceptions with your own try/catch.
 
+    .PARAMETER Link
+        When link is specified only the links in the array are processed and downloaded to the system.
+
     .NOTES
         Tags: Update
         Author: Chrissy LeMaire (@cl), netnerds.net
@@ -79,6 +82,11 @@ function Save-KbUpdate {
         PS C:\> Save-KbUpdate -Pattern KB4057114 -Path C:\temp
 
         Downloads all versions of KB4057114 and the x86 version of KB4057114 to C:\temp.
+
+    .EXAMPLE
+        PS C:\> Save-KBUpdate -Link $downloadLink -Path C:\temp
+
+        Downloads all files from $downloadLink to C:\temp
     #>
     [CmdletBinding(DefaultParameterSetName = 'default')]
     param(
