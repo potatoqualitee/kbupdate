@@ -386,7 +386,8 @@ function Install-KbUpdate {
     }
     end {
         if ($warnatbottom) {
-            Write-PSFMessage -Level Output -Message "$updatefile still exists on your local drive, and likely other servers as well, in the Downloads directory."
+            Write-PSFMessage -Level Output -Message "Downloaded files still exist on your local drive, and likely other servers as well, in the Downloads directory."
+            Write-PSFMessage -Level Output -Message "If you ran this as SYSTEM, the downloads will be in windows\system32\config\systemprofile."
         }
     }
 }
