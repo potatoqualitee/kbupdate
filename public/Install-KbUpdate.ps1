@@ -113,13 +113,21 @@ function Install-KbUpdate {
             $HotfixId = "KB$HotfixId"
         }
 
-        foreach ($computer in $ComputerName.ComputerName) {
-            # null out a couple things to be safe
-            $remotefileexists = $remotehome = $remotesession = $null
+        if ($Credential.UserName) {
+            $PSDefaultParameterValues["Invoke-PSFCommand:Credential"] = $Credential
+        }
 
-            if ($computer -ne $env:ComputerName) {
-                # a lot of the file copy work will be done in the remote $home dir
-                $remotehome = Invoke-PSFCommand -ComputerName $computer -Credential $Credential -ScriptBlock { $home }
+        foreach ($item in $ComputerName) {
+            $computer = $item.ComputerName
+            # null out a couple things to be safe
+            $remotefileexists = $programhome = $remotesession = $null
+
+            if ($PSDefaultParameterValues["Invoke-PSFCommand:ComputerName"]) {
+                $null = $PSDefaultParameterValues["Invoke-PSFCommand:ComputerName"].Remove()
+            }
+
+            if (-not $item.IsLocalHost) {
+                $PSDefaultParameterValues["Invoke-PSFCommand:ComputerName"] = $computer
 
                 if (-not $remotesession) {
                     $remotesession = Get-PSSession -ComputerName $computer | Where-Object { $PsItem.Availability -eq 'Available' -and ($PsItem.Name -match 'WinRM' -or $PsItem.Name -match 'Runspace') } | Select-Object -First 1
@@ -134,7 +142,19 @@ function Install-KbUpdate {
                 }
             }
 
-            $hasxhotfix = Invoke-PSFCommand -ComputerName $computer -Credential $Credential -ScriptBlock {
+            # a lot of the file copy work will be done in the $home dir
+            $programhome = Invoke-PSFCommand -ScriptBlock { $home }
+
+            # fix for SYSTEM which doesn't have a downloads directory by default
+            Write-PSFMessage -Level Verbose -Message "Checking for home directory"
+            Invoke-PSFCommand -ScriptBlock {
+                if (-not (Test-Path -Path "$home\Downloads")) {
+                    Write-Warning "Creating Downloads directory at $home\Downloads"
+                    $null = New-Item -ItemType Directory -Force -Path "$home\Downloads"
+                }
+            }
+
+            $hasxhotfix = Invoke-PSFCommand -ScriptBlock {
                 Get-Module -ListAvailable xWindowsUpdate
             }
 
@@ -143,7 +163,7 @@ function Install-KbUpdate {
                     # Copy xWindowsUpdate to Program Files. The module is pretty much required to be in the PS Modules directory.
                     $oldpref = $ProgressPreference
                     $ProgressPreference = "SilentlyContinue"
-                    $programfiles = Invoke-PSFCommand -ComputerName $computer -Credential $Credential -ArgumentList "$env:ProgramFiles\WindowsPowerShell\Modules" -ScriptBlock {
+                    $programfiles = Invoke-PSFCommand -ScriptBlock {
                         $env:ProgramFiles
                     }
                     $null = Copy-Item -Path "$script:ModuleRoot\library\xWindowsUpdate" -Destination "$programfiles\WindowsPowerShell\Modules\xWindowsUpdate" -ToSession $remotesession -Recurse -Force
@@ -154,7 +174,9 @@ function Install-KbUpdate {
             }
 
             if ($PSBoundParameters.FilePath) {
-                $remotefileexists = Invoke-PSFCommand -ComputerName $computer -Credential $Credential -ArgumentList $FilePath -ScriptBlock { Get-ChildItem -Path $args -ErrorAction SilentlyContinue }
+                $remotefileexists = Invoke-PSFCommand -ArgumentList $FilePath -ScriptBlock {
+                    Get-ChildItem -Path $args -ErrorAction SilentlyContinue
+                }
             }
 
             if (-not $remotefileexists) {
@@ -195,20 +217,20 @@ function Install-KbUpdate {
                 }
 
                 if (-not $PSBoundParameters.FilePath) {
-                    $FilePath = "$remotehome\Downloads\$(Split-Path -Leaf $updateFile)"
+                    $FilePath = "$programhome\Downloads\$(Split-Path -Leaf $updateFile)"
                 }
 
                 # ignore if it's on a file server
                 if (($updatefile -and -not "$($PSBoundParameters.FilePath)".StartsWith("\\")) -or $computer -ne $env:ComputerName) {
                     try {
-                        $exists = Invoke-PSFCommand -ComputerName $computer -Credential $Credential -ArgumentList $FilePath -ScriptBlock {
+                        $exists = Invoke-PSFCommand -ArgumentList $FilePath -ScriptBlock {
                             Get-ChildItem -Path $args -ErrorAction SilentlyContinue
                         }
                         if (-not $exists) {
                             $null = Copy-Item -Path $updatefile -Destination $FilePath -ToSession $remotesession
                         }
                     } catch {
-                        $null = Invoke-PSFCommand -ComputerName $computer -Credential $Credential -ArgumentList $FilePath -ScriptBlock {
+                        $null = Invoke-PSFCommand -ArgumentList $FilePath -ScriptBlock {
                             Remove-Item $args -Force -ErrorAction SilentlyContinue
                         }
                         Stop-PSFFunction -EnableException:$EnableException -Message "Could not copy $updatefile to $filepath and no file was specified" -Continue
@@ -274,7 +296,7 @@ function Install-KbUpdate {
 
             if ($PSCmdlet.ShouldProcess($computer, "Installing Hotfix $HotfixId from $FilePath")) {
                 try {
-                    Invoke-PSFCommand -ComputerName $computer -Credential $Credential -ScriptBlock {
+                    Invoke-PSFCommand -ScriptBlock {
                         param (
                             $Hotfix,
                             $VerbosePreference,
