@@ -267,9 +267,15 @@ function Install-KbUpdate {
                         $Guid = $PSBoundParameters.InputObject.Guid
                         $Title = $PSBoundParameters.InputObject.Title
                     } else {
-                        $InputObject = Get-KbUpdate -Architecture x64 -Credential $credential -Latest -Pattern $HotfixId | Where-Object Link | Select-Object -First 1
-                        $Guid = $InputObject | Select-Object -ExpandProperty UpdateId
-                        $Title = $InputObject | Select-Object -ExpandProperty Title
+                        # If online
+                        if (((Get-NetConnectionProfile).IPv4Connectivity -contains "Internet")) {
+                            $InputObject = Get-KbUpdate -Architecture x64 -Credential $credential -Latest -Pattern $HotfixId | Where-Object Link | Select-Object -First 1
+                            $Guid = $InputObject | Select-Object -ExpandProperty UpdateId
+                            $Title = $InputObject | Select-Object -ExpandProperty Title
+                        } else {
+                            Stop-PSFFunction -Message "Please specify GUID"
+                            return
+                        }
                     }
                 }
 
