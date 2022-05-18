@@ -113,16 +113,36 @@ function Install-KbUpdate {
             $HotfixId = "KB$HotfixId"
         }
 
-        foreach ($computer in $ComputerName.ComputerName) {
-            # null out a couple things to be safe
-            $remotefileexists = $remotehome = $remotesession = $null
+        if ($Credential.UserName) {
+            $PSDefaultParameterValues["*:Credential"] = $Credential
+        }
 
-            if ($computer -ne $env:ComputerName) {
-                # a lot of the file copy work will be done in the remote $home dir
-                $remotehome = Invoke-PSFCommand -ComputerName $computer -Credential $Credential -ScriptBlock { $home }
+        foreach ($item in $ComputerName) {
+            $computer = $item.ComputerName
+            if ($item.IsLocalHost -and -not (Test-ElevationRequirement -ComputerName $computer)) {
+                Stop-PSFFunction -EnableException:$EnableException -Message "You must be an administrator to run this command on the local host" -Continue
+            }
+            # null out a couple things to be safe
+            $remotefileexists = $programhome = $remotesession = $null
+
+            Write-PSFMessage -Level Verbose -Message "Processing $computer"
+
+            if ($PSDefaultParameterValues["Invoke-PSFCommand:ComputerName"]) {
+                $null = $PSDefaultParameterValues["Invoke-PSFCommand:ComputerName"].Remove()
+            }
+
+            if ($item.IsLocalHost) {
+                # a lot of the file copy work will be done in the $home dir
+                $programhome = Invoke-PSFCommand -ScriptBlock { $home }
+            } else {
+                Write-PSFMessage -Level Verbose -Message "Adding $computer to PSDefaultParameterValues for Invoke-PSFCommand:ComputerName"
+                $PSDefaultParameterValues["Invoke-PSFCommand:ComputerName"] = $computer
+
+                Write-PSFMessage -Level Verbose -Message "Initializing remote session to $computer and also getting the remote home directory"
+                $programhome = Invoke-PSFCommand -ScriptBlock { $home }
 
                 if (-not $remotesession) {
-                    $remotesession = Get-PSSession -ComputerName $computer | Where-Object { $PsItem.Availability -eq 'Available' -and ($PsItem.Name -match 'WinRM' -or $PsItem.Name -match 'Runspace') } | Select-Object -First 1
+                    $remotesession = Get-PSSession -ComputerName $computer -Verbose | Where-Object { $PsItem.Availability -eq 'Available' -and ($PsItem.Name -match 'WinRM' -or $PsItem.Name -match 'Runspace') } | Select-Object -First 1
                 }
 
                 if (-not $remotesession) {
@@ -134,7 +154,16 @@ function Install-KbUpdate {
                 }
             }
 
-            $hasxhotfix = Invoke-PSFCommand -ComputerName $computer -Credential $Credential -ScriptBlock {
+            # fix for SYSTEM which doesn't have a downloads directory by default
+            Write-PSFMessage -Level Verbose -Message "Checking for home downloads directory"
+            Invoke-PSFCommand -ScriptBlock {
+                if (-not (Test-Path -Path "$home\Downloads")) {
+                    Write-Warning "Creating Downloads directory at $home\Downloads"
+                    $null = New-Item -ItemType Directory -Force -Path "$home\Downloads"
+                }
+            }
+
+            $hasxhotfix = Invoke-PSFCommand -ScriptBlock {
                 Get-Module -ListAvailable xWindowsUpdate
             }
 
@@ -143,10 +172,15 @@ function Install-KbUpdate {
                     # Copy xWindowsUpdate to Program Files. The module is pretty much required to be in the PS Modules directory.
                     $oldpref = $ProgressPreference
                     $ProgressPreference = "SilentlyContinue"
-                    $programfiles = Invoke-PSFCommand -ComputerName $computer -Credential $Credential -ArgumentList "$env:ProgramFiles\WindowsPowerShell\Modules" -ScriptBlock {
+                    $programfiles = Invoke-PSFCommand -ScriptBlock {
                         $env:ProgramFiles
                     }
-                    $null = Copy-Item -Path "$script:ModuleRoot\library\xWindowsUpdate" -Destination "$programfiles\WindowsPowerShell\Modules\xWindowsUpdate" -ToSession $remotesession -Recurse -Force
+                    if ($item.IsLocalhost) {
+                        $null = Copy-Item -Path "$script:ModuleRoot\library\xWindowsUpdate" -Destination "$programfiles\WindowsPowerShell\Modules\xWindowsUpdate" -Recurse -Force
+                    } else {
+                        $null = Copy-Item -Path "$script:ModuleRoot\library\xWindowsUpdate" -Destination "$programfiles\WindowsPowerShell\Modules\xWindowsUpdate" -ToSession $remotesession -Recurse -Force
+                    }
+
                     $ProgressPreference = $oldpref
                 } catch {
                     Stop-PSFFunction -EnableException:$EnableException -Message "Couldn't auto-install xHotfix on $computer. Please Install-Module xWindowsUpdate on $computer to continue." -Continue
@@ -154,7 +188,9 @@ function Install-KbUpdate {
             }
 
             if ($PSBoundParameters.FilePath) {
-                $remotefileexists = Invoke-PSFCommand -ComputerName $computer -Credential $Credential -ArgumentList $FilePath -ScriptBlock { Get-ChildItem -Path $args -ErrorAction SilentlyContinue }
+                $remotefileexists = Invoke-PSFCommand -ArgumentList $FilePath -ScriptBlock {
+                    Get-ChildItem -Path $args -ErrorAction SilentlyContinue
+                }
             }
 
             if (-not $remotefileexists) {
@@ -162,15 +198,17 @@ function Install-KbUpdate {
                     # try really hard to find it locally
                     $updatefile = Get-ChildItem -Path $FilePath -ErrorAction SilentlyContinue
                     if (-not $updatefile) {
+                        Write-PSFMessage -Level Verbose -Message "Update file not found, try in Downloads"
                         $filename = Split-Path -Path $FilePath -Leaf
                         $updatefile = Get-ChildItem -Path "$home\Downloads\$filename" -ErrorAction SilentlyContinue
                     }
                 }
 
                 if (-not $updatefile) {
+                    Write-PSFMessage -Level Verbose -Message "Update file not found, download it for them"
                     # try to automatically download it for them
                     if (-not $PSBoundParameters.InputObject) {
-                        $InputObject = Get-KbUpdate -Architecture x64 -Credential $credential -Latest -Pattern $HotfixId | Where-Object Link
+                        $InputObject = Get-KbUpdate -Architecture x64 -Latest -Pattern $HotfixId | Where-Object Link
                     }
 
                     # note to reader: if this picks the wrong one, please download the required file manually.
@@ -189,29 +227,55 @@ function Install-KbUpdate {
                     } else {
                         if ($PSCmdlet.ShouldProcess($computer, "File not detected, downloading now to $home\Downloads and copying to remote computer")) {
                             $warnatbottom = $true
+
+                            # fix for SYSTEM which doesn't have a downloads directory by default
+                            Write-PSFMessage -Level Verbose -Message "Checking for home downloads directory"
+                            if (-not (Test-Path -Path "$home\Downloads")) {
+                                Write-PSFMessage -Level Warning -Message "Creating Downloads directory at $home\Downloads"
+                                $null = New-Item -ItemType Directory -Force -Path "$home\Downloads"
+                            }
+
                             $updatefile = $InputObject | Select-Object -First 1 | Save-KbUpdate -Path "$home\Downloads"
                         }
                     }
                 }
 
                 if (-not $PSBoundParameters.FilePath) {
-                    $FilePath = "$remotehome\Downloads\$(Split-Path -Leaf $updateFile)"
+                    $FilePath = "$programhome\Downloads\$(Split-Path -Leaf $updateFile)"
                 }
 
-                # ignore if it's on a file server
-                if (($updatefile -and -not "$($PSBoundParameters.FilePath)".StartsWith("\\")) -or $computer -ne $env:ComputerName) {
+                if ($item.IsLocalhost) {
+                    $remotefile = $updatefile
+                } else {
+                    $remotefile = "$programhome\Downloads\$(Split-Path -Leaf $updateFile)"
+                }
+
+                # copy over to destination server unless
+                # it's local or it's on a network share
+                if (-not "$($PSBoundParameters.FilePath)".StartsWith("\\") -and -not $item.IsLocalhost) {
+                    Write-PSFMessage -Level Verbose -Message "Update is not located on a file server and not local, copying over the remote server"
                     try {
-                        $exists = Invoke-PSFCommand -ComputerName $computer -Credential $Credential -ArgumentList $FilePath -ScriptBlock {
+                        $exists = Invoke-PSFCommand -ComputerName $computer -ArgumentList $remotefile -ScriptBlock {
                             Get-ChildItem -Path $args -ErrorAction SilentlyContinue
                         }
                         if (-not $exists) {
-                            $null = Copy-Item -Path $updatefile -Destination $FilePath -ToSession $remotesession
+                            $null = Copy-Item -Path $updatefile -Destination $remotefile -ToSession $remotesession -ErrorAction Stop
+                            $deleteremotefile = $remotefile
                         }
                     } catch {
-                        $null = Invoke-PSFCommand -ComputerName $computer -Credential $Credential -ArgumentList $FilePath -ScriptBlock {
+                        $null = Invoke-PSFCommand -ComputerName $computer -ArgumentList $remotefile -ScriptBlock {
                             Remove-Item $args -Force -ErrorAction SilentlyContinue
                         }
-                        Stop-PSFFunction -EnableException:$EnableException -Message "Could not copy $updatefile to $filepath and no file was specified" -Continue
+                        try {
+                            Write-PSFMessage -Level Warning -Message "Copy failed, trying again"
+                            $null = Copy-Item -Path $updatefile -Destination $remotefile -ToSession $remotesession -ErrorAction Stop
+                            $deleteremotefile = $remotefile
+                        } catch {
+                            $null = Invoke-PSFCommand -ComputerName $computer -ArgumentList $remotefile -ScriptBlock {
+                                Remove-Item $args -Force -ErrorAction SilentlyContinue
+                            }
+                            Stop-PSFFunction -EnableException:$EnableException -Message "Could not copy $updatefile to $remotefile" -ErrorRecord $PSItem -Continue
+                        }
                     }
                 } else {
                     Stop-PSFFunction -EnableException:$EnableException -Message "Could not find $HotfixId and no file was specified" -Continue
@@ -227,9 +291,27 @@ function Install-KbUpdate {
                 }
             }
 
+            # i probably need to fix some logic but until then, check a few things
+            if ($item.IsLocalHost) {
+                if ($updatefile) {
+                    $FilePath = $updatefile
+                } else {
+                    $updatefile = Get-ChildItem -Path $FilePath
+                }
+                if (-not $PSBoundParameters.Title) {
+                    Write-PSFMessage -Level Verbose -Message "Trying to get Title from $($updatefile.FullName)"
+                    $Title = $updatefile.VersionInfo.ProductName
+                }
+            } else {
+                $FilePath = $remotefile
+            }
+
             if ($FilePath.EndsWith("exe")) {
-                if (-not $ArgumentList -and $FilePath -match "sql") {
+                if (-not $PSBoundParameters.ArgumentList -and $FilePath -match "sql") {
                     $ArgumentList = "/action=patch /AllInstances /quiet /IAcceptSQLServerLicenseTerms"
+                } else {
+                    # Setting a default argumentlist that hopefully works for most things?
+                    $ArgumentList = "/install /quiet /notrestart"
                 }
 
                 if (-not $Guid) {
@@ -237,9 +319,56 @@ function Install-KbUpdate {
                         $Guid = $PSBoundParameters.InputObject.Guid
                         $Title = $PSBoundParameters.InputObject.Title
                     } else {
-                        $InputObject = Get-KbUpdate -Architecture x64 -Credential $credential -Latest -Pattern $HotfixId | Where-Object Link | Select-Object -First 1
-                        $Guid = $InputObject | Select-Object -ExpandProperty UpdateId
-                        $Title = $InputObject | Select-Object -ExpandProperty Title
+                        # If online
+                        #((Get-NetConnectionProfile).IPv4Connectivity -contains "Internet")
+                        if ($true) {
+                            try {
+                                $hotfixid = $guid = $null
+                                Write-PSFMessage -Level Verbose -Message "Trying to get Title from $($updatefile.FullName)"
+                                $updatefile = Get-ChildItem -Path $updatefile.FullName -ErrorAction SilentlyContinue
+                                $Title = $updatefile.VersionInfo.ProductName
+                                Write-PSFMessage -Level Verbose -Message "Trying to get GUID from $($updatefile.FullName)"
+                                <#
+                                    It's better to just read from memory but I can't get this to work
+                                    $cab = New-Object Microsoft.Deployment.Compression.Cab.Cabinfo "C:\path\path.exe"
+                                    $file = New-Object Microsoft.Deployment.Compression.Cab.CabFileInfo($cab, "0")
+                                    $content = $file.OpenRead()
+                                #>
+                                $cab = New-Object Microsoft.Deployment.Compression.Cab.Cabinfo $updatefile.FullName
+                                $files = $cab.GetFiles("*")
+                                $index = $files | Where-Object Name -eq 0
+                                if (-not $index) {
+                                    $index = $files | Where-Object Name -match "none.xml| ParameterInfo.xml"
+                                }
+                                $temp = Get-PSFPath -Name Temp
+                                $indexfilename = $index.Name
+                                $xmlfile = Join-Path -Path $temp -ChildPath "$($updatefile.BaseName).xml"
+                                $null = $cab.UnpackFile($indexfilename, $xmlfile)
+                                $xml = [xml](Get-Content -Path $xmlfile)
+                                $tempguid = $xml.BurnManifest.Registration.Id
+
+                                if (-not $tempguid -and $xml.MsiPatch.PatchGUID) {
+                                    $tempguid = $xml.MsiPatch.PatchGUID
+                                }
+                                if (-not $tempguid -and $xml.Setup.Items.Patches.MSP.PatchCode) {
+                                    $tempguid = $xml.Setup.Items.Patches.MSP.PatchCode
+                                }
+
+                                Get-ChildItem -Path $xmlfile -ErrorAction SilentlyContinue | Remove-Item -Confirm:$false -ErrorAction SilentlyContinue
+
+                                # if we can't find the guid, use one that we know
+                                # is valid but not associated with any hotfix
+                                if (-not $tempguid) {
+                                    $tempguid = "DAADB00F-DAAD-B00F-B00F-DAADB00FB00F"
+                                }
+
+                                $guid = ([guid]$tempguid).Guid
+                            } catch {
+                                $guid = "DAADB00F-DAAD-B00F-B00F-DAADB00FB00F"
+                            }
+
+                            Write-PSFMessage -Level Verbose -Message "GUID is $guid"
+                        }
                     }
                 }
 
@@ -272,9 +401,9 @@ function Install-KbUpdate {
                 }
             }
 
-            if ($PSCmdlet.ShouldProcess($computer, "Installing Hotfix $HotfixId from $FilePath")) {
+            if ($PSCmdlet.ShouldProcess($computer, "Installing file from $FilePath")) {
                 try {
-                    Invoke-PSFCommand -ComputerName $computer -Credential $Credential -ScriptBlock {
+                    Invoke-PSFCommand -ScriptBlock {
                         param (
                             $Hotfix,
                             $VerbosePreference,
@@ -293,7 +422,20 @@ function Install-KbUpdate {
                                 Invoke-DscResource @hotfix -Method Set -ErrorAction Stop
                             }
                         } catch {
-                            switch ($message = "$_") {
+                            $message = "$_"
+
+                            # Unsure how to figure out params, try another way
+                            if ($message -match "The return code 1 was not expected.") {
+                                try {
+                                    Write-Verbose -Message "Retrying install with /quit parameter"
+                                    $hotfix.Property.Arguments = "/quiet"
+                                    Invoke-DscResource @hotfix -Method Set -ErrorAction Stop
+                                } catch {
+                                    $message = "$_"
+                                }
+                            }
+
+                            switch ($message) {
                                 # some things can be ignored
                                 { $message -match "Serialized XML is nested too deeply" -or $message -match "Name does not match package details" } {
                                     $null = 1
@@ -301,11 +443,14 @@ function Install-KbUpdate {
                                 { $message -match "2359302" } {
                                     throw "Error 2359302: update is already installed on $env:ComputerName"
                                 }
+                                { $message -match "could not be started" } {
+                                    throw "The install coult not initiate. The $($hotfix.Property.Path) on $env:ComputerName may be corrupt or only partially downloaded. Delete it and try again."
+                                }
                                 { $message -match "2042429437" } {
                                     throw "Error -2042429437. Configuration is likely not correct. The requested features may not be installed or features are already at a higher patch level."
                                 }
                                 { $message -match "2068709375" } {
-                                    throw "Error -2068709375. The exit code suggests that something is corrupt. See if this tutorial helps:  http://www.sqlcoffee.com/Tips0026.htm"
+                                    throw "Error -2068709375. The exit code suggests that something is corrupt. See if this tutorial helps: http://www.sqlcoffee.com/Tips0026.htm"
                                 }
                                 { $message -match "2067919934" } {
                                     throw "Error -2067919934 You likely need to reboot $env:ComputerName."
@@ -319,34 +464,64 @@ function Install-KbUpdate {
                             }
                         }
                     } -ArgumentList $hotfix, $VerbosePreference, $PSBoundParameters.FileName -ErrorAction Stop
+
+                    if ($deleteremotefile) {
+                        Write-PSFMessage -Level Verbose -Message "Deleting $deleteremotefile"
+                        $null = Invoke-PSFCommand -ComputerName $computer -ArgumentList $deleteremotefile -ScriptBlock {
+                            Get-ChildItem -ErrorAction SilentlyContinue $args | Remove-Item -Force -ErrorAction SilentlyContinue -Confirm:$false
+                        }
+                    }
+
                     Write-Verbose -Message "Finished installing, checking status"
-                    $exists = Get-KbInstalledUpdate -ComputerName $computer -Credential $Credential -Pattern $hotfix.property.id -IncludeHidden
+                    $exists = Get-KbInstalledUpdate -ComputerName $computer -Pattern $hotfix.property.id -IncludeHidden
 
                     if ($exists.Summary -match "restart") {
                         $status = "This update requires a restart"
                     } else {
                         $status = "Install successful"
                     }
-
+                    if ($HotfixId) {
+                        $id = $HotfixId
+                    } else {
+                        $id = $guid
+                    }
+                    if ($id -eq "DAADB00F-DAAD-B00F-B00F-DAADB00FB00F") {
+                        $id = $null
+                    }
                     [pscustomobject]@{
                         ComputerName = $computer
-                        HotfixID     = $HotfixId
+                        Title        = $Title
+                        ID           = $id
                         Status       = $Status
-                    }
+                        FileName     = $updatefile.Name
+                    } | Select-DefaultView -Property ComputerName, Title, Status, FileName, Id
                 } catch {
                     if ("$PSItem" -match "Serialized XML is nested too deeply") {
                         Write-PSFMessage -Level Verbose -Message "Serialized XML is nested too deeply. Forcing output."
-                        $exists = Get-KbInstalledUpdate -ComputerName $computer -Credential $credential -HotfixId $hotfix.property.id
+                        $exists = Get-KbInstalledUpdate -ComputerName $computer -HotfixId $hotfix.property.id
 
-                        if ($exists) {
-                            [pscustomobject]@{
-                                ComputerName = $computer
-                                HotfixID     = $HotfixId
-                                Status       = "Successfully installed. A restart is now required."
-                            }
+                        if ($exists.Summary -match "restart") {
+                            $status = "This update requires a restart"
                         } else {
-                            Stop-PSFFunction -Message "Failure on $computer" -ErrorRecord $_ -EnableException:$EnableException
+                            $status = "Install successful"
                         }
+                        if ($HotfixId) {
+                            $id = $HotfixId
+                        } else {
+                            $id = $guid
+                        }
+
+                        if ($id -eq "DAADB00F-DAAD-B00F-B00F-DAADB00FB00F") {
+                            $id = $null
+                        }
+
+                        [pscustomobject]@{
+                            ComputerName = $computer
+                            Title        = $Title
+                            ID           = $id
+                            Status       = $Status
+                            FileName     = $updatefile.Name
+                        } | Select-DefaultView -Property ComputerName, Title, Status, FileName, Id
                     } else {
                         Stop-PSFFunction -Message "Failure on $computer" -ErrorRecord $_ -EnableException:$EnableException
                     }
@@ -356,7 +531,8 @@ function Install-KbUpdate {
     }
     end {
         if ($warnatbottom) {
-            Write-PSFMessage -Level Output -Message "$updatefile still exists on your local drive, and likely other servers as well, in the Downloads directory."
+            Write-PSFMessage -Level Output -Message "Downloaded files may still exist on your local drive and other servers as well, in the Downloads directory."
+            Write-PSFMessage -Level Output -Message "If you ran this as SYSTEM, the downloads will be in windows\system32\config\systemprofile."
         }
     }
 }
