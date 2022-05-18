@@ -119,6 +119,9 @@ function Install-KbUpdate {
 
         foreach ($item in $ComputerName) {
             $computer = $item.ComputerName
+            if ($item.IsLocalHost -and -not (Test-ElevationRequirement -ComputerName $computer)) {
+                Stop-PSFFunction -EnableException:$EnableException -Message "You must be an administrator to run this command on the local host" -Continue
+            }
             # null out a couple things to be safe
             $remotefileexists = $programhome = $remotesession = $null
 
@@ -172,7 +175,12 @@ function Install-KbUpdate {
                     $programfiles = Invoke-PSFCommand -ScriptBlock {
                         $env:ProgramFiles
                     }
-                    $null = Copy-Item -Path "$script:ModuleRoot\library\xWindowsUpdate" -Destination "$programfiles\WindowsPowerShell\Modules\xWindowsUpdate" -ToSession $remotesession -Recurse -Force
+                    if ($item.IsLocalhost) {
+                        $null = Copy-Item -Path "$script:ModuleRoot\library\xWindowsUpdate" -Destination "$programfiles\WindowsPowerShell\Modules\xWindowsUpdate" -Recurse -Force
+                    } else {
+                        $null = Copy-Item -Path "$script:ModuleRoot\library\xWindowsUpdate" -Destination "$programfiles\WindowsPowerShell\Modules\xWindowsUpdate" -ToSession $remotesession -Recurse -Force
+                    }
+
                     $ProgressPreference = $oldpref
                 } catch {
                     Stop-PSFFunction -EnableException:$EnableException -Message "Couldn't auto-install xHotfix on $computer. Please Install-Module xWindowsUpdate on $computer to continue." -Continue
@@ -283,8 +291,17 @@ function Install-KbUpdate {
                 }
             }
 
+            # i probably need to fix some logic but until then, check a few things
             if ($item.IsLocalHost) {
-                $FilePath = $updatefile
+                if ($updatefile) {
+                    $FilePath = $updatefile
+                } else {
+                    $updatefile = Get-ChildItem -Path $FilePath
+                }
+                if (-not $PSBoundParameters.Title) {
+                    Write-PSFMessage -Level Verbose -Message "Trying to get Title from $($updatefile.FullName)"
+                    $Title = $updatefile.VersionInfo.ProductName
+                }
             } else {
                 $FilePath = $remotefile
             }
@@ -468,12 +485,16 @@ function Install-KbUpdate {
                     } else {
                         $id = $guid
                     }
+                    if ($id -eq "DAADB00F-DAAD-B00F-B00F-DAADB00FB00F") {
+                        $id = $null
+                    }
                     [pscustomobject]@{
                         ComputerName = $computer
                         Title        = $Title
                         ID           = $id
                         Status       = $Status
-                    } | Select-DefaultView -Property ComputerName, Id, Title, Status
+                        FileName     = $updatefile.Name
+                    } | Select-DefaultView -Property ComputerName, Title, Status, FileName, Id
                 } catch {
                     if ("$PSItem" -match "Serialized XML is nested too deeply") {
                         Write-PSFMessage -Level Verbose -Message "Serialized XML is nested too deeply. Forcing output."
@@ -489,12 +510,18 @@ function Install-KbUpdate {
                         } else {
                             $id = $guid
                         }
+
+                        if ($id -eq "DAADB00F-DAAD-B00F-B00F-DAADB00FB00F") {
+                            $id = $null
+                        }
+
                         [pscustomobject]@{
                             ComputerName = $computer
                             Title        = $Title
                             ID           = $id
                             Status       = $Status
-                        } | Select-DefaultView -Property ComputerName, Id, Title, Status
+                            FileName     = $updatefile.Name
+                        } | Select-DefaultView -Property ComputerName, Title, Status, FileName, Id
                     } else {
                         Stop-PSFFunction -Message "Failure on $computer" -ErrorRecord $_ -EnableException:$EnableException
                     }
