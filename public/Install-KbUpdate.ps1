@@ -114,7 +114,7 @@ function Install-KbUpdate {
         }
 
         if ($Credential.UserName) {
-            $PSDefaultParameterValues["Invoke-PSFCommand:Credential"] = $Credential
+            $PSDefaultParameterValues["*:Credential"] = $Credential
         }
 
         foreach ($item in $ComputerName) {
@@ -142,11 +142,11 @@ function Install-KbUpdate {
                 $programhome = Invoke-PSFCommand -ScriptBlock { $home }
 
                 if (-not $remotesession) {
-                    $remotesession = Get-PSSession -ComputerName $computer -Credential $Credential -Verbose | Where-Object { $PsItem.Availability -eq 'Available' -and ($PsItem.Name -match 'WinRM' -or $PsItem.Name -match 'Runspace') } | Select-Object -First 1
+                    $remotesession = Get-PSSession -ComputerName $computer -Verbose | Where-Object { $PsItem.Availability -eq 'Available' -and ($PsItem.Name -match 'WinRM' -or $PsItem.Name -match 'Runspace') } | Select-Object -First 1
                 }
 
                 if (-not $remotesession) {
-                    $remotesession = Get-PSSession -ComputerName $computer -Credential $Credential | Where-Object { $PsItem.Availability -eq 'Available' } | Select-Object -First 1
+                    $remotesession = Get-PSSession -ComputerName $computer | Where-Object { $PsItem.Availability -eq 'Available' } | Select-Object -First 1
                 }
 
                 if (-not $remotesession) {
@@ -208,7 +208,7 @@ function Install-KbUpdate {
                     Write-PSFMessage -Level Verbose -Message "Update file not found, download it for them"
                     # try to automatically download it for them
                     if (-not $PSBoundParameters.InputObject) {
-                        $InputObject = Get-KbUpdate -Architecture x64 -Credential $credential -Latest -Pattern $HotfixId | Where-Object Link
+                        $InputObject = Get-KbUpdate -Architecture x64 -Latest -Pattern $HotfixId | Where-Object Link
                     }
 
                     # note to reader: if this picks the wrong one, please download the required file manually.
@@ -255,7 +255,7 @@ function Install-KbUpdate {
                 if (-not "$($PSBoundParameters.FilePath)".StartsWith("\\") -and -not $item.IsLocalhost) {
                     Write-PSFMessage -Level Verbose -Message "Update is not located on a file server and not local, copying over the remote server"
                     try {
-                        $exists = Invoke-PSFCommand -ComputerName $computer -Credential $Credential -ArgumentList $remotefile -ScriptBlock {
+                        $exists = Invoke-PSFCommand -ComputerName $computer -ArgumentList $remotefile -ScriptBlock {
                             Get-ChildItem -Path $args -ErrorAction SilentlyContinue
                         }
                         if (-not $exists) {
@@ -263,7 +263,7 @@ function Install-KbUpdate {
                             $deleteremotefile = $remotefile
                         }
                     } catch {
-                        $null = Invoke-PSFCommand -ComputerName $computer -Credential $Credential -ArgumentList $remotefile -ScriptBlock {
+                        $null = Invoke-PSFCommand -ComputerName $computer -ArgumentList $remotefile -ScriptBlock {
                             Remove-Item $args -Force -ErrorAction SilentlyContinue
                         }
                         try {
@@ -271,7 +271,7 @@ function Install-KbUpdate {
                             $null = Copy-Item -Path $updatefile -Destination $remotefile -ToSession $remotesession -ErrorAction Stop
                             $deleteremotefile = $remotefile
                         } catch {
-                            $null = Invoke-PSFCommand -ComputerName $computer -Credential $Credential -ArgumentList $remotefile -ScriptBlock {
+                            $null = Invoke-PSFCommand -ComputerName $computer -ArgumentList $remotefile -ScriptBlock {
                                 Remove-Item $args -Force -ErrorAction SilentlyContinue
                             }
                             Stop-PSFFunction -EnableException:$EnableException -Message "Could not copy $updatefile to $remotefile" -ErrorRecord $PSItem -Continue
@@ -467,13 +467,13 @@ function Install-KbUpdate {
 
                     if ($deleteremotefile) {
                         Write-PSFMessage -Level Verbose -Message "Deleting $deleteremotefile"
-                        $null = Invoke-PSFCommand -ComputerName $computer -Credential $Credential -ArgumentList $deleteremotefile -ScriptBlock {
+                        $null = Invoke-PSFCommand -ComputerName $computer -ArgumentList $deleteremotefile -ScriptBlock {
                             Get-ChildItem -ErrorAction SilentlyContinue $args | Remove-Item -Force -ErrorAction SilentlyContinue -Confirm:$false
                         }
                     }
 
                     Write-Verbose -Message "Finished installing, checking status"
-                    $exists = Get-KbInstalledUpdate -ComputerName $computer -Credential $Credential -Pattern $hotfix.property.id -IncludeHidden
+                    $exists = Get-KbInstalledUpdate -ComputerName $computer -Pattern $hotfix.property.id -IncludeHidden
 
                     if ($exists.Summary -match "restart") {
                         $status = "This update requires a restart"
@@ -498,7 +498,7 @@ function Install-KbUpdate {
                 } catch {
                     if ("$PSItem" -match "Serialized XML is nested too deeply") {
                         Write-PSFMessage -Level Verbose -Message "Serialized XML is nested too deeply. Forcing output."
-                        $exists = Get-KbInstalledUpdate -ComputerName $computer -Credential $credential -HotfixId $hotfix.property.id
+                        $exists = Get-KbInstalledUpdate -ComputerName $computer -HotfixId $hotfix.property.id
 
                         if ($exists.Summary -match "restart") {
                             $status = "This update requires a restart"
