@@ -103,4 +103,4 @@ The `Install-KbUpdate` command uses the `Invoke-DscResource` to run a method of 
 
 ## Thank you!
 
-Thanks to all of the contributors and downloaders! Also, thanks to the []redditor who helped with the description](https://www.reddit.com/r/PowerShell/comments/f3rusq/comment/fhmli61/).
+Thanks to all of the contributors and downloaders! Also, thanks to the [redditor who helped with the description](https://www.reddit.com/r/PowerShell/comments/f3rusq/comment/fhmli61/).
