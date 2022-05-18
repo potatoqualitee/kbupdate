@@ -309,12 +309,12 @@ function Install-KbUpdate {
             if ($FilePath.EndsWith("exe")) {
                 if (-not $PSBoundParameters.ArgumentList -and $FilePath -match "sql") {
                     $ArgumentList = "/action=patch /AllInstances /quiet /IAcceptSQLServerLicenseTerms"
+                } else {
+                    # Setting a default argumentlist that hopefully works for most things?
+                    $ArgumentList = "/install /quiet /notrestart"
                 }
 
                 if (-not $Guid) {
-                    # Setting a default argumentlist that hopefully works for most things?
-                    $ArgumentList = "/install /quiet /notrestart"
-
                     if ($InputObject) {
                         $Guid = $PSBoundParameters.InputObject.Guid
                         $Title = $PSBoundParameters.InputObject.Title
