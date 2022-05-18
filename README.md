@@ -3,6 +3,10 @@
 # kbupdate
 KB Viewer, Saver, Installer and Uninstaller
 
+kbUpdate gets you specific updates that you want, even if your system doesn't need them - you just need to know the KB number. It's essentially a command-line Windows Update Catalog.
+
+If you're wondering about the difference between `kbupdate` and `PSWindowsUpdate`, `PSWindowsUpdate` gets you updates your systems needs, either from WSUS or from WU. You can exclude some, but you won't get anything that your system doesn't currently need.
+
 ## Install
 
 ```powershell
@@ -95,3 +99,8 @@ Get-Help Get-KbUpdate -Detailed
 
 ## DSC Considerations
 The `Install-KbUpdate` command uses the `Invoke-DscResource` to run a method of the `Package` or `xHotFix` resource against the target node. Using `Invoke-DscResource` bypasses the Local Configuration Manager (LCM) on the target node so should not affect your current configuration.  However, if you are currently using DSC to control the desired state of your target node and you contradict the call to `Invoke-DscResource` you could sees issues. For example if the LCM has a `Package` resource saying that KB4527376 should not be installed, and then you install it with `Install-KbUpdate` after the install finishes the LCM will report it is not in the desired state, and depending on your LCM settings could uninstall the KB.
+
+
+## Thank you!
+
+Thanks to all of the contributors and downloaders! Also, thanks to the []redditor who helped with the description](https://www.reddit.com/r/PowerShell/comments/f3rusq/comment/fhmli61/).
