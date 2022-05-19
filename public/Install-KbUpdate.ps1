@@ -285,10 +285,6 @@ function Install-KbUpdate {
             # if user doesnt add kb, try to find it for them from the provided filename
             if (-not $PSBoundParameters.HotfixId) {
                 $HotfixId = $FilePath.ToUpper() -split "\-" | Where-Object { $psitem.Startswith("KB") }
-                if (-not $HotfixId) {
-                    Stop-PSFFunction -EnableException:$EnableException -Message "Could not determine KB from $FilePath. Looked for '-kbnumber-'. Please provide a HotfixId."
-                    return
-                }
             }
 
             # i probably need to fix some logic but until then, check a few things
