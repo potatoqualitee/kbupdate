@@ -3,7 +3,7 @@
 # kbupdate
 KB Viewer, Saver, Installer and Uninstaller
 
-kbUpdate gets you specific updates that you want, even if your system doesn't need them - you just need to know the KB number. It's essentially a command-line Windows Update Catalog.
+kbupdate gets you specific updates that you want, even if your system doesn't need them - you just need to know the KB number. It's essentially a command-line Windows Update Catalog.
 
 If you're wondering about the difference between `kbupdate` and `PSWindowsUpdate`, `PSWindowsUpdate` gets you updates your systems needs, either from WSUS or from WU. You can exclude some, but you won't get anything that your system doesn't currently need.
 
