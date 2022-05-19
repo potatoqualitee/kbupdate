@@ -193,6 +193,7 @@ function Uninstall-KbUpdate {
 
             foreach ($update in $InputObject) {
                 $computer = $update.ComputerName
+                Write-PSFMessage -Level Verbose -Message "Processing $computer"
 
                 if (-not (Test-ElevationRequirement -ComputerName $computer)) {
                     Stop-PSFFunction -Message "To run this command locally, you must run as admin." -Continue -EnableException:$EnableException
@@ -254,8 +255,13 @@ function Uninstall-KbUpdate {
                     https://social.technet.microsoft.com/Forums/Lync/en-US/f6594e00-2400-4276-85a1-fb06485b53e6/issues-with-wusaexe-and-windows-10-enterprise?forum=win10itprogeneral
                     #>
                     $installname = $update.InstallName
-                    if (-not $InstallName) {
-                        Stop-PSFFunction -EnableException:$EnableException -Message "Couldn't figure out a way to install $hotfix. Please provide -FileName or reinstall." -Continue
+
+                    if (-not $installname) {
+                        $installname = $update.CBSPackageObject | Sort-Object PSChildName -Descending | Select-Object -First 1 -ExpandProperty PSChildName
+                    }
+
+                    if (-not $installname) {
+                        Stop-PSFFunction -EnableException:$EnableException -Message "Couldn't figure out a way to uninstall $hotfix. Please provide -FileName or reinstall." -Continue
                     }
                     $program = "dism"
                     $ArgumentList = "/Online /Remove-Package /PackageName:$installname /quiet /norestart"
