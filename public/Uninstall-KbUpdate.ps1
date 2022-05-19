@@ -257,14 +257,18 @@ function Uninstall-KbUpdate {
                     $installname = $update.InstallName
 
                     if (-not $installname) {
-                        $installname = $update.CBSPackageObject | Sort-Object PSChildName -Descending | Select-Object -First 1 -ExpandProperty PSChildName
+                        $installname = ($update.CBSPackageObject).PSChildName
                     }
 
                     if (-not $installname) {
-                        Stop-PSFFunction -EnableException:$EnableException -Message "Couldn't figure out a way to uninstall $hotfix. Please provide -FileName or reinstall." -Continue
+                        Stop-PSFFunction -EnableException:$EnableException -Message "Couldn't determine a way to uninstall $hotfix. It may be marked as a permanent install." -Continue
                     }
                     $program = "dism"
-                    $ArgumentList = "/Online /Remove-Package /PackageName:$installname /quiet /norestart"
+                    $parms = @("/Online /Remove-Package /quiet /norestart")
+                    foreach ($install in $installname) {
+                        $parms += "/PackageName:$install"
+                    }
+                    $ArgumentList = $parms -join " "
                 }
 
                 # I tried to get this working using DSC but in end end, a Start-Process equivalent was it for the convenience of not having to specify a filename, tho that can be added as a backup
