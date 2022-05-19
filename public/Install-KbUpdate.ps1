@@ -285,10 +285,6 @@ function Install-KbUpdate {
             # if user doesnt add kb, try to find it for them from the provided filename
             if (-not $PSBoundParameters.HotfixId) {
                 $HotfixId = $FilePath.ToUpper() -split "\-" | Where-Object { $psitem.Startswith("KB") }
-                if (-not $HotfixId) {
-                    Stop-PSFFunction -EnableException:$EnableException -Message "Could not determine KB from $FilePath. Looked for '-kbnumber-'. Please provide a HotfixId."
-                    return
-                }
             }
 
             # i probably need to fix some logic but until then, check a few things
@@ -319,8 +315,6 @@ function Install-KbUpdate {
                         $Guid = $PSBoundParameters.InputObject.Guid
                         $Title = $PSBoundParameters.InputObject.Title
                     } else {
-                        # If online
-                        #((Get-NetConnectionProfile).IPv4Connectivity -contains "Internet")
                         if ($true) {
                             try {
                                 $hotfixid = $guid = $null
@@ -328,12 +322,24 @@ function Install-KbUpdate {
                                 $updatefile = Get-ChildItem -Path $updatefile.FullName -ErrorAction SilentlyContinue
                                 $Title = $updatefile.VersionInfo.ProductName
                                 Write-PSFMessage -Level Verbose -Message "Trying to get GUID from $($updatefile.FullName)"
+
+                                <#
+                                    The reason you want to find the GUID is to save time, mostly, I guess?
+
+                                    It saves time because it won't even attempt the install if there are GUID matches
+                                    in the registry. If you pass a fake but compliant GUID, it attempts the install and
+                                    fails, no big deal.
+
+                                    Overall, it just seems like a good idea to get a GUID if it's required.
+                                #>
+
                                 <#
                                     It's better to just read from memory but I can't get this to work
                                     $cab = New-Object Microsoft.Deployment.Compression.Cab.Cabinfo "C:\path\path.exe"
                                     $file = New-Object Microsoft.Deployment.Compression.Cab.CabFileInfo($cab, "0")
                                     $content = $file.OpenRead()
                                 #>
+
                                 $cab = New-Object Microsoft.Deployment.Compression.Cab.Cabinfo $updatefile.FullName
                                 $files = $cab.GetFiles("*")
                                 $index = $files | Where-Object Name -eq 0
