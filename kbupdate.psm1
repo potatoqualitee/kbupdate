@@ -1,6 +1,8 @@
 #requires -Version 3.0
 $script:ModuleRoot = $PSScriptRoot
 
+Import-Module "$PSScriptRoot/library/Microsoft.Deployment.Compression.Cab.dll", "$PSScriptRoot/library/Microsoft.Deployment.Compression.dll"
+
 function Import-ModuleFile {
     <#
 		.SYNOPSIS
@@ -52,7 +54,6 @@ if (-not $script:compcollection) {
 $script:languages = . "$ModuleRoot\library\languages.ps1"
 
 if (-not $IsLinux -and -not $IsMacOs) {
-    [array]$script:basedb = @()
     # for those of us who are loading the psm1 directly
     try {
         Import-Module -Name kbupdate-library -ErrorAction Stop
@@ -61,7 +62,6 @@ if (-not $IsLinux -and -not $IsMacOs) {
     }
     $kblib = Split-Path -Path (Get-Module -Name kbupdate-library | Select-Object -Last 1).Path
     $script:basedb = (Get-ChildItem -Path "$kblib\*.sqlite" -Recurse).FullName
-    $script:dailydb = (Get-ChildItem -Path "$PSScriptRoot\library\db\*.sqlite").FullName
 }
 
 # Register autocompleters
@@ -77,3 +77,28 @@ Register-PSFTeppArgumentCompleter -Command Get-KbUpdate, Save-KbUpdate -Paramete
 Register-PSFTeppArgumentCompleter -Command Get-KbUpdate, Save-KbUpdate -Parameter OperatingSystem -Name OperatingSystem
 Register-PSFTeppArgumentCompleter -Command Get-KbUpdate, Save-KbUpdate -Parameter Product -Name Product
 Register-PSFTeppArgumentCompleter -Command Get-KbUpdate, Save-KbUpdate -Parameter Language -Name Language
+
+
+# set some defaults
+if ((Get-NetConnectionProfile -ErrorAction SilentlyContinue)) {
+    $internet = (Get-NetConnectionProfile).IPv4Connectivity -contains "Internet"
+} else {
+    try {
+        $network = [Type]::GetTypeFromCLSID([Guid]"{DCB00C01-570F-4A9B-8D69-199FDBA5723B}")
+        $internet = ([Activator]::CreateInstance($network)).GetNetworkConnections() | ForEach-Object {
+            $_.GetNetwork().GetConnectivity()
+        } | Where-Object { ($_ -band 64) -eq 64 }
+    } catch {
+        # don't care
+    }
+}
+
+if ($internet) {
+    Write-PSFMessage -Level Verbose -Message "Internet connection detected. Setting source for Get-KbUpdate to Web and Database."
+    $PSDefaultParameterValues['Get-KbUpdate:Source'] = @("Web", "Database")
+    $PSDefaultParameterValues['Save-KbUpdate:Source'] = @("Web", "Database")
+} else {
+    Write-PSFMessage -Level Verbose -Message "Internet connection not detected. Setting source for Get-KbUpdate to Database."
+    $PSDefaultParameterValues['Get-KbUpdate:Source'] = "Database"
+    $PSDefaultParameterValues['Save-KbUpdate:Source'] = "Database"
+}

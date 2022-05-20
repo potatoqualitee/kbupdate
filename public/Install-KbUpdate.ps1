@@ -77,6 +77,7 @@ function Install-KbUpdate {
         PS C:\> Uninstall-KbUpdate -ComputerName sql2017 -HotfixId KB4498951
 
         Installs KB4498951 on sql2017 then uninstalls it ✔
+
     #>
     [CmdletBinding(SupportsShouldProcess, ConfirmImpact = "Medium")]
     param (
@@ -88,6 +89,9 @@ function Install-KbUpdate {
         [string]$HotfixId,
         [Alias("Path")]
         [string]$FilePath,
+        [string]$RepositoryPath,
+        [ValidateSet("WSUS", "DSC")]
+        [string]$Method,
         [Parameter(ValueFromPipelineByPropertyName)]
         [Alias("UpdateId")]
         [string]$Guid,
@@ -127,6 +131,36 @@ function Install-KbUpdate {
 
             Write-PSFMessage -Level Verbose -Message "Processing $computer"
 
+            if ($Method -eq "WindowsUpdate") {
+                $session = New-Object -ComObject Microsoft.Update.Session
+                $searcher = $session.CreateUpdateSearcher()
+                $searchresult = $searcher.Search("IsInstalled=0 and Type='Software'")
+
+                # iterate the updates in searchresult
+                # it must be force iterated like this
+                foreach ($update in $searchresult.Updates) {
+                    foreach ($bundle in $update.BundledUpdates) {
+                        $files = New-Object -ComObject "Microsoft.Update.StringColl.1"
+                        foreach ($file in $bundle.DownloadContents) {
+                            if ($file.DownloadUrl) {
+                                $filename = Split-Path -Path $file.DownloadUrl -Leaf
+                                $fullpath = Join-Path -Path $RepositoryPath -ChildPath $filename
+                                write-warning $fullpath
+                                write-warning $update.UpdateId
+                                $files.Add($fullpath)
+                            }
+                        }
+                        # load into Windows Update API
+                        $bundle.CopyToCache($files)
+                    }
+                }
+
+                $installer = $UpdateSession.CreateUpdateInstaller()
+                $installer.Updates = $searchresult.Updates
+                $installer.Install()
+            }
+        } else {
+            # Method is DSC
             if ($PSDefaultParameterValues["Invoke-PSFCommand:ComputerName"]) {
                 $null = $PSDefaultParameterValues["Invoke-PSFCommand:ComputerName"].Remove()
             }
@@ -350,8 +384,10 @@ function Install-KbUpdate {
                                 $indexfilename = $index.Name
                                 $xmlfile = Join-Path -Path $temp -ChildPath "$($updatefile.BaseName).xml"
                                 $null = $cab.UnpackFile($indexfilename, $xmlfile)
-                                $xml = [xml](Get-Content -Path $xmlfile)
-                                $tempguid = $xml.BurnManifest.Registration.Id
+                                if ((Test-Path -Path $xmlfile)) {
+                                    $xml = [xml](Get-Content -Path $xmlfile)
+                                    $tempguid = $xml.BurnManifest.Registration.Id
+                                }
 
                                 if (-not $tempguid -and $xml.MsiPatch.PatchGUID) {
                                     $tempguid = $xml.MsiPatch.PatchGUID

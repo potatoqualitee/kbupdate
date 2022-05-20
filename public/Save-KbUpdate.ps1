@@ -31,7 +31,7 @@ function Save-KbUpdate {
         Filters out any patches that have been superseded by other patches in the batch
 
     .PARAMETER Source
-        Search source. By default, Database is searched first, then if no matches are found, it tries finding it on the web.
+        Search source. By default, Database is searched first, then if no matches are found, it tries finding it on the web if a an internet connection is detected.
 
     .PARAMETER InputObject
         Enables piping from Get-KbUpdate
@@ -90,58 +90,32 @@ function Save-KbUpdate {
     #>
     [CmdletBinding(DefaultParameterSetName = 'default')]
     param(
-        [Parameter(ParameterSetName = 'default')]
-        [Alias("Name", "HotfixId", "KBUpdate", "Id")]
+        [Parameter(ValueFromPipelineByPropertyName)]
+        [Alias("UpdateId", "Id", "KBUpdate", "HotfixId", "Name")]
         [string[]]$Pattern,
-
-        [Parameter(ParameterSetName = 'default')]
-        [Parameter(ParameterSetName = 'link')]
         [string]$Path = ".",
-
-        [Parameter(ParameterSetName = 'default')]
-        [Parameter(ParameterSetName = 'link')]
         [string]$FilePath,
-
-        [Parameter(ParameterSetName = 'default')]
         [string[]]$Architecture,
-
-        [Parameter(ParameterSetName = 'default')]
         [string[]]$OperatingSystem,
-
-        [Parameter(ParameterSetName = 'default')]
         [string[]]$Product,
-
-        [Parameter(ParameterSetName = 'default')]
         [string[]]$Language,
-
-        [parameter(ValueFromPipeline, ParameterSetName = 'default')]
+        [parameter(ValueFromPipeline)]
         [pscustomobject[]]$InputObject,
-
-        [Parameter(ParameterSetName = 'default')]
         [switch]$Latest,
-
-        [Parameter(ParameterSetName = 'default')]
         [switch]$AllowClobber,
-
-        [Parameter(ParameterSetName = 'default')]
         [ValidateSet("Wsus", "Web", "Database")]
-        [string[]]$Source = @("Web", "Database"),
-
-        [Parameter(ParameterSetName = 'default')]
+        [string[]]$Source,
         [switch]$Strict,
-
-        [Parameter(ParameterSetName = 'default')]
         [switch]$EnableException,
-
         [Parameter(Mandatory, ParameterSetName = 'link')]
-        [string[]]
-        $Link
+        [string[]]$Link
     )
     begin {
         $files = @()
+
+        Write-PSFMessage -Level Verbose -Message "Source set to $Source"
     }
     process {
-
         switch ($PSCmdlet.ParameterSetName) {
             'link' {
                 $Link | Foreach-Object {
@@ -168,7 +142,6 @@ function Save-KbUpdate {
                         }
                     }
                 }
-
             }
 
             default {
@@ -202,10 +175,16 @@ function Save-KbUpdate {
                         EnableException = $EnableException
                         Simple          = $Simple
                         Latest          = $Latest
-                        Source          = $Source
                     }
+
+                    if ($PSBoundParameters.Source) {
+                        $params.Source = $Source
+                    }
+
                     $InputObject += Get-KbUpdate @params
                 }
+
+                $InputObject = $InputObject | Sort-Object -Unique
 
                 foreach ($object in $InputObject) {
                     if ($Architecture) {
@@ -268,9 +247,11 @@ function Save-KbUpdate {
                         }
 
                         $file = "$Path$([IO.Path]::DirectorySeparatorChar)$FilePath"
-
+                        write-warning $file
+                        continue
                         if ((Test-Path -Path $file) -and -not $AllowClobber) {
                             Get-ChildItem -Path $file
+                            $lastfile = $file
                             $files += $file
                             continue
                         }
@@ -280,23 +261,24 @@ function Save-KbUpdate {
 
                         if ((Get-Command Start-BitsTransfer -ErrorAction Ignore)) {
                             try {
-                                Start-BitsTransfer -Source $link -Destination $file -ErrorAction Stop
+                                $null = Start-BitsTransfer -Source $link -Destination $file -ErrorAction Stop
                             } catch {
                                 Write-Progress -Activity "Downloading $FilePath" -Id 1
-                                Invoke-TlsWebRequest -OutFile $file -Uri $link
+                                $null = Invoke-TlsWebRequest -OutFile $file -Uri $link
                                 Write-Progress -Activity "Downloading $FilePath" -Id 1 -Completed
                             }
                         } else {
                             try {
                                 # IWR is crazy slow for large downloads
                                 Write-Progress -Activity "Downloading $FilePath" -Id 1
-                                Invoke-TlsWebRequest -OutFile $file -Uri $link
+                                $null = Invoke-TlsWebRequest -OutFile $file -Uri $link
                                 Write-Progress -Activity "Downloading $FilePath" -Id 1 -Completed
                             } catch {
                                 Stop-PSFFunction -EnableException:$EnableException -Message "Failure" -ErrorRecord $_ -Continue
                             }
                         }
-                        if (Test-Path -Path $file) {
+
+                        if (Test-Path -Path $file -and $lastfile -ne $file) {
                             Get-ChildItem -Path $file
                             $files += $file
                         }
@@ -304,6 +286,5 @@ function Save-KbUpdate {
                 }
             }
         }
-
     }
 }

@@ -7,7 +7,7 @@
 #
 @{
     # Version number of this module.
-    ModuleVersion     = '1.5.2'
+    ModuleVersion     = '1.5.3'
 
     # ID used to uniquely identify this module
     GUID              = 'f292e190-ed32-4232-b9f3-b50b42a5655f'
@@ -30,9 +30,9 @@
     # Modules that must be imported into the global environment prior to importing this module
     RequiredModules   = @(
         # load up everything in Windows
-        @{ ModuleName = 'PSFramework'; ModuleVersion = '1.0.19' },
-        @{ ModuleName = 'kbupdate-library'; ModuleVersion = '1.0.20' },
-        @{ ModuleName = 'PSSQLite'; ModuleVersion = '1.0.3' }
+        @{ ModuleName = 'PSFramework'; ModuleVersion = '1.7.227' },
+        @{ ModuleName = 'kbupdate-library'; ModuleVersion = '1.1.2' },
+        @{ ModuleName = 'PSSQLite'; ModuleVersion = '1.1.0' }
     )
 
     # Script module or binary module file associated with this manifest.
@@ -46,7 +46,8 @@
         'Install-KbUpdate',
         'Uninstall-KbUpdate',
         'Select-KbLatest',
-        'Get-KbWSUSSCNFile'
+        'Save-KbScanFile',
+        'Get-KbNeededUpdate'
     )
 
     PrivateData       = @{
