@@ -41,11 +41,10 @@ function Save-KbScanFile {
         $request = Invoke-TlsWebRequest -Uri $Source -Method HEAD
 
         $lastmodified = $Request.Headers['Last-Modified']
-        $size = $Request.Headers['Content-Length']
+        $size = [int]($Request.Headers['Content-Length'] | Select-Object -First 1)
         $size = [math]::Round(($size / 1MB),2)
         $filename = (Split-Path -Path $Source -Leaf)
 
-        Write-PSFMessage -Level Verbose -Message "Downloading $filename from $Source"
         Write-PSFMessage -Level Verbose -Message "Last Modified: $lastmodified"
         Write-PSFMessage -Level Verbose -Message "Size: $size MB"
 
@@ -60,6 +59,7 @@ function Save-KbScanFile {
         $outfile = Join-PSFPath -Path $Path $filename
         # Download WSUS database
         if (-not (Test-Path -Path $outfile) -or $AllowClobber) {
+            Write-PSFMessage -Level Verbose -Message "Downloading $filename from $Source"
             Invoke-TlsWebRequest -Uri $Source -OutFile $outfile
         }
 

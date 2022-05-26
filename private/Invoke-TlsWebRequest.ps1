@@ -9,8 +9,10 @@ function Invoke-TlsWebRequest {
     #>
 
     # IWR is crazy slow for large downloads
-    $currentProgressPref = $ProgressPreference
-    $ProgressPreference = "SilentlyContinue"
+    if ($PSversionTable.PSEdition -ne "Core") {
+        $currentProgressPref = $ProgressPreference
+        $ProgressPreference = "SilentlyContinue"
+    }
 
     if (-not $IsLinux -and -not $IsMacOs) {
         $regproxy = Get-ItemProperty -Path "Registry::HKCU\Software\Microsoft\Windows\CurrentVersion\Internet Settings"
@@ -38,7 +40,10 @@ function Invoke-TlsWebRequest {
     }
 
     [Net.ServicePointManager]::SecurityProtocol = $currentVersionTls
-    $ProgressPreference = $currentProgressPref
+
+    if ($PSversionTable.PSEdition -ne "Core") {
+        $ProgressPreference = $currentProgressPref
+    }
 }
 
 

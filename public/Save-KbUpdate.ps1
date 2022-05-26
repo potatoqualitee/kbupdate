@@ -246,9 +246,8 @@ function Save-KbUpdate {
                             $Path = Split-Path -Path $FilePath
                         }
 
-                        $file = "$Path$([IO.Path]::DirectorySeparatorChar)$FilePath"
-                        write-warning $file
-                        continue
+                        $file = Join-Path -Path $Path -ChildPath $FilePath
+
                         if ((Test-Path -Path $file) -and -not $AllowClobber) {
                             Get-ChildItem -Path $file
                             $lastfile = $file
@@ -264,21 +263,21 @@ function Save-KbUpdate {
                                 $null = Start-BitsTransfer -Source $link -Destination $file -ErrorAction Stop
                             } catch {
                                 Write-Progress -Activity "Downloading $FilePath" -Id 1
-                                $null = Invoke-TlsWebRequest -OutFile $file -Uri $link
+                                $null = Invoke-TlsWebRequest -OutFile $file -Uri "$link"
                                 Write-Progress -Activity "Downloading $FilePath" -Id 1 -Completed
                             }
                         } else {
                             try {
                                 # IWR is crazy slow for large downloads
                                 Write-Progress -Activity "Downloading $FilePath" -Id 1
-                                $null = Invoke-TlsWebRequest -OutFile $file -Uri $link
+                                $null = Invoke-TlsWebRequest -OutFile $file -Uri "$link"
                                 Write-Progress -Activity "Downloading $FilePath" -Id 1 -Completed
                             } catch {
                                 Stop-PSFFunction -EnableException:$EnableException -Message "Failure" -ErrorRecord $_ -Continue
                             }
                         }
 
-                        if (Test-Path -Path $file -and $lastfile -ne $file) {
+                        if ((Test-Path -Path $file) -and $lastfile -ne $file) {
                             Get-ChildItem -Path $file
                             $files += $file
                         }

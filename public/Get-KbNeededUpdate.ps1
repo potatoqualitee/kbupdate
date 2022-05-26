@@ -42,36 +42,6 @@ function Get-KbNeededUpdate {
         PS C:\> Get-KbNeededUpdate | Save-KbUpdate -Path C:\temp
 
         Gets all the updates installed on server01 that match KB4057119
-https://pastebin.com/0v84VdmL
-
-LOL -- offline copy
-    https://pastebin.com/0v84VdmL
-
-https://github.com/EncoreTechnologies/puppet-patching/blob/master/files/powershell/TaskUtils.ps1
-
-https://heinz-otto.blogspot.com/2018/10/powershell-und-windows-update.html?m=1
-
-$Installer = New-Object -ComObject Microsoft.Update.Installer
-$Installer.Updates = $updatesToInstall
-$Result = $Installer.Install()
-
-$SearchResult[0].Identity
-
-[sqlcs]: PS C:\Users\cl\Documents> $Criteria = "IsInstalled=0 and Type='Software'"
-[sqlcs]: PS C:\Users\cl\Documents> $compare= "*" # "*KB2267602*"
-[sqlcs]: PS C:\Users\cl\Documents> # Suche notwendige Updates
-[sqlcs]: PS C:\Users\cl\Documents> $Searcher = New-Object -ComObject Microsoft.Update.Searcher
-[sqlcs]: PS C:\Users\cl\Documents> $SearchResult = $Searcher.Search($Criteria).Updates
-[sqlcs]: PS C:\Users\cl\Documents> # Zusammenstellung Download Collection
-[sqlcs]: PS C:\Users\cl\Documents> $updatesToDownload = New-Object -ComObject Microsoft.Update.UpdateColl
-[sqlcs]: PS C:\Users\cl\Documents> $SearchResult
-
-https://docs.microsoft.com/en-us/windows/win32/wua_sdk/searching--downloading--and-installing-updates
-
-https://github.com/flexera-public/rightlink_scripts/blob/master/rlw-examples/install-updates.ps1
-
-Try to use Update.BundledUpdates to access the child updates and then
-retrieve the download content.
 #>
     [CmdletBinding()]
     param(

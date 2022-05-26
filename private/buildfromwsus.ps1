@@ -77,15 +77,15 @@ function buildfromwsus {
         foreach ($file in $update.PayloadFiles.File) {
             $fileid = $file.id
             $url = ($ds.Tables["FileLocation"].Select("Id = '$fileid'")).Url
+            $url = $url.Replace("http://download.windowsupdate.com", "https://catalog.s.download.windowsupdate.com")
+            $url = $url.Replace("http://www.download.windowsupdate.com", "https://catalog.s.download.windowsupdate.com")
 
             if ($url) {
                 Invoke-SQLiteBulkCopy -DataTable (
-                    # https://catalog.s.download.windowsupdate.com/c/msdownload/update/software/updt/2022/03/ssms-setup-enu_c16f37f517d75fae7b0d7e4cee36d4b979e3142a.exe
                     [pscustomobject]@{
                         UpdateId = $update.UpdateId
-                        Link     = $url.Replace("http://download.windowsupdate.com", "https://catalog.s.download.windowsupdate.com")
+                        Link     = $url
                     } | ConvertTo-DbaDataTable) -DataSource $db -Table Link -Confirm:$false
-
             }
         }
     }

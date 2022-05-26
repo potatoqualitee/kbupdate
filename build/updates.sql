@@ -17,36 +17,10 @@ update kb set SupportedProducts = replace(SupportedProducts,"Security Updates, U
 update kb set SupportedProducts = replace(SupportedProducts,"Windows 10 version 1903 and later, Windows 10 S version 1903 and later, Windows 10 S version 1903 and later, Windows 10 version 1903 and later", "Windows 10 version 1903 and later, Windows 10 S version 1903 and later") where SupportedProducts = 'Windows 10 version 1903 and later, Windows 10 S version 1903 and later, Windows 10 S version 1903 and later, Windows 10 version 1903 and later';
 update kb set SupportedProducts = replace(SupportedProducts,", ", "|") where SupportedProducts like '%, %';
 
-
-Select-Object distinct(SupportedProducts) from kb where SupportedProducts like '%|%' order by SupportedProducts
-
 update kb set RequestsUserInput = "No" where RequestsUserInput = 0;
 update kb set NetworkRequired = "No" where NetworkRequired = 0;
 update kb set ExclusiveInstall = "No" where ExclusiveInstall = 0;
-
-select count(*) from kb where MSRCNumber is null
-
-
-select count(*) from kb where Classification like '%security%' and MSRCNumber is NULL
-
-update kb set MSRCSeverity = null where MSRCSeverity = "n/a"
-
-select * from kb where Classification like '%security%'
-
-update kb set RequestsUserInput = "No" where RequestsUserInput = 0;
-update kb set NetworkRequired = "No" where NetworkRequired = 0;
-update kb set ExclusiveInstall = "No" where ExclusiveInstall = 0;
-
-and MSRCNumber is NULL and MSRCSeverity is NULL
-
-select * from Link order by UpdateId
-
-select DISTINCT UpdateId, Link FROM Link
-
-select count(*) from link
-
-select UpdateId from link group
-
+update kb set MSRCSeverity = null where MSRCSeverity = "n/a";
 
 DELETE FROM Link
 WHERE EXISTS (
@@ -74,14 +48,16 @@ WHERE EXISTS (
   AND Supersedes.rowid > p2.rowid
 );
 
-
+/*
+select distinct(SupportedProducts) from kb where SupportedProducts like '%|%' order by SupportedProducts;
+select count(*) from kb where MSRCNumber is null;
+select count(*) from kb where Classification like '%security%' and MSRCNumber is NULL
+select * from kb where Classification like '%security%'
+and MSRCNumber is NULL and MSRCSeverity is NULL;
+select * from Link order by UpdateId;
+select DISTINCT UpdateId, Link FROM Link;
+select count(*) from link;
+select UpdateId from link group;
 select * from kb where title like '%KB2992080%';
-
-select * from kb where description like '% (MS%'
-
-
-
-
-
-
-
+select * from kb where description like '% (MS%';
+*/
