@@ -10,43 +10,20 @@ function Write-ProgressHelper {
         [switch]$ExcludePercent
     )
 
-    $caller = (Get-PSCallStack)[1].Command
-
     if (-not $Activity) {
-        $Activity = switch ($caller) {
-            "Export-DbaInstance" {
-                "Performing Instance Export for $instance"
-            }
-            "Install-DbaSqlWatch" {
-                "Installing SQLWatch"
-            }
-            "Invoke-DbaDbLogShipRecovery" {
-                "Performing log shipping recovery"
-            }
-            "Invoke-DbaDbLogShipRecovery" {
-                "Performing log shipping recovery"
-            }
-            "Invoke-DbaDbMirroring" {
-                "Setting up mirroring"
-            }
-            "New-DbaAvailabilityGroup" {
-                "Adding new availability group"
-            }
-            "Sync-DbaAvailabilityGroup" {
-                "Syncing availability group"
-            }
-            "Sync-DbaAvailabilityGroup" {
-                "Syncing availability group"
-            }
-            default {
-                "Executing $caller"
-            }
-        }
+        $caller = (Get-PSCallStack)[1].Command
+        $Activity = "Executing $caller"
+    }
+    if (-not $Message) {
+        $Message = $Activity
     }
 
     if ($ExcludePercent) {
         Write-Progress -Activity $Activity -Status $Message
     } else {
+        if (-not $caller) {
+            $caller = (Get-PSCallStack)[1].Command
+        }
         if (-not $TotalSteps -and $caller -ne '<ScriptBlock>') {
             $TotalSteps = ([regex]::Matches((Get-Command -Module kbupdate -Name $caller).Definition, "Write-ProgressHelper")).Count
         }

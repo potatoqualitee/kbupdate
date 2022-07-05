@@ -1,4 +1,4 @@
-name: CI
+name: macOS Import Test
 on: [pull_request]
 
 jobs:
@@ -11,7 +11,11 @@ jobs:
         os: [macOS-latest]
 
     steps:
-    - uses: actions/checkout@v1
-    - name: Perform the import
-      shell: pwsh
-      run: Set-PSRepository -Name PSGallery -InstallationPolicy Trusted; Install-Module PSFramework, kbupdate-library, PSSQLite; Import-Module ./kbupdate.psd1 -ErrorAction Stop; (Get-KbUpdate -Name KB2992080 -Source Web).Title -ne $null
+      - uses: actions/checkout@v1
+      - name: Perform the import
+        shell: pwsh
+        run: |
+          Set-PSRepository -Name PSGallery -InstallationPolicy Trusted
+          Install-Module PSFramework, kbupdate-library, PSSQLite
+          Import-Module ./kbupdate.psd1 -ErrorAction Stop
+          (Get-KbUpdate -Name KB2992080 -Source Web).Title -ne $null

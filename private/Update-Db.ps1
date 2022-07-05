@@ -62,11 +62,11 @@ function new-db {
     Get-ChildItem $dailydb
 }
 
-function Get-Info {
+function Get-Info1 {
     #Invoke-SqliteQuery -DataSource $dailydb -Query "select * from Kb"
     #Invoke-SqliteQuery -DataSource $dailydb -Query "select * from SupersededBy"
     #Invoke-SqliteQuery -DataSource $dailydb -Query "select * from Supersedes"
-    Invoke-SqliteQuery -DataSource $dailydb -Query "select * from Link"
+    #Invoke-SqliteQuery -DataSource $dailydb -Query "select * from Link"
     #Invoke-SqliteQuery -DataSource $dailydb -Query "select * from KbDupe"
 }
 
@@ -83,17 +83,19 @@ function Update-Db {
     param()
     Import-Module C:\github\dbatools
 
-    $script:db = "C:\github\kbupdate-library\library\kb.sqlite"
-    $dailydb = "C:\github\kbupdate\library\db\kb.sqlite"
-    #$query = "SELECT CAST(UpdateId AS VARCHAR(36)) as UpdateId FROM [SUSDB].[PUBLIC_VIEWS].[vUpdate] Where ArrivalDate >= DATEADD(hour,-4, GETDATE())"
-    $query = "SELECT CAST(UpdateId AS VARCHAR(36)) as UpdateId FROM [SUSDB].[PUBLIC_VIEWS].[vUpdate] Where ArrivalDate >= DATEADD(hour,-24, GETDATE())"
-    #$query = "SELECT CAST(UpdateId AS VARCHAR(36)) as UpdateId FROM [SUSDB].[PUBLIC_VIEWS].[vUpdate] Where ArrivalDate >= DATEADD(hour,-120, GETDATE())"
-    #$query = "SELECT CAST(UpdateId AS VARCHAR(36)) as UpdateId FROM [SUSDB].[PUBLIC_VIEWS].[vUpdate] Where ArrivalDate >= '2019-07-20 18:02:25.127' and ArrivalDate <= DATEADD(hour,-24, GETDATE())"
+    $script:db = "C:\github\sqldb\kbold.sqlite"
+    $dailydb = "C:\github\sqldb\kbnew.sqlite"
+    #$new = (Get-ChildItem C:\temp\kb\newoutput).BaseName
 
-    $new = (Invoke-DbaQuery -SqlInstance wsus -Database SUSDB -Query $query).UpdateId
-
-    foreach ($guid in $new) {
-        $update = Get-KbUpdate -Pattern $guid -Source Web
+    $new = "313e209f-aaac-4694-ac61-675f6e9e6b60","4eb83e93-c0f2-4a71-ba43-053787ecfa2e","b46acc67-3232-4a91-88d2-867cb9d0286c","be4386c2-16b5-4f26-a574-915648bcec2d","d0478bde-b17d-4cd7-9cbc-939c62b62c96"
+    $new | Invoke-Parallel -ImportVariables -ImportFunctions -RunspaceTimeout 180 -Quiet -ScriptBlock {
+        Import-Module PSFramework, PSSQLite, dbatools
+        #$update = Get-KbUpdate -Pattern $guid -Source Web
+        $guid = $PSItem
+        $update = Get-KbUpdate -Pattern $guid
+        if ($update.SupportedProducts) {
+            $update.SupportedProducts = $update.SupportedProducts -join "|"
+        }
         $Kb = $update | Select-Object -Property * -ExcludeProperty SupersededBy, Supersedes, Link, InputObject
         $SupersededBy = $update.SupersededBy
         $Supersedes = $update.Supersedes
@@ -119,8 +121,8 @@ function Update-Db {
             try {
                 Invoke-SQLiteBulkCopy -DataTable ($item | ConvertTo-DbaDataTable) -DataSource $dailydb -Table Kb -Confirm:$false
             } catch {
-                $null = Add-Content -Value $guid -Path C:\updates\Dupes.txt
-                Stop-PSFFunction -Message $guid -ErrorRecord $_ -Continue
+                $null = Add-Content -Value $PSItem -Path C:\temp\kbs\new\Dupes.txt
+                Stop-PSFFunction -Message $PSItem -ErrorRecord $_ -Continue
             }
         }
         try {
@@ -128,54 +130,55 @@ function Update-Db {
                 if ($null -ne $item.Kb -and '' -ne $item.Kb) {
                     if ($item.Kb) {
                         Invoke-SQLiteBulkCopy -DataTable ([pscustomobject]@{ UpdateId = $update.UpdateId; Kb = $item.Kb; Description = $item.Description } |
-                            ConvertTo-DbaDataTable) -DataSource $dailydb -Table SupersededBy -Confirm:$false
+                                ConvertTo-DbaDataTable) -DataSource $dailydb -Table SupersededBy -Confirm:$false
+                        }
                     }
                 }
-            }
-            foreach ($item in $Supersedes) {
-                if ($null -ne $item.Kb -and '' -ne $item.Kb) {
-                    if ($item.Kb) {
-                        Invoke-SQLiteBulkCopy -DataTable ([pscustomobject]@{ UpdateId = $update.UpdateId; Kb = $item.Kb; Description = $item.Description } |
-                            ConvertTo-DbaDataTable) -DataSource $dailydb -Table Supersedes -Confirm:$false
+                foreach ($item in $Supersedes) {
+                    if ($null -ne $item.Kb -and '' -ne $item.Kb) {
+                        if ($item.Kb) {
+                            Invoke-SQLiteBulkCopy -DataTable ([pscustomobject]@{ UpdateId = $update.UpdateId; Kb = $item.Kb; Description = $item.Description } |
+                                    ConvertTo-DbaDataTable) -DataSource $dailydb -Table Supersedes -Confirm:$false
+                            }
+                        }
+                    }
+
+                    foreach ($item in $Link) {
+                        Invoke-SQLiteBulkCopy -DataTable ([pscustomobject]@{UpdateId = $update.UpdateId; Link = $item } |
+                                ConvertTo-DbaDataTable) -DataSource $dailydb -Table Link -Confirm:$false
+                        }
+                        $null = Add-Content -Value $guid -Path C:\temp\kbs\new\NewAll.txt
+                    } catch {
+                        $null = Add-Content -Value $PSItem -Path C:\temp\kbs\new\errors.txt
+                        Stop-PSFFunction -Message $gui$PSItemd -ErrorRecord $_ -Continue
                     }
                 }
+
+
             }
 
-            foreach ($item in $Link) {
-                Invoke-SQLiteBulkCopy -DataTable ([pscustomobject]@{UpdateId = $update.UpdateId; Link = $item } |
-                    ConvertTo-DbaDataTable) -DataSource $dailydb -Table Link -Confirm:$false
-            }
+            function Update-DbFromFile {
+                [CmdletBinding()]
+                param()
+                $files = Get-ChildItem -Path C:\temp\kbs\new\*.xml -Recurse
+                $i = 0
+                foreach ($file in $files) {
+                    $update = Import-CliXml $file.FullName
+                    $guid = $update.UpdateId
 
-            $update
-            $null = Add-Content -Value $guid -Path C:\updates\NewAll.txt
-        } catch {
-            Stop-PSFFunction -Message $guid -ErrorRecord $_ -Continue
-        }
-    }
-}
+                    $i++
+                    if (($i % 100) -eq 0) { write-warning $i }
+                    if (-not $exists) {
+                        $kb = $update | Select-Object -Property * -ExcludeProperty SupersededBy, Supersedes, Link, InputObject
+                        $SupersededBy = $update.SupersededBy
+                        $Supersedes = $update.Supersedes
+                        $Link = $update.Link
 
-function Update-DbFromFile {
-    [CmdletBinding()]
-    param()
-    $files = Get-ChildItem -Path C:\temp\kbs\new\*.xml -Recurse
-    $i = 0
-    foreach ($file in $files) {
-        $update = Import-CliXml $file.FullName
-        $guid = $update.UpdateId
-
-        $i++
-        if (($i % 100) -eq 0) { write-warning $i }
-        if (-not $exists) {
-            $kb = $update | Select-Object -Property * -ExcludeProperty SupersededBy, Supersedes, Link, InputObject
-            $SupersededBy = $update.SupersededBy
-            $Supersedes = $update.Supersedes
-            $Link = $update.Link
-
-            try {
-                Invoke-SQLiteBulkCopy -DataTable ($kb | ConvertTo-DbaDataTable) -DataSource $dailydb -Table Kb -Confirm:$false
-            } catch {
-                Invoke-SQLiteBulkCopy -DataTable ([pscustomobject]@{ UpdateId = $guid; Dupe = $file.BaseName } |
-                    ConvertTo-DbaDataTable) -DataSource $dailydb -Table KbDupe -Confirm:$false
+                        try {
+                            Invoke-SQLiteBulkCopy -DataTable ($kb | ConvertTo-DbaDataTable) -DataSource $dailydb -Table Kb -Confirm:$false
+                        } catch {
+                            Invoke-SQLiteBulkCopy -DataTable ([pscustomobject]@{ UpdateId = $guid; Dupe = $file.BaseName } |
+                                    ConvertTo-DbaDataTable) -DataSource $dailydb -Table KbDupe -Confirm:$false
                 #Add-Content -Path C:\temp\dupes.txt -Value $guid, $file.BaseName
 
                 Stop-PSFFunction -Message $guid -ErrorRecord $_ -Continue
@@ -183,15 +186,15 @@ function Update-DbFromFile {
             try {
                 foreach ($item in $SupersededBy) {
                     Invoke-SQLiteBulkCopy -DataTable ([pscustomobject]@{ UpdateId = $guid; Kb = $item.Kb; Description = $item.Description } |
-                        ConvertTo-DbaDataTable) -DataSource $dailydb -Table SupersededBy -Confirm:$false
+                            ConvertTo-DbaDataTable) -DataSource $dailydb -Table SupersededBy -Confirm:$false
                 }
                 foreach ($item in $Supersedes) {
                     Invoke-SQLiteBulkCopy -DataTable ([pscustomobject]@{ UpdateId = $guid; Kb = $item.Kb; Description = $item.Description } |
-                        ConvertTo-DbaDataTable) -DataSource $dailydb -Table Supersedes -Confirm:$false
+                            ConvertTo-DbaDataTable) -DataSource $dailydb -Table Supersedes -Confirm:$false
                 }
                 foreach ($item in $Link) {
                     Invoke-SQLiteBulkCopy -DataTable ([pscustomobject]@{UpdateId = $guid; Link = $item } |
-                        ConvertTo-DbaDataTable) -DataSource $dailydb -Table Link -Confirm:$false
+                            ConvertTo-DbaDataTable) -DataSource $dailydb -Table Link -Confirm:$false
                 }
             } catch {
                 Stop-PSFFunction -Message $guid -ErrorRecord $_ -Continue
@@ -208,6 +211,7 @@ function Add-Kb {
 
     foreach ($guid in $Name) {
         $update = Get-KbUpdate -Pattern $guid -Source Web
+        $update.SupportedProducts = $update.SupportedProducts -join ", "
         $Kb = $update | Select-Object -Property * -ExcludeProperty SupersededBy, Supersedes, Link, InputObject
         $SupersededBy = $update.SupersededBy
         $Supersedes = $update.Supersedes
@@ -241,18 +245,18 @@ function Add-Kb {
             foreach ($item in $SupersededBy) {
                 if ($null -ne $item.Kb -and '' -ne $item.Kb) {
                     Invoke-SQLiteBulkCopy -DataTable ([pscustomobject]@{ UpdateId = $guid; Kb = $item.Kb; Description = $item.Description } |
-                        ConvertTo-DbaDataTable) -DataSource $dailydb -Table SupersededBy -Confirm:$false
+                            ConvertTo-DbaDataTable) -DataSource $dailydb -Table SupersededBy -Confirm:$false
                 }
             }
             foreach ($item in $Supersedes) {
                 if ($null -ne $item.Kb -and '' -ne $item.Kb) {
                     Invoke-SQLiteBulkCopy -DataTable ([pscustomobject]@{ UpdateId = $guid; Kb = $item.Kb; Description = $item.Description } |
-                        ConvertTo-DbaDataTable) -DataSource $dailydb -Table Supersedes -Confirm:$false
+                            ConvertTo-DbaDataTable) -DataSource $dailydb -Table Supersedes -Confirm:$false
                 }
             }
             foreach ($item in $Link) {
                 Invoke-SQLiteBulkCopy -DataTable ([pscustomobject]@{UpdateId = $guid; Link = $item } |
-                    ConvertTo-DbaDataTable) -DataSource $dailydb -Table Link -Confirm:$false
+                        ConvertTo-DbaDataTable) -DataSource $dailydb -Table Link -Confirm:$false
             }
 
             $update
@@ -261,4 +265,77 @@ function Add-Kb {
             Stop-PSFFunction -Message $guid -ErrorRecord $_ -Continue
         }
     }
+
+
+
+
+
+    $newer = $xml.OfflineSyncPackage.Updates.Update
+
+
+    $ds = New-Object System.Data.DataSet
+    $ds.ReadXml($xmlfile)
+    ($ds.Tables["FileLocation"].Select("Id = '$fileid'")).Url
+
+
+
+
+
+
+
+    function Fix-Db {
+        [CmdletBinding()]
+        param()
+
+        function Get-Info ($Text, $Pattern) {
+            if ($Pattern -match "labelTitle") {
+                if ($Pattern -match "SupportedProducts") {
+                    # no idea what the regex below does but it's not working for SupportedProducts
+                    # do it the manual way instead
+                    $block = [regex]::Match($Text, $Pattern + '[\s\S]*?\s*(.*?)\s*<\/div>').Groups[0].Value
+                    $supported = $block -split "</span>" | Select-Object -Last 1
+                    $supported.Trim().Replace("</div>","").Split(",").Trim()
+                } else {
+                    # this should work... not accounting for multiple divs however?
+                    [regex]::Match($Text, $Pattern + '[\s\S]*?\s*(.*?)\s*<\/div>').Groups[1].Value
+                }
+            } elseif ($Pattern -match "span ") {
+                [regex]::Match($Text, $Pattern + '(.*?)<\/span>').Groups[1].Value
+            } else {
+                [regex]::Match($Text, $Pattern + "\s?'?(.*?)'?;").Groups[1].Value
+            }
+        }
+
+        $new = (Invoke-SqliteQuery -DataSource "C:\github\kbupdate-library\library\kb.sqlite" -Query "select UpdateId from kb where Classification like '%security%' and MSRCNumber is NULL").UpdateId
+        #$new | Invoke-Parallel -ImportVariables -ImportFunctions -RunspaceTimeout 180 -ScriptBlock {
+        Import-Module PSSQLite
+        $new | ForEach-Object {
+            $updateid = $PSItem
+
+            $detaildialog = Invoke-TlsWebRequest -Uri "https://www.catalog.update.microsoft.com/ScopedViewInline.aspx?updateid=$updateid"
+            $msrcnumber = Get-Info -Text $detaildialog -Pattern '<span id="ScopedViewHandler_labelSecurityBulliten_Separator" class="labelTitle">'
+
+            if ($msrcnumber -eq "n/a" -or $msrcnumber -eq "Unspecified") {
+                $msrcnumber = $null
+            }
+
+            if ($msrcnumber) {
+                $query = "update Kb set MSRCNumber = '$msrcnumber' where UpdateId = '$updateid';"
+                write-warning $query
+                Invoke-SqliteQuery -DataSource "C:\github\kbupdate-library\library\kb.sqlite" -Query $query
+            } else {
+                write-warning nope
+            }
+        }
+
+
+
+
+    }
+
+
+
+
+
 }
+

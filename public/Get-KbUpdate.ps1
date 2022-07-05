@@ -102,8 +102,8 @@ function Get-KbUpdate {
 #>
     [CmdletBinding()]
     param(
-        [Parameter(Mandatory,ValueFromPipeline)]
-        [Alias("Name", "HotfixId", "KBUpdate", "Id")]
+        [Parameter(ValueFromPipeline)]
+        [Alias("UpdateId", "Id", "KBUpdate", "HotfixId", "Name")]
         [string[]]$Pattern,
         [string[]]$Architecture,
         [string[]]$OperatingSystem,
@@ -125,14 +125,17 @@ function Get-KbUpdate {
             Write-PSFMessage -Level Warning -Message "Multithreading now disabled by default. This parameter will likely be removed in future versions."
         }
 
-
         if ($Language) {
             Write-PSFMessage -Level Warning -Message "Language selections no longer supported by Microsoft. This parameter may be removed in future versions."
         }
 
         if ($script:ConnectedWsus -and -not $PSBoundParameters.Source) {
+            Write-PSFMessage -Level Verbose -Message "Source not specified and WSUS connection detected. Setting source to Wsus."
             $Source = "Wsus"
         }
+
+
+        Write-PSFMessage -Level Verbose -Message "Source set to $Source"
 
         $script:allresults = @()
         function Get-KbItemFromDb {
@@ -141,29 +144,15 @@ function Get-KbUpdate {
             process {
                 # Join to dupe and check dupe
                 $kb = $kb.ToLower()
-                $newitems = Invoke-SqliteQuery -DataSource $script:dailydb -Query "select *, NULL AS SupersededBy, NULL AS Supersedes, NULL AS Link from kb where UpdateId in (select UpdateId from kb where UpdateId = '$kb' or Title like '%$kb%' or Id like '%$kb%' or Description like '%$kb%' or MSRCNumber like '%$kb%')"
-                if ($newitems.UpdateId) {
-                    Write-PSFMessage -Level Verbose -Message "Found $([array]($newitems.UpdateId).count)  in the daily database"
-                }
-                foreach ($item in $newitems) {
-                    $script:allresults += $item.UpdateId
-                    # I do wish my import didn't return empties but sometimes it does so check for length of 3
-                    $item.SupersededBy = Invoke-SqliteQuery -DataSource $script:dailydb -Query "select KB, Description from SupersededBy where UpdateId = '$($item.UpdateId)' and LENGTH(kb) > 3"
 
-                    # I do wish my import didn't return empties but sometimes it does so check for length of 3
-                    $item.Supersedes = Invoke-SqliteQuery -DataSource $script:dailydb -Query "select KB, Description from Supersedes where UpdateId = '$($item.UpdateId)' and LENGTH(kb) > 3"
-                    $item.Link = (Invoke-SqliteQuery -DataSource $script:dailydb -Query "select Link from Link where UpdateId = '$($item.UpdateId)'").Link
-                    $item
-                }
-
-                $olditems = Invoke-SqliteQuery -DataSource $script:basedb -Query "select *, NULL AS SupersededBy, NULL AS Supersedes, NULL AS Link from kb where UpdateId in (select UpdateId from kb where UpdateId = '$kb' or Title like '%$kb%' or Id like '%$kb%' or Description like '%$kb%' or MSRCNumber like '%$kb%')" |
+                $allitems = Invoke-SqliteQuery -DataSource $script:basedb -Query "select *, NULL AS SupersededBy, NULL AS Supersedes, NULL AS Link from kb where UpdateId in (select UpdateId from kb where UpdateId = '$kb' or Title like '%$kb%' or Id like '%$kb%' or Description like '%$kb%' or MSRCNumber like '%$kb%')" |
                     Where-Object UpdateId -notin $script:allresults
 
-                if ($olditems.UpdateId) {
-                    Write-PSFMessage -Level Verbose -Message "Found $([array]($olditems.UpdateId).count) in the archive database for $kb"
+                if ($allitems.UpdateId) {
+                    Write-PSFMessage -Level Verbose -Message "Found $([array]($allitems.UpdateId).count) in the database for $kb"
                 }
 
-                foreach ($item in $olditems) {
+                foreach ($item in $allitems) {
                     $script:allresults += $item.UpdateId
                     # I do wish my import didn't return empties but sometimes it does so check for length of 3
                     $item.SupersededBy = Invoke-SqliteQuery -DataSource $script:basedb -Query "select KB, Description from SupersededBy where UpdateId = '$($item.UpdateId)' and LENGTH(kb) > 3"
@@ -172,6 +161,10 @@ function Get-KbUpdate {
                     $item.Supersedes = Invoke-SqliteQuery -DataSource $script:basedb -Query "select KB, Description from Supersedes where UpdateId = '$($item.UpdateId)' and LENGTH(kb) > 3"
                     $item.Link = (Invoke-SqliteQuery -DataSource $script:basedb -Query "select Link from Link where UpdateId = '$($item.UpdateId)'").Link
                     $item
+
+                    if ($item.SupportedProducts -match "\|") {
+                        $item.SupportedProducts = $item.SupportedProducts -split "\|"
+                    }
                 }
 
                 if (-not $item -and $Source -eq "Database") {
@@ -238,54 +231,64 @@ function Get-KbUpdate {
                 $script:kbcollection[$hashkey]
             }
         }
+
         function Get-GuidsFromWeb ($kb) {
             Write-PSFMessage -Level Verbose -Message "$kb"
-            Write-Progress -Activity "Searching catalog for $kb" -Id 1 -Status "Contacting catalog.update.microsoft.com"
-            if ($OperatingSystem) {
-                $url = "https://www.catalog.update.microsoft.com/Search.aspx?q=$kb+$OperatingSystem"
-                Write-PSFMessage -Level Verbose -Message "Accessing $url"
-                $results = Invoke-TlsWebRequest -Uri $url
-                $kbids = $results.InputFields |
-                    Where-Object { $_.type -eq 'Button' -and $_.Value -eq 'Download' } |
-                    Select-Object -ExpandProperty ID
-            }
-            if (-not $kbids) {
-                $url = "https://www.catalog.update.microsoft.com/Search.aspx?q=$kb"
-                $boundparams.OperatingSystem = $OperatingSystem
-                Write-PSFMessage -Level Verbose -Message "Failing back to $url"
-                $results = Invoke-TlsWebRequest -Uri $url
-                $kbids = $results.InputFields |
-                    Where-Object { $_.type -eq 'Button' -and $_.Value -eq 'Download' } |
-                    Select-Object -ExpandProperty ID
-            }
-            Write-Progress -Activity "Searching catalog for $kb" -Id 1 -Completed
-
-            if (-not $kbids) {
-                try {
-                    $null = Invoke-TlsWebRequest -Uri "https://support.microsoft.com/en-us/topic/$kb"
-                    Stop-PSFFunction -EnableException:$EnableException -Message "Matches were found for $kb, but the results no longer exist in the catalog"
-                    return
-                } catch {
-                    Write-PSFMessage -Level Verbose -Message "No results found for $kb at microsoft.com"
-                    return
+            if ($kb -match '^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$') {
+                Write-Verbose -Message "Guid passed in, skipping initial web search"
+                $guids = @()
+                $guids += [PSCustomObject]@{
+                    Guid  = $kb
+                    Title = $kb
                 }
-            }
+            } else {
+                Write-Progress -Activity "Searching catalog for $kb" -Id 1 -Status "Contacting catalog.update.microsoft.com"
+                if ($OperatingSystem) {
+                    $url = "https://www.catalog.update.microsoft.com/Search.aspx?q=$kb+$OperatingSystem"
+                    Write-PSFMessage -Level Verbose -Message "Accessing $url"
+                    $results = Invoke-TlsWebRequest -Uri $url
+                    $kbids = $results.InputFields |
+                        Where-Object { $_.type -eq 'Button' -and $_.Value -eq 'Download' } |
+                        Select-Object -ExpandProperty ID
+                }
+                if (-not $kbids) {
+                    $url = "https://www.catalog.update.microsoft.com/Search.aspx?q=$kb"
+                    $boundparams.OperatingSystem = $OperatingSystem
+                    Write-PSFMessage -Level Verbose -Message "Failing back to $url"
+                    $results = Invoke-TlsWebRequest -Uri $url
+                    $kbids = $results.InputFields |
+                        Where-Object { $_.type -eq 'Button' -and $_.Value -eq 'Download' } |
+                        Select-Object -ExpandProperty ID
+                }
+                Write-Progress -Activity "Searching catalog for $kb" -Id 1 -Completed
 
-            Write-PSFMessage -Level Verbose -Message "$kbids"
-            # Thanks! https://keithga.wordpress.com/2017/05/21/new-tool-get-the-latest-windows-10-cumulative-updates/
-            $resultlinks = $results.Links |
-                Where-Object ID -match '_link' |
-                Where-Object { $_.OuterHTML -match ( "(?=.*" + ( $Filter -join ")(?=.*" ) + ")" ) }
+                if (-not $kbids) {
+                    try {
+                        $null = Invoke-TlsWebRequest -Uri "https://support.microsoft.com/en-us/topic/$kb"
+                        Stop-PSFFunction -EnableException:$EnableException -Message "Matches were found for $kb, but the results no longer exist in the catalog"
+                        return
+                    } catch {
+                        Write-PSFMessage -Level Verbose -Message "No results found for $kb at microsoft.com"
+                        return
+                    }
+                }
 
-            # get the title too
-            $guids = @()
-            foreach ($resultlink in $resultlinks) {
-                $itemguid = $resultlink.id.replace('_link', '')
-                $itemtitle = ($resultlink.outerHTML -replace '<[^>]+>', '').Trim()
-                if ($itemguid -in $kbids) {
-                    $guids += [pscustomobject]@{
-                        Guid  = $itemguid
-                        Title = $itemtitle
+                Write-PSFMessage -Level Verbose -Message "$kbids"
+                # Thanks! https://keithga.wordpress.com/2017/05/21/new-tool-get-the-latest-windows-10-cumulative-updates/
+                $resultlinks = $results.Links |
+                    Where-Object ID -match '_link' |
+                    Where-Object { $_.OuterHTML -match ( "(?=.*" + ( $Filter -join ")(?=.*" ) + ")" ) }
+
+                # get the title too
+                $guids = @()
+                foreach ($resultlink in $resultlinks) {
+                    $itemguid = $resultlink.id.replace('_link', '')
+                    $itemtitle = ($resultlink.outerHTML -replace '<[^>]+>', '').Trim()
+                    if ($itemguid -in $kbids) {
+                        $guids += [pscustomobject]@{
+                            Guid  = $itemguid
+                            Title = $itemtitle
+                        }
                     }
                 }
             }
@@ -296,8 +299,16 @@ function Get-KbUpdate {
             # Wishing Microsoft offered an RSS feed. Since they don't, we are forced to parse webpages.
             function Get-Info ($Text, $Pattern) {
                 if ($Pattern -match "labelTitle") {
-                    # this should work... not accounting for multiple divs however?
-                    [regex]::Match($Text, $Pattern + '[\s\S]*?\s*(.*?)\s*<\/div>').Groups[1].Value
+                    if ($Pattern -match "SupportedProducts") {
+                        # no idea what the regex below does but it's not working for SupportedProducts
+                        # do it the manual way instead
+                        $block = [regex]::Match($Text, $Pattern + '[\s\S]*?\s*(.*?)\s*<\/div>').Groups[0].Value
+                        $supported = $block -split "</span>" | Select-Object -Last 1
+                        $supported.Trim().Replace("</div>","").Split(",").Trim()
+                    } else {
+                        # this should work... not accounting for multiple divs however?
+                        [regex]::Match($Text, $Pattern + '[\s\S]*?\s*(.*?)\s*<\/div>').Groups[1].Value
+                    }
                 } elseif ($Pattern -match "span ") {
                     [regex]::Match($Text, $Pattern + '(.*?)<\/span>').Groups[1].Value
                 } else {
@@ -316,8 +327,6 @@ function Get-KbUpdate {
                 }
 
                 $spanMatches = [regex]::Matches($span, $regex).ForEach( { $_.Groups[1].Value })
-                # Previous PR change
-                #$spanMatches = [regex]::Matches($Text.Content, $regex).ForEach( { $_.Groups[1].Value })
                 if ($spanMatches -eq 'n/a') { $spanMatches = $null }
 
                 if ($spanMatches) {
@@ -368,7 +377,11 @@ function Get-KbUpdate {
                     $title = Get-Info -Text $downloaddialog -Pattern 'enTitle ='
                     $arch = Get-Info -Text $downloaddialog -Pattern 'architectures ='
                     $longlang = Get-Info -Text $downloaddialog -Pattern 'longLanguages ='
-                    $updateid = Get-Info -Text $downloaddialog -Pattern 'updateID ='
+                    if ($Pattern -match '^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$') {
+                        $updateid = "$Pattern"
+                    } else {
+                        $updateid = Get-Info -Text $downloaddialog -Pattern 'updateID ='
+                    }
                     $ishotfix = Get-Info -Text $downloaddialog -Pattern 'isHotFix ='
                     $hashkey = "$updateid-$Simple"
 
@@ -417,17 +430,8 @@ function Get-KbUpdate {
                             $uninstallsteps = $null
                         }
 
-                        if ($msrcnumber -eq "n/a" -or "Unspecified") {
+                        if ($msrcnumber -eq "n/a" -or $msrcnumber -eq "Unspecified") {
                             $msrcnumber = $null
-                        }
-
-                        $products = $supportedproducts -split ","
-                        if ($products.Count -gt 1) {
-                            $supportedproducts = @()
-                            foreach ($line in $products) {
-                                $clean = $line.Trim()
-                                if ($clean) { $supportedproducts += $clean }
-                            }
                         }
                     }
 
@@ -551,22 +555,10 @@ function Get-KbUpdate {
             $Simple = $false
         }
 
-        if ($Latest -and $PSBoundParameters.Source -and $Source -contains "Database" -and -not $Force) {
-            Write-PSFMessage -Level Warning -Message "Source is ignored when Latest is specified, as latest requires the freshest data"
+        if ($Latest -and $PSBoundParameters.Source -and $Source -eq "Database" -and -not $Force) {
+            Write-PSFMessage -Level Verbose -Message "Source is ignored when Latest is specified, as latest requires the freshest data from the web. Use -Force to override this."
             $PSBoundParameters.Source = $null
             $Source = "Web"
-        }
-
-        if (Test-PSFPowerShell -Edition Core) {
-            if (Was-Bound -Not -ParameterName Source) {
-                Write-PSFMessage -Level Verbose -Message "Core detected. Switching source to Web."
-                $Source = "Web"
-            } else {
-                if ($Source -ne "Web") {
-                    Stop-PSFFunction -Message "Core ony supports web scraping :(" -EnableException:$EnableException
-                    return
-                }
-            }
         }
 
         foreach ($computer in $Computername) {

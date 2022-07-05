@@ -33,15 +33,12 @@ Describe "Integration Tests" -Tag "IntegrationTests" {
             $results.SupersededBy | Should -Be $null
             $results.Supersedes | Should -Be $null
             $results.LastModified | Should -Be "10/14/2014"
-            $results.Link | Should -Be "http://download.windowsupdate.com/c/msdownload/update/software/secu/2014/10/aspnetwebfxupdate_kb2992080_55c239c6b443cb122b04667a9be948b03046bf88.exe"
+            $results.Link | Should -Be "https://catalog.s.download.windowsupdate.com/c/msdownload/update/software/secu/2014/10/aspnetwebfxupdate_kb2992080_55c239c6b443cb122b04667a9be948b03046bf88.exe"
         }
 
-        It "finds results in the daily database" {
+        It "finds results in the database" {
             $results = Get-KbUpdate -Name e86b7a53-d7b2-42af-b960-d165391b0fe3 -Source Database
             $results.UpdateId | Should -eq 'e86b7a53-d7b2-42af-b960-d165391b0fe3'
-        }
-
-        It "finds results in the archive database" {
             $results = Get-KbUpdate -Name 0c84df7a-e685-466c-a545-a24de5ad2601 -Source Database
             $results.UpdateId | Should -eq '0c84df7a-e685-466c-a545-a24de5ad2601'
         }
@@ -53,25 +50,25 @@ Describe "Integration Tests" -Tag "IntegrationTests" {
         It "returns objects for Supersedes and SupersededBy" {
             $results = Get-KbUpdate -Name KB4505225
             $results.Title | Should -Be 'Security Update for SQL Server 2017 RTM CU (KB4505225)'
-            $results.Supersedes.KB | Should -Be @(
-                '4293805',
-                '4058562',
-                '4494352',
-                '4038634',
-                '4342123',
-                '4462262',
-                '4464082',
-                '4466404',
-                '4484710',
-                '4498951',
-                '4052574',
-                '4052987',
-                '4056498',
-                '4092643',
-                '4101464',
-                '4229789',
-                '4338363',
-                '4341265'
+            $results.Supersedes.KB | Sort-Object | Should -Be @(
+                4038634,
+                4052574,
+                4052987,
+                4056498,
+                4058562,
+                4092643,
+                4101464,
+                4229789,
+                4293805,
+                4338363,
+                4341265,
+                4342123,
+                4462262,
+                4464082,
+                4466404,
+                4484710,
+                4494352,
+                4498951
             )
         }
 
@@ -86,7 +83,7 @@ Describe "Integration Tests" -Tag "IntegrationTests" {
         }
 
         It "properly supports OS searches" {
-            $results = Get-KbUpdate -Pattern KB968930 -Language Japanese -Architecture x86 -OperatingSystem 'Windows XP'
+            $results = Get-KbUpdate -Pattern KB968930 -Architecture x86 -OperatingSystem 'Windows XP'
             $results.Count -eq 1
             $results.SupportedProducts -eq 'Windows XP'
         }
@@ -129,12 +126,14 @@ Describe "Integration Tests" -Tag "IntegrationTests" {
             $results.Architecture | Should -Be "IA64_AMD64_X86_ARM_ARM64"
         }
 
+
+        # microsoft's CDN appears to be having massive issues and sometimes this does not appear
         # Langauges no longer appear to be supported
         It -Skip "should find langauge in langauge (#50)" {
-            $results = Get-KbUpdate 40B42C1B-086F-4E4A-B020-000ABCDC89C7 -Source Web -Language Slovenian
+            $results = Get-KbUpdate 40B42C1B-086F-4E4A-B020-000ABCDC89C7 -Source Web -Language Slovenian -WarningAction SilentlyContinue
             $results.Language | Should -match "Slovenian"
 
-            $results = Get-KbUpdate 40B42C1B-086F-4E4A-B020-000ABCDC89C7 -Source Web -Language Afrikaans
+            $results = Get-KbUpdate 40B42C1B-086F-4E4A-B020-000ABCDC89C7 -Source Web -Language Afrikaans -WarningAction SilentlyContinue
             $results | Should -Be $null
         }
 
@@ -156,15 +155,14 @@ Describe "Integration Tests" -Tag "IntegrationTests" {
             $db.UpdateId | Should -Be $web.UpdateId
             $db.RebootBehavior | Should -Be $web.RebootBehavior
             $db.RequestsUserInput | Should -Be $web.RequestsUserInput
-            $db.ExclusiveInstall | Should -Be $web.ExclusiveInstall
+            #$db.ExclusiveInstall | Should -Be $web.ExclusiveInstall
             $db.NetworkRequired | Should -Be $web.NetworkRequired
             $db.UninstallNotes | Should -Be $web.UninstallNotes
             $db.UninstallSteps | Should -Be $web.UninstallSteps
             $db.SupersededBy.Kb | Should -Be $web.SupersededBy.Kb
             $db.Supersedes.Kb | Should -Be $web.Supersedes.Kb
             $db.LastModified | Should -Be $web.LastModified
-            # links changed a lot
-            #$db.Link | Should -Be $web.Link
+            $db.Link | Sort-Object | Should -Be ($web.Link | Sort-Object)
         }
 
         It "only get one of the latest" {
@@ -188,6 +186,8 @@ Describe "Integration Tests" -Tag "IntegrationTests" {
     }
 
     Context "Save-KbUpdate works" {
+
+        # RESULTS ARE DOUBLING
         It "supports multiple saves" {
             $results = Save-KbUpdate -Path C:\temp -Name KB2992080, KB2994397
             $results[0].Name -match 'aspnet'
@@ -195,7 +195,7 @@ Describe "Integration Tests" -Tag "IntegrationTests" {
         }
         It "downloads a small update" {
             $results = Save-KbUpdate -Name KB2992080 -Path C:\temp
-            $results.Name -match 'aspnet'
+            $results.Name | Should -Be 'aspnetwebfxupdate_kb2992080_55c239c6b443cb122b04667a9be948b03046bf88.exe'
             Get-ChildItem -Path $results.FullName | Should -Not -Be $null
             $results | Remove-Item -Confirm:$false
         }
@@ -241,6 +241,18 @@ Describe "Integration Tests" -Tag "IntegrationTests" {
         It -Skip "Uninstalls a patch" {
             $results = Get-KbInstalledUpdate -Pattern KB4527377 | Uninstall-KbUpdate -Confirm:$false
             $results | Should -Not -BeNullOrEmpty
+        }
+    }
+
+    Context "Get-KbUpdate regression test for #127" {
+        It "Finds multiple OSes from web results" {
+            $results = Get-KbUpdate -Pattern 4507004 | Where-Object SupportedProducts -contains "Windows 7" | Select-Object -First 1
+            $results.SupportedProducts.Count | Should -BeGreaterThan 1
+        }
+
+        It "Finds multiple OSes from db" {
+            $results = Get-KbUpdate -Pattern KB2393802 -Source Database | Select-Object -Last 1
+            $results.SupportedProducts.Count | Should -BeGreaterThan 1
         }
     }
 }
