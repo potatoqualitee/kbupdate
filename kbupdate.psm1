@@ -80,7 +80,7 @@ Register-PSFTeppArgumentCompleter -Command Get-KbUpdate, Save-KbUpdate -Paramete
 
 
 # set some defaults
-if ((Get-NetConnectionProfile -ErrorAction SilentlyContinue)) {
+if ((Get-Command -Name Get-NetConnectionProfile -ErrorAction SilentlyContinue)) {
     $internet = (Get-NetConnectionProfile).IPv4Connectivity -contains "Internet"
 } else {
     try {
