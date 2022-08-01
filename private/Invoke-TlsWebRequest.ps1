@@ -1,5 +1,4 @@
 function Invoke-TlsWebRequest {
-
     <#
     Internal utility that mimics invoke-webrequest
     but enables all tls available version
@@ -31,11 +30,24 @@ function Invoke-TlsWebRequest {
         [Net.ServicePointManager]::SecurityProtocol = [Net.ServicePointManager]::SecurityProtocol -bor $_
     }
 
-    if ($script:websession) {
+    if ($Language.Length -gt 3) {
+        # It's auto-complete, translate it to the list
+        $OriginalLanguage = $Language
+        $Language = ($script:languagescsv | Where-Object Name -eq $Language).Code
+
+        if (-not $Language) {
+            $Language = $OriginalLanguage
+        }
+    }
+
+    if (-not $Language) {
+        $Language = "en-US;q=0.5,en;q=0.3"
+    }
+
+    if ($script:websession -and $script:websession.Headers."Accept-Language" -eq $Language) {
         Invoke-WebRequest @Args -WebSession $script:websession -UseBasicParsing -ErrorAction Stop
     } else {
-        $headers = @{"Accept-Language" = "en-US;q=0.5,en;q=0.3" }
-        Invoke-WebRequest @Args -SessionVariable websession -UseBasicParsing -Headers $headers -ErrorAction Stop
+        Invoke-WebRequest @Args -SessionVariable websession -Headers @{ "Accept-Language" = $Language } -UseBasicParsing -ErrorAction Stop
         $script:websession = $websession
     }
 
@@ -45,6 +57,3 @@ function Invoke-TlsWebRequest {
         $ProgressPreference = $currentProgressPref
     }
 }
-
-
-

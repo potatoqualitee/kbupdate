@@ -9,13 +9,13 @@ function Search-Kb {
         [string[]]$Architecture,
         [string[]]$OperatingSystem,
         [string[]]$Product,
-        [string[]]$Language,
+        [string]$Language,
         [string[]]$Source,
         [parameter(ValueFromPipeline)]
         [pscustomobject[]]$InputObject
     )
     process {
-        if (-not $OperatingSystem -and -not $Architecture -and -not $Product -and -not $Language -and -not $script:ConnectedWsus) {
+        if (-not $OperatingSystem -and -not $Architecture -and -not $Product -and -not $script:ConnectedWsus) {
             return $InputObject
         } else {
             $allobjects += $InputObject
@@ -68,40 +68,6 @@ function Search-Kb {
                 }
                 if (-not $match -and $allmatch) {
                     continue
-                }
-            }
-
-            if ($Language) {
-                # are there any language matches at all? if not just skip.
-                $languagespecific = $false
-                foreach ($key in $script:languages.Keys) {
-                    $shortname = $key.Split(" ")[0]
-                    $code = $script:languages[$key]
-                    # object.Language cannot be trusted unless an underscore is there ‾\_(ツ)_/‾
-                    if ($object.Link -match '-.._' -or $object.Link -match "-$($code)_" -or (($object.Language -match '_' -and $object.Language -match $shortname) -or $object.Title -match $shortname -or $object.Description -match $shortname)) {
-                        $languagespecific = $true
-                    }
-                }
-
-                if ($languagespecific) {
-                    $textmatch = $false
-                    $matches = @()
-                    foreach ($item in $Language) {
-                        $shortname = $item.Split(" ")[0]
-                        $matches += $object.Link -match "$($script:languages[$item])_"
-                        if (($object.Language -match '_' -and $object.Language -match $shortname) -or $object.Title -match $shortname -or $object.Description -match $shortname) {
-                            $textmatch = $true
-                        }
-                    }
-                    if ($matches -match 'http') {
-                        $object = ($object).PSObject.Copy()
-                        $object.Link = $matches
-                    } else {
-                        if (-not $textmatch) {
-                            Write-PSFMessage -Level Verbose -Message "Skipping $($object.Title) - no match to $Language"
-                            continue
-                        }
-                    }
                 }
             }
 
