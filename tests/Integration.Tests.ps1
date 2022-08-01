@@ -120,6 +120,11 @@ Describe "Integration Tests" -Tag "IntegrationTests" {
             "$($results.Link)" -match "kor_"
         }
 
+        It "Calls with specific language" {
+            $results = Get-KbUpdate -Name KB5003279 -Language ja
+            $results.Classification -match 'Service Packs'
+            $results.Link -match '-jpn_'
+        }
         # microsoft's CDN appears to be having massive issues and sometimes this does not appear
         It -Skip "x64 should work when AMD64 is used (#52)" {
             $results = Get-KbUpdate 2864dff9-d197-48b8-82e3-f36ad242928d -Architecture x64 -Source Web

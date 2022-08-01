@@ -25,7 +25,7 @@ function Save-KbUpdate {
         Specify one or more products (SharePoint, SQL Server, etc). Tab complete to see what's available. If anything is missing, please file an issue.
 
     .PARAMETER Language
-        Specify one or more Language. Tab complete to see what's available. This is not an exact science, as the data itself is miscategorized.
+        Specify one or more Language. Tab complete to see what's available.
 
     .PARAMETER Latest
         Filters out any patches that have been superseded by other patches in the batch
@@ -38,11 +38,6 @@ function Save-KbUpdate {
 
     .PARAMETER AllowClobber
         Overwrite file if it exsits
-
-    .PARAMETER Strict
-        By default, when Language is specified, if a KB supports all language, the file will be downloaded.
-
-        Use Strict to download ONLY the language and not universal KBs.
 
     .PARAMETER EnableException
         By default, when something goes wrong we try to catch it, interpret it and give you a friendly warning message.
@@ -90,7 +85,9 @@ function Save-KbUpdate {
     #>
     [CmdletBinding(DefaultParameterSetName = 'default')]
     param(
-        [Parameter(ValueFromPipelineByPropertyName)]
+        [Parameter(ValueFromPipelineByPropertyName, Mandatory, ParameterSetName = 'link')]
+        [string[]]$Link,
+        [Parameter(ValueFromPipelineByPropertyName, Position = 0)]
         [Alias("UpdateId", "Id", "KBUpdate", "HotfixId", "Name")]
         [string[]]$Pattern,
         [string]$Path = ".",
@@ -98,28 +95,22 @@ function Save-KbUpdate {
         [string[]]$Architecture,
         [string[]]$OperatingSystem,
         [string[]]$Product,
-        [string[]]$Language,
+        [string]$Language,
         [parameter(ValueFromPipeline)]
         [pscustomobject[]]$InputObject,
         [switch]$Latest,
         [switch]$AllowClobber,
         [ValidateSet("Wsus", "Web", "Database")]
         [string[]]$Source,
-        [switch]$Strict,
-        [switch]$EnableException,
-        [Parameter(Mandatory, ParameterSetName = 'link')]
-        [string[]]$Link
+        [switch]$EnableException
     )
     begin {
         $files = @()
-
-        Write-PSFMessage -Level Verbose -Message "Source set to $Source"
     }
     process {
         switch ($PSCmdlet.ParameterSetName) {
             'link' {
                 $Link | Foreach-Object {
-
                     $fileName = Split-Path $_ -Leaf
                     $file = Join-Path $Path -ChildPath $fileName
                     if ((Get-Command Start-BitsTransfer -ErrorAction Ignore)) {
@@ -159,6 +150,8 @@ function Save-KbUpdate {
                     Stop-PSFFunction -EnableException:$EnableException -Message "When piping, please do not use OperatingSystem or Product filters. It's assumed that you are piping the results that you wish to download, so unexpected results may occur."
                     return
                 }
+
+                Write-PSFMessage -Level Verbose -Message "Source set to $Source"
 
                 foreach ($kb in $Pattern) {
                     if ($Latest) {
@@ -209,37 +202,6 @@ function Save-KbUpdate {
                     }
 
                     foreach ($link in $object.Link) {
-                        $Strict = $true
-                        # Microsoft's KB Language field cannot be relied upon. It'll say English then contain Chinese files.
-                        if ($Language -and ($object.Link.Count -gt 1 -or $Strict)) {
-                            # are there any language matches at all? if not, download it unless Strict
-                            if ($Strict) {
-                                $languagespecific = $true
-                            } else {
-                                $languagespecific = $false
-                            }
-
-                            foreach ($code in $script:languages.Values) {
-                                if ($link -match "-$($code)_") {
-                                    $languagespecific = $true
-                                }
-                            }
-
-                            if ($languagespecific) {
-                                $matches = @()
-                                foreach ($value in $Language) {
-                                    $code = $script:languages[$value]
-                                    $matches += $object.Link -match "$($code)_"
-                                }
-                                if ($matches) {
-                                    $object.Link = $matches
-                                } else {
-                                    Write-PSFMessage -Level Verbose -Message "Skipping $link - no match to $Language"
-                                    continue
-                                }
-                            }
-                        }
-
                         if (-not $PSBoundParameters.FilePath) {
                             $FilePath = Split-Path -Path $link -Leaf
                         } else {

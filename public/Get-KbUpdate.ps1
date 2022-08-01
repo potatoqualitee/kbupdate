@@ -18,7 +18,11 @@ function Get-KbUpdate {
         Can be x64, x86, ia64, or ARM.
 
     .PARAMETER Language
-        Language selections no longer appear to be supported by Microsoft. This parameter may be removed in future versions of this functionality does not return after their recent (~Jan 2022) update.
+        Cumulative Updates come in one file for all languages, but Service Packs have a file for every language.
+
+        If you want to get only a specific language, use this parameter.
+
+        You you can press tab for auto-complete or use the two letter code that is used for Accept-Language HTTP header, e. g. "en" for English or "de" for German.
 
     .PARAMETER OperatingSystem
         Specify one or more operating systems. Tab complete to see what's available. If anything is missing, please file an issue.
@@ -125,8 +129,9 @@ function Get-KbUpdate {
             Write-PSFMessage -Level Warning -Message "Multithreading now disabled by default. This parameter will likely be removed in future versions."
         }
 
-        if ($Language) {
-            Write-PSFMessage -Level Warning -Message "Language selections no longer supported by Microsoft. This parameter may be removed in future versions."
+        if ($PSBoundParameters.Language) {
+            Write-PSFMessage -Level Verbose -Message "Language specified, switching to web source only"
+            $Source = "Web"
         }
 
         if ($script:ConnectedWsus -and -not $PSBoundParameters.Source) {
@@ -247,7 +252,7 @@ function Get-KbUpdate {
                     Write-PSFMessage -Level Verbose -Message "Accessing $url"
                     $results = Invoke-TlsWebRequest -Uri $url
                     $kbids = $results.InputFields |
-                        Where-Object { $_.type -eq 'Button' -and $_.Value -eq 'Download' } |
+                        Where-Object { $_.type -eq 'Button' -and ($_.Value -eq 'Download' -or $_.class -eq 'flatBlueButtonDownload focus-only') } |
                         Select-Object -ExpandProperty ID
                 }
                 if (-not $kbids) {
@@ -256,7 +261,7 @@ function Get-KbUpdate {
                     Write-PSFMessage -Level Verbose -Message "Failing back to $url"
                     $results = Invoke-TlsWebRequest -Uri $url
                     $kbids = $results.InputFields |
-                        Where-Object { $_.type -eq 'Button' -and $_.Value -eq 'Download' } |
+                        Where-Object { $_.type -eq 'Button' -and ($_.Value -eq 'Download' -or $_.class -eq 'flatBlueButtonDownload focus-only') } |
                         Select-Object -ExpandProperty ID
                 }
                 Write-Progress -Activity "Searching catalog for $kb" -Id 1 -Completed
@@ -406,7 +411,8 @@ function Get-KbUpdate {
                     }
 
                     if (-not $Simple) {
-                        $detaildialog = Invoke-TlsWebRequest -Uri "https://www.catalog.update.microsoft.com/ScopedViewInline.aspx?updateid=$updateid"
+                        # Multi-byte character is corrupted if passing BasicHtmlWebResponseObject to Get-Info -Text.
+                        $detaildialog = Invoke-TlsWebRequest -Uri "https://www.catalog.update.microsoft.com/ScopedViewInline.aspx?updateid=$updateid" | Select-Object -ExpandProperty Content
                         $description = Get-Info -Text $detaildialog -Pattern '<span id="ScopedViewHandler_desc">'
                         $lastmodified = Get-Info -Text $detaildialog -Pattern '<span id="ScopedViewHandler_date">'
                         $size = Get-Info -Text $detaildialog -Pattern '<span id="ScopedViewHandler_size">'

@@ -52,6 +52,8 @@ if (-not $script:compcollection) {
 }
 
 $script:languages = . "$ModuleRoot\library\languages.ps1"
+$script:languagescsv = Import-Csv -Path "$ModuleRoot\library\languages.tsv" -Delimiter `t
+
 
 if (-not $IsLinux -and -not $IsMacOs) {
     # for those of us who are loading the psm1 directly
