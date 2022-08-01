@@ -110,7 +110,7 @@ function Get-KbUpdate {
         [PSFComputer[]]$ComputerName,
         [pscredential]$Credential,
         [string[]]$Product,
-        [string[]]$Language,
+        [string]$Language,
         [switch]$Simple,
         [switch]$Latest,
         [switch]$Force,
