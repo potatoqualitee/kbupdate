@@ -134,7 +134,6 @@ function Get-KbUpdate {
             $Source = "Wsus"
         }
 
-
         Write-PSFMessage -Level Verbose -Message "Source set to $Source"
 
         $script:allresults = @()
