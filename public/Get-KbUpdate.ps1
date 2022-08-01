@@ -170,6 +170,9 @@ function Get-KbUpdate {
                         $item.SupportedProducts = $item.SupportedProducts -split "\|"
                     }
 
+                    if ($item.Architecture -eq "n/a") {
+                        $item.Architecture = $null
+                    }
                     if ($item.title -match "ia32") {
                         $item.Architecture = "IA32"
                     }
@@ -194,7 +197,6 @@ function Get-KbUpdate {
                     if ($item.title -match "ARM-based") {
                         $item.Architecture = "ARM32"
                     }
-
                     if ($item.link -match "x64" -or $item.link -match "AMD64" -and -not $item.Architecture) {
                         $item.Architecture = "x64"
                     }
@@ -470,6 +472,7 @@ function Get-KbUpdate {
                     } else {
                         $ishotfix = "False"
                     }
+
                     if ($longlang -eq "all") {
                         $longlang = "All"
                     }
@@ -505,7 +508,9 @@ function Get-KbUpdate {
                         $lastmodified = Get-Info -Text $detaildialog -Pattern '<span id="ScopedViewHandler_date">'
                         $size = Get-Info -Text $detaildialog -Pattern '<span id="ScopedViewHandler_size">'
                         $classification = Get-Info -Text $detaildialog -Pattern '<span id="ScopedViewHandler_labelClassification_Separator" class="labelTitle">'
-                        $arch = Get-Info -Text $detaildialog -Pattern '<span id="ScopedViewHandler_labelArchitecture_Separator" class="labelTitle">'
+                        if (-not $arch) {
+                            $arch = Get-Info -Text $detaildialog -Pattern '<span id="ScopedViewHandler_labelArchitecture_Separator" class="labelTitle">'
+                        }
                         $supportedproducts = Get-Info -Text $detaildialog -Pattern '<span id="ScopedViewHandler_labelSupportedProducts_Separator" class="labelTitle">'
                         $msrcnumber = Get-Info -Text $detaildialog -Pattern '<span id="ScopedViewHandler_labelSecurityBulliten_Separator" class="labelTitle">'
                         $msrcseverity = Get-Info -Text $detaildialog -Pattern '<span id="ScopedViewHandler_msrcSeverity">'
@@ -533,17 +538,19 @@ function Get-KbUpdate {
                     $links = $downloaddialog | Select-String -AllMatches -Pattern "(http[s]?\://.*download\.windowsupdate\.com\/[^\'\""]*)" | Select-Object -Unique
 
                     foreach ($link in $links) {
-
-                        if ($link -match "x64" -or $link -match "AMD64" -and -not $arch) {
+                        if ($arch -eq "n/a") {
+                            $arch = $null
+                        }
+                        if ($link -match "x64" -or $link -match "AMD64") {
                             $arch = "x64"
                         }
-                        if ($link -match "x86" -and -not $arch) {
+                        if ($link -match "x86") {
                             $arch = "x86"
                         }
-                        if ($link -match "ARM64" -and -not $arch) {
+                        if ($link -match "ARM64") {
                             $arch = "ARM64"
                         }
-                        if ($link -match "ARM-based" -and -not $arch) {
+                        if ($link -match "ARM-based") {
                             $arch = "ARM32"
                         }
 
@@ -590,7 +597,7 @@ function Get-KbUpdate {
                                     Title             = $title
                                     Id                = $kbnumbers
                                     Architecture      = $arch
-                                    Language          = $longlang
+                                    Language          = $Language
                                     Hotfix            = $ishotfix
                                     Description       = $description
                                     LastModified      = $lastmodified

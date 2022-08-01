@@ -72,9 +72,9 @@ Describe "Integration Tests" -Tag "IntegrationTests" {
             )
         }
 
-        It -Skip "properly supports languages" {
+        It "properly supports languages" {
             $results = Get-KbUpdate -Pattern KB968930 -Language Japanese -Architecture x86 -Simple
-            $results.Count -eq 4
+            $results.Count -eq 5
             $results.Link | Select-Object -Last 1 | Should -Match jpn
 
             $results = Get-KbUpdate -Pattern "KB2764916 Nederlands" -Simple
@@ -107,17 +107,11 @@ Describe "Integration Tests" -Tag "IntegrationTests" {
             $results.Count | Should -Be 3
         }
 
-        # Language-specific installs no longer appear to be supported
         It -Skip "does not overwrite links" {
             $results = Get-KbUpdate -Pattern "sql 2016 sp1" -Latest -Language Japanese -Source Web
-            $results.Link.Count | Should -Be 3
+            $results.Link.Count | Should -Be 6
             "$($results.Link)" -match "jpn_"
             "$($results.Link)" -notmatch "kor_"
-
-            $results = Get-KbUpdate -Pattern "sql 2016 sp1" -Latest -Source Web
-            $results.Link.Count | Should -BeGreaterThan 3
-            "$($results.Link)" -match "jpn_"
-            "$($results.Link)" -match "kor_"
         }
 
         It "Calls with specific language" {
@@ -126,20 +120,17 @@ Describe "Integration Tests" -Tag "IntegrationTests" {
             $results.Link -match '-jpn_'
         }
         # microsoft's CDN appears to be having massive issues and sometimes this does not appear
-        It -Skip "x64 should work when AMD64 is used (#52)" {
+        It "x64 should work when AMD64 is used (#52)" {
             $results = Get-KbUpdate 2864dff9-d197-48b8-82e3-f36ad242928d -Architecture x64 -Source Web
-            $results.Architecture | Should -Be "IA64_AMD64_X86_ARM_ARM64"
+            $results.Architecture | Should -Be "AMD64"
         }
 
 
         # microsoft's CDN appears to be having massive issues and sometimes this does not appear
-        # Langauges no longer appear to be supported
-        It -Skip "should find langauge in langauge (#50)" {
+        # Langauges are now supported via headers
+        It "should find langauge in langauge (#50)" {
             $results = Get-KbUpdate 40B42C1B-086F-4E4A-B020-000ABCDC89C7 -Source Web -Language Slovenian -WarningAction SilentlyContinue
             $results.Language | Should -match "Slovenian"
-
-            $results = Get-KbUpdate 40B42C1B-086F-4E4A-B020-000ABCDC89C7 -Source Web -Language Afrikaans -WarningAction SilentlyContinue
-            $results | Should -Be $null
         }
 
         # CDN is too flakey right now
@@ -150,8 +141,10 @@ Describe "Integration Tests" -Tag "IntegrationTests" {
             $db.Id | Should -Be $web.Id
             $db.Title | Should -Be $web.Title
             $db.Description | Should -Be $web.Description
-            #$db.Architecture | Should -Be $web.Architecture
-            #$db.Language | Should -Be $web.Language
+            $db.Architecture | Should -Be $web.Architecture
+            if ($db.Language) {
+                $db.Language | Should -Be $web.Language
+            }
             $db.Classification | Should -Be $web.Classification
             $db.SupportedProducts | Should -Be $web.SupportedProducts
             $db.MSRCNumber | Should -Be $web.MSRCNumber
