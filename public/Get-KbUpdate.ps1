@@ -149,8 +149,8 @@ function Get-KbUpdate {
                 # Join to dupe and check dupe
                 $kb = $kb.ToLower()
 
-                $allitems = Invoke-SqliteQuery -DataSource $script:basedb -Query "select *, NULL AS SupersededBy, NULL AS Supersedes, NULL AS Link from kb where UpdateId in (select UpdateId from kb where UpdateId = '$kb' or Title like '%$kb%' or Id like '%$kb%' or Description like '%$kb%' or MSRCNumber like '%$kb%')" |
-                    Where-Object UpdateId -notin $script:allresults
+                $allitems = Invoke-SqliteQuery -DataSource $script:basedb -Query "select DISTINCT *, NULL AS SupersededBy, NULL AS Supersedes, NULL AS Link from kb where UpdateId in (select UpdateId from kb where UpdateId = '$kb' or Title like '%$kb%' or Id like '%$kb%' or Description like '%$kb%' or MSRCNumber like '%$kb%')" |
+                    Where-Object UpdateId -notin $script:allresults | Sort-Object -Unique
 
                 if ($allitems.UpdateId) {
                     Write-PSFMessage -Level Verbose -Message "Found $([array]($allitems.UpdateId).count) in the database for $kb"
@@ -163,7 +163,7 @@ function Get-KbUpdate {
 
                     # I do wish my import didn't return empties but sometimes it does so check for length of 3
                     $item.Supersedes = Invoke-SqliteQuery -DataSource $script:basedb -Query "select KB, Description from Supersedes where UpdateId = '$($item.UpdateId)' and LENGTH(kb) > 3"
-                    $item.Link = (Invoke-SqliteQuery -DataSource $script:basedb -Query "select Link from Link where UpdateId = '$($item.UpdateId)'").Link
+                    $item.Link = (Invoke-SqliteQuery -DataSource $script:basedb -Query "select DISTINCT Link from Link where UpdateId = '$($item.UpdateId)'").Link | Sort-Object -Unique
                     $item
 
                     if ($item.SupportedProducts -match "\|") {
@@ -198,7 +198,7 @@ function Get-KbUpdate {
                 }
 
                 $file = $wsuskb | Get-PSWSUSInstallableItem | Get-PSWSUSUpdateFile
-                $link = $file.FileURI
+                $link = $file.FileURI | Sort-Object -Unique
                 if ($null -ne $link -and "" -ne $link) {
                     $link = $file.OriginUri
                 }
@@ -229,7 +229,7 @@ function Get-KbUpdate {
                             UpdateId          = $guid
                             Supersedes        = $null #TODO
                             SupersededBy      = $null #TODO
-                            Link              = $link
+                            Link              = $link | Sort-Object -Unique
                             InputObject       = $kb
                         }))
                 $script:kbcollection[$hashkey]
@@ -281,7 +281,7 @@ function Get-KbUpdate {
                 # Thanks! https://keithga.wordpress.com/2017/05/21/new-tool-get-the-latest-windows-10-cumulative-updates/
                 $resultlinks = $results.Links |
                     Where-Object ID -match '_link' |
-                    Where-Object { $_.OuterHTML -match ( "(?=.*" + ( $Filter -join ")(?=.*" ) + ")" ) }
+                    Where-Object { $_.OuterHTML -match ( "(?=.*" + ( $Filter -join ")(?=.*" ) + ")" ) } | Sort-Object -Unique
 
                 # get the title too
                 $guids = @()
@@ -505,7 +505,7 @@ function Get-KbUpdate {
                                     UpdateId          = $updateid
                                     Supersedes        = $supersedes
                                     SupersededBy      = $supersededby
-                                    Link              = $link.matches.value
+                                    Link              = $link.matches.value | Sort-object -Unique
                                     InputObject       = $kb
                                 }))
                         $script:kbcollection[$hashkey]

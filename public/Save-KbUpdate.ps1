@@ -116,6 +116,7 @@ function Save-KbUpdate {
                     if ((Get-Command Start-BitsTransfer -ErrorAction Ignore)) {
                         try {
                             Start-BitsTransfer -Source $_ -Destination $Path -ErrorAction Stop
+                            Get-ChildItem -Path $file
                         } catch {
                             Write-Host "Going to use uri: $_" -ForegroundColor Green
                             Write-Progress -Activity "Downloading $FilePath" -Id 1
