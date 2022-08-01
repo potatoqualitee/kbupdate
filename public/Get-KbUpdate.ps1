@@ -163,7 +163,7 @@ function Get-KbUpdate {
 
                     # I do wish my import didn't return empties but sometimes it does so check for length of 3
                     $item.Supersedes = Invoke-SqliteQuery -DataSource $script:basedb -Query "select KB, Description from Supersedes where UpdateId = '$($item.UpdateId)' and LENGTH(kb) > 3"
-                    $item.Link = (Invoke-SqliteQuery -DataSource $script:basedb -Query "select DISTINCT Link from Link where UpdateId = '$($item.UpdateId)'").Link | Sort-Object -Unique
+                    $item.Link = (Invoke-SqliteQuery -DataSource $script:basedb -Query "select DISTINCT Link from Link where UpdateId = '$($item.UpdateId)'").Link
                     $item
 
                     if ($item.SupportedProducts -match "\|") {
@@ -198,7 +198,7 @@ function Get-KbUpdate {
                 }
 
                 $file = $wsuskb | Get-PSWSUSInstallableItem | Get-PSWSUSUpdateFile
-                $link = $file.FileURI | Sort-Object -Unique
+                $link = $file.FileURI
                 if ($null -ne $link -and "" -ne $link) {
                     $link = $file.OriginUri
                 }
@@ -229,7 +229,7 @@ function Get-KbUpdate {
                             UpdateId          = $guid
                             Supersedes        = $null #TODO
                             SupersededBy      = $null #TODO
-                            Link              = $link | Sort-Object -Unique
+                            Link              = $link
                             InputObject       = $kb
                         }))
                 $script:kbcollection[$hashkey]
@@ -281,7 +281,7 @@ function Get-KbUpdate {
                 # Thanks! https://keithga.wordpress.com/2017/05/21/new-tool-get-the-latest-windows-10-cumulative-updates/
                 $resultlinks = $results.Links |
                     Where-Object ID -match '_link' |
-                    Where-Object { $_.OuterHTML -match ( "(?=.*" + ( $Filter -join ")(?=.*" ) + ")" ) } | Sort-Object -Unique
+                    Where-Object { $_.OuterHTML -match ( "(?=.*" + ( $Filter -join ")(?=.*" ) + ")" ) }
 
                 # get the title too
                 $guids = @()
@@ -505,7 +505,7 @@ function Get-KbUpdate {
                                     UpdateId          = $updateid
                                     Supersedes        = $supersedes
                                     SupersededBy      = $supersededby
-                                    Link              = $link.matches.value | Sort-object -Unique
+                                    Link              = $link.matches.value
                                     InputObject       = $kb
                                 }))
                         $script:kbcollection[$hashkey]
