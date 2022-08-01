@@ -169,6 +169,44 @@ function Get-KbUpdate {
                     if ($item.SupportedProducts -match "\|") {
                         $item.SupportedProducts = $item.SupportedProducts -split "\|"
                     }
+
+                    if ($item.title -match "ia32") {
+                        $item.Architecture = "IA32"
+                    }
+                    if ($item.title -match "ia64") {
+                        $item.Architecture = "IA64"
+                    }
+                    if ($item.title -match "64-Bit" -and $item.title -notmatch "32-Bit" -and -not $item.Architecture) {
+                        $item.Architecture = "x64"
+                    }
+                    if ($item.title -notmatch "64-Bit" -and $item.title -match "32-Bit" -and -not $item.Architecture) {
+                        $item.Architecture = "x86"
+                    }
+                    if ($item.title -match "x64" -or $item.title -match "AMD64") {
+                        $item.Architecture = "x64"
+                    }
+                    if ($item.title -match "x86") {
+                        $item.Architecture = "x86"
+                    }
+                    if ($item.title -match "ARM64") {
+                        $item.Architecture = "ARM64"
+                    }
+                    if ($item.title -match "ARM-based") {
+                        $item.Architecture = "ARM32"
+                    }
+
+                    if ($item.link -match "x64" -or $item.link -match "AMD64" -and -not $item.Architecture) {
+                        $item.Architecture = "x64"
+                    }
+                    if ($item.link -match "x86" -and -not $item.Architecture) {
+                        $item.Architecture = "x86"
+                    }
+                    if ($item.link -match "ARM64" -and -not $item.Architecture) {
+                        $item.Architecture = "ARM64"
+                    }
+                    if ($item.link -match "ARM-based" -and -not $item.Architecture) {
+                        $item.Architecture = "ARM32"
+                    }
                 }
 
                 if (-not $item -and $Source -eq "Database") {
@@ -204,6 +242,44 @@ function Get-KbUpdate {
                 }
                 if ($link -eq "") {
                     $link = $null
+                }
+
+                if ($title -match "ia32") {
+                    $arch = "IA32"
+                }
+                if ($title -match "ia64") {
+                    $arch = "IA64"
+                }
+                if ($title -match "64-Bit" -and $title -notmatch "32-Bit" -and -not $arch) {
+                    $arch = "x64"
+                }
+                if ($title -notmatch "64-Bit" -and $title -match "32-Bit" -and -not $arch) {
+                    $arch = "x86"
+                }
+                if ($title -match "x64" -or $title -match "AMD64") {
+                    $arch = "x64"
+                }
+                if ($title -match "x86") {
+                    $arch = "x86"
+                }
+                if ($title -match "ARM64") {
+                    $arch = "ARM64"
+                }
+                if ($title -match "ARM-based") {
+                    $arch = "ARM32"
+                }
+
+                if ($link -match "x64" -or $link -match "AMD64" -and -not $arch) {
+                    $arch = "x64"
+                }
+                if ($link -match "x86" -and -not $arch) {
+                    $arch = "x86"
+                }
+                if ($link -match "ARM64" -and -not $arch) {
+                    $arch = "ARM64"
+                }
+                if ($link -match "ARM-based" -and -not $arch) {
+                    $arch = "ARM32"
                 }
 
                 $null = $script:kbcollection.Add($hashkey, (
@@ -379,7 +455,7 @@ function Get-KbUpdate {
 
                 foreach ($downloaddialog in $downloaddialogs) {
                     $title = Get-Info -Text $downloaddialog -Pattern 'enTitle ='
-                    $arch = Get-Info -Text $downloaddialog -Pattern 'architectures ='
+                    $arch = $null
                     $longlang = Get-Info -Text $downloaddialog -Pattern 'longLanguages ='
                     if ($Pattern -match '^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$') {
                         $updateid = "$Pattern"
@@ -397,17 +473,29 @@ function Get-KbUpdate {
                     if ($longlang -eq "all") {
                         $longlang = "All"
                     }
-                    if ($arch -eq "") {
-                        $arch = $null
+                    if ($title -match "ia32") {
+                        $arch = "IA32"
                     }
-                    if ($arch -eq "AMD64") {
+                    if ($title -match "ia64") {
+                        $arch = "IA64"
+                    }
+                    if ($title -match "64-Bit" -and $title -notmatch "32-Bit" -and -not $arch) {
                         $arch = "x64"
                     }
-                    if ($title -match '64-Bit' -and $title -notmatch '32-Bit' -and -not $arch) {
-                        $arch = "x64"
-                    }
-                    if ($title -notmatch '64-Bit' -and $title -match '32-Bit' -and -not $arch) {
+                    if ($title -notmatch "64-Bit" -and $title -match "32-Bit" -and -not $arch) {
                         $arch = "x86"
+                    }
+                    if ($title -match "x64" -or $title -match "AMD64") {
+                        $arch = "x64"
+                    }
+                    if ($title -match "x86") {
+                        $arch = "x86"
+                    }
+                    if ($title -match "ARM64") {
+                        $arch = "ARM64"
+                    }
+                    if ($title -match "ARM-based") {
+                        $arch = "ARM32"
                     }
 
                     if (-not $Simple) {
@@ -417,6 +505,7 @@ function Get-KbUpdate {
                         $lastmodified = Get-Info -Text $detaildialog -Pattern '<span id="ScopedViewHandler_date">'
                         $size = Get-Info -Text $detaildialog -Pattern '<span id="ScopedViewHandler_size">'
                         $classification = Get-Info -Text $detaildialog -Pattern '<span id="ScopedViewHandler_labelClassification_Separator" class="labelTitle">'
+                        $arch = Get-Info -Text $detaildialog -Pattern '<span id="ScopedViewHandler_labelArchitecture_Separator" class="labelTitle">'
                         $supportedproducts = Get-Info -Text $detaildialog -Pattern '<span id="ScopedViewHandler_labelSupportedProducts_Separator" class="labelTitle">'
                         $msrcnumber = Get-Info -Text $detaildialog -Pattern '<span id="ScopedViewHandler_labelSecurityBulliten_Separator" class="labelTitle">'
                         $msrcseverity = Get-Info -Text $detaildialog -Pattern '<span id="ScopedViewHandler_msrcSeverity">'
@@ -444,6 +533,20 @@ function Get-KbUpdate {
                     $links = $downloaddialog | Select-String -AllMatches -Pattern "(http[s]?\://.*download\.windowsupdate\.com\/[^\'\""]*)" | Select-Object -Unique
 
                     foreach ($link in $links) {
+
+                        if ($link -match "x64" -or $link -match "AMD64" -and -not $arch) {
+                            $arch = "x64"
+                        }
+                        if ($link -match "x86" -and -not $arch) {
+                            $arch = "x86"
+                        }
+                        if ($link -match "ARM64" -and -not $arch) {
+                            $arch = "ARM64"
+                        }
+                        if ($link -match "ARM-based" -and -not $arch) {
+                            $arch = "ARM32"
+                        }
+
                         if ($kbnumbers -eq "n/a") {
                             $kbnumbers = $null
                         }
