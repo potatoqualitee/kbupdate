@@ -149,7 +149,7 @@ function Get-KbUpdate {
                 # Join to dupe and check dupe
                 $kb = $kb.ToLower()
 
-                $allitems = Invoke-SqliteQuery -DataSource $script:basedb -Query "select DISTINCT *, NULL AS SupersededBy, NULL AS Supersedes, NULL AS Link from kb where UpdateId in (select UpdateId from kb where UpdateId = '$kb' or Title like '%$kb%' or Id like '%$kb%' or Description like '%$kb%' or MSRCNumber like '%$kb%')" |
+                $allitems = Invoke-SqliteQuery -DataSource $script:basedb -Query "select *, NULL AS SupersededBy, NULL AS Supersedes, NULL AS Link from kb where UpdateId in (select UpdateId from kb where UpdateId = '$kb' or Title like '%$kb%' or Id like '%$kb%' or Description like '%$kb%' or MSRCNumber like '%$kb%')" |
                     Where-Object UpdateId -notin $script:allresults | Sort-Object -Unique
 
                 if ($allitems.UpdateId) {
