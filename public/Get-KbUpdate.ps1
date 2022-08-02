@@ -228,6 +228,9 @@ function Get-KbUpdate {
                     if ($item.link -match "ARM-based" -and -not $item.Architecture) {
                         $item.Architecture = "ARM32"
                     }
+                    if ($item.LastModified) {
+                        $item.LastModified = Get-Date $item.LastModified -Format "yyyy-MM-dd"
+                    }
                 }
 
                 if (-not $item -and $Source -eq "Database") {
@@ -303,6 +306,11 @@ function Get-KbUpdate {
                     $arch = "ARM32"
                 }
 
+                if ($wsuskb.ArrivalDate) {
+                    $lastmod = Get-Date $wsuskb.ArrivalDate -Format "yyyy-MM-dd"
+                    $lastmod = $null
+                }
+
                 $null = $script:kbcollection.Add($hashkey, (
                         [pscustomobject]@{
                             Title             = $wsuskb.Title
@@ -311,7 +319,7 @@ function Get-KbUpdate {
                             Language          = $null
                             Hotfix            = $null
                             Description       = $wsuskb.Description
-                            LastModified      = $wsuskb.ArrivalDate
+                            LastModified      = $lastmod
                             Size              = $wsuskb.Size
                             Classification    = $wsuskb.UpdateClassificationTitle
                             SupportedProducts = $wsuskb.ProductTitles
@@ -612,6 +620,14 @@ function Get-KbUpdate {
 
                         # may fix later
                         $ishotfix = $null
+
+
+                        if ($lastmodified) {
+                            $lastmod = Get-Date $lastmodified -Format "yyyy-MM-dd"
+                        } else {
+                            $lastmod = $null
+                        }
+
                         $null = $script:kbcollection.Add($hashkey, (
                                 [pscustomobject]@{
                                     Title             = $title
@@ -620,7 +636,7 @@ function Get-KbUpdate {
                                     Language          = $Language
                                     Hotfix            = $ishotfix
                                     Description       = $description
-                                    LastModified      = $lastmodified
+                                    LastModified      = $lastmod
                                     Size              = $size
                                     Classification    = $classification
                                     SupportedProducts = $supportedproducts

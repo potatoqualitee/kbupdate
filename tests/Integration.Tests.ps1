@@ -32,7 +32,7 @@ Describe "Integration Tests" -Tag "IntegrationTests" {
             $results.UninstallSteps | Should -Be $null
             $results.SupersededBy | Should -Be $null
             $results.Supersedes | Should -Be $null
-            $results.LastModified | Should -Be "10/14/2014"
+            $results.LastModified | Should -Be "2014-10-14"
             $results.Link | Should -Be "https://catalog.s.download.windowsupdate.com/c/msdownload/update/software/secu/2014/10/aspnetwebfxupdate_kb2992080_55c239c6b443cb122b04667a9be948b03046bf88.exe"
         }
 
