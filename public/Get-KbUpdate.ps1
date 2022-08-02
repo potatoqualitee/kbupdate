@@ -42,6 +42,9 @@ function Get-KbUpdate {
     .PARAMETER Force
         When using Latest, the Web is required to get the freshest data unless Force is used.
 
+    .PARAMETER Exclude
+        Exclude matches for pattern
+
     .PARAMETER Simple
         A lil faster. Returns, at the very least: Title, Architecture, Language, UpdateId and Link
 
@@ -106,6 +109,11 @@ function Get-KbUpdate {
         PS C:\> Get-KbUpdate -Pattern "KB2764916 Nederlands" -Simple
 
         An alternative way to search for language specific packages
+
+    .EXAMPLE
+        PS C:\> Get-KbUpdate -OperatingSystem 'Windows Server 2019' -Latest -Architecture x64 -Pattern KB5015878 -Exclude 20H2, 21h2
+
+        Gets the latest KB for KB5015878 for Windows Server 2019 x64, but excludes results for builds 20H2 and 21H2.
 #>
     [CmdletBinding()]
     param(
@@ -114,6 +122,7 @@ function Get-KbUpdate {
         [string[]]$Pattern,
         [string[]]$Architecture,
         [string[]]$OperatingSystem,
+        [string[]]$Exclude,
         [PSFComputer[]]$ComputerName,
         [pscredential]$Credential,
         [string[]]$Product,
@@ -149,7 +158,7 @@ function Get-KbUpdate {
         $script:allresults = @()
         function Get-KbItemFromDb {
             [CmdletBinding()]
-            param($kb, $os, $arch, $lang)
+            param($kb, $os, $arch, $lang, $exclude)
             process {
                 # Join to dupe and check dupe
                 $kb = $kb.ToLower()
@@ -168,6 +177,12 @@ function Get-KbUpdate {
                 if ($lang) {
                     $lang = $lang -join "', '"
                     $query = "$query and Language in ('$lang') COLLATE NOCASE"
+                }
+
+                if ($exclude) {
+                    foreach ($ex in $exclude) {
+                        $query = "$query and UpdateId not in (select UpdateId from kb where UpdateId = '$ex' or Title like '%$ex%' or Id like '%$ex%' or Description like '%$ex%')"
+                    }
                 }
 
                 Write-PSFMessage -Level Verbose -Message "Query: $query"
@@ -350,10 +365,14 @@ function Get-KbUpdate {
             }
         }
 
-        function Get-GuidsFromWeb ($kb) {
+        function Get-GuidsFromWeb ($kb, $exact, $exclude) {
             Write-PSFMessage -Level Verbose -Message "$kb"
             if ($Exact) {
                 $kb = "`"$kb`""
+            }
+            if ($Exclude) {
+                $excludestr = $exclude -join " -"
+                $kb = "$kb -$excludestr"
             }
             if ($kb -match '^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$') {
                 Write-Verbose -Message "Guid passed in, skipping initial web search"
@@ -417,7 +436,14 @@ function Get-KbUpdate {
             $guids | Where-Object Guid -notin $script:allresults
         }
 
-        function Get-KbItemFromWeb ($kb) {
+        function Get-KbItemFromWeb ($kb, $exact, $exclude) {
+            if ($Exact) {
+                $kb = "`"$kb`""
+            }
+            if ($Exclude) {
+                $excludestr = $exclude -join " -"
+                $kb = "$kb -$excludestr"
+            }
             # Wishing Microsoft offered an RSS feed. Since they don't, we are forced to parse webpages.
             function Get-Info ($Text, $Pattern) {
                 if ($Pattern -match "labelTitle") {
@@ -466,7 +492,7 @@ function Get-KbUpdate {
             }
 
             try {
-                $guids = Get-GuidsFromWeb -kb $kb
+                $guids = Get-GuidsFromWeb -kb $kb -exact $exact -exclude $exclude
 
                 foreach ($item in $guids) {
                     $guid = $item.Guid
@@ -780,16 +806,18 @@ function Get-KbUpdate {
         foreach ($kb in $Pattern) {
             $results = @()
             if ($Source -contains "Wsus") {
-                $results += Get-KbItemFromWsusApi $kb
+                $results += Get-KbItemFromWsusApi -kb $kb -exact $exact -exclude $exclude
             }
 
             if ($Source -contains "Database") {
-                $results += Get-KbItemFromDb -kb $kb -os $OperatingSystem -lang $Language -arch $Architecture
+                $results += Get-KbItemFromDb -kb $kb -os $OperatingSystem -lang $Language -arch $Architecture -exclude $exclude
             }
 
             if ($Source -contains "Web") {
-                $results += Get-KbItemFromWeb $kb
+                $results += Get-KbItemFromWeb -kb $kb -exact $exact -exclude $exclude
+
             }
+
             $allkbs += $results
         }
     }
