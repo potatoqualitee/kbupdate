@@ -1,4 +1,5 @@
 function Invoke-TlsWebRequest {
+    $script:arrgs = $Args
     $PSDefaultParameterValues["Invoke-WebRequest:UseBasicParsing"] = $true
     $PSDefaultParameterValues["Invoke-WebRequest:WebSession"] = $script:websession
     $PSDefaultParameterValues["Invoke-WebRequest:OutVariable"] = "script:previouspage"
@@ -49,11 +50,43 @@ function Invoke-TlsWebRequest {
         $Language = "en-US;q=0.5,en;q=0.3"
     }
 
-    if ($script:websession -and $script:websession.Headers."Accept-Language" -eq $Language) {
-        Invoke-WebRequest @Args -WebSession $script:websession -UseBasicParsing -ErrorAction Stop -OutVariable script:previouspage
+    if ($script:Maxpages -eq 1 -or $args[1] -notmatch "Search.aspx") {
+        if ($script:websession -and $script:websession.Headers."Accept-Language" -eq $Language) {
+            Invoke-WebRequest @Args
+        } else {
+            Invoke-WebRequest @Args -SessionVariable websession -Headers @{ "Accept-Language" = $Language } -WebSession $null
+            $script:websession = $websession
+        }
     } else {
-        Invoke-WebRequest @Args -SessionVariable websession -Headers @{ "Accept-Language" = $Language } -WebSession $null
-        $script:websession = $websession
+        1..$script:MaxPages | ForEach-Object -Process {
+            if ($PSItem -gt 1) {
+                $body = @{
+                    '__EVENTTARGET'        = 'ctl00$catalogBody$nextPageLinkText'
+                    'ctl00$searchTextBox'  = ''
+                    '__VIEWSTATE'          = ($script:previouspage.InputFields | Where-Object Name -eq __VIEWSTATE).Value
+                    '__EVENTARGUMENT'      = ($script:previouspage.InputFields | Where-Object Name -eq __EVENTARGUMENT).Value
+                    '__VIEWSTATEGENERATOR' = ($script:previouspage.InputFields | Where-Object Name -eq __VIEWSTATEGENERATOR).Value
+                    '__EVENTVALIDATION'    = ($script:previouspage.InputFields | Where-Object Name -eq __EVENTVALIDATION).Value
+                }
+                $pages = @{
+                    Body   = $body
+                    Method = "POST"
+                }
+            } else {
+                $pages = @{}
+            }
+
+            if ($script:websession -and $script:websession.Headers."Accept-Language" -eq $Language) {
+                if ($pages -and $arrgs[3] -ne "POST") {
+                    Invoke-WebRequest @arrgs @pages
+                } else {
+                    Invoke-WebRequest @arrgs
+                }
+            } else {
+                Invoke-WebRequest @arrgs -SessionVariable websession -Headers @{ "Accept-Language" = $Language } -WebSession $null
+                $script:websession = $websession
+            }
+        }
     }
 
     [Net.ServicePointManager]::SecurityProtocol = $currentVersionTls

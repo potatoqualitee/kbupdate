@@ -142,6 +142,7 @@ function Get-KbUpdate {
         [switch]$EnableException
     )
     begin {
+        $script:MaxPages = $MaxPages
         if ($NoMultithreading) {
             Write-PSFMessage -Level Warning -Message "Multithreading now disabled by default. This parameter will likely be removed in future versions."
         }
@@ -522,7 +523,6 @@ function Get-KbUpdate {
                     $downloaddialogs = $guids | ForEach-Object -Process $scriptblock
                     Write-Progress -Activity "Searching catalog" -Id 1 -Completed
                 }
-
                 foreach ($downloaddialog in $downloaddialogs) {
                     $title = Get-Info -Text $downloaddialog -Pattern 'enTitle ='
                     $arch = $null
@@ -628,7 +628,7 @@ function Get-KbUpdate {
                         $properties = $baseproperties
 
                         if ($Simple) {
-                            $properties = $properties | Where-Object { $PSItem -notin "LastModified", "Description", "Size", "Classification", "SupportedProducts", "MSRCNumber", "MSRCSeverity", "RebootBehavior", "RequestsUserInput", "ExclusiveInstall", "NetworkRequired", "UninstallNotes", "UninstallSteps", "SupersededBy", "Supersedes" }
+                            $properties = $properties | Where-Object { $PSItem -notin "Language", "LastModified", "Description", "Size", "Classification", "SupportedProducts", "MSRCNumber", "MSRCSeverity", "RebootBehavior", "RequestsUserInput", "ExclusiveInstall", "NetworkRequired", "UninstallNotes", "UninstallSteps", "SupersededBy", "Supersedes" }
                         }
 
                         $ishotfix = switch ($ishotfix) {
@@ -668,32 +668,34 @@ function Get-KbUpdate {
                             $lastmod = $null
                         }
 
-                        $null = $script:kbcollection.Add($hashkey, (
-                                [pscustomobject]@{
-                                    Title             = $title
-                                    Id                = $kbnumbers
-                                    Architecture      = $arch
-                                    Language          = $Language
-                                    Hotfix            = $ishotfix
-                                    Description       = $description
-                                    LastModified      = $lastmod
-                                    Size              = $size
-                                    Classification    = $classification
-                                    SupportedProducts = $supportedproducts
-                                    MSRCNumber        = $msrcnumber
-                                    MSRCSeverity      = $msrcseverity
-                                    RebootBehavior    = $rebootbehavior
-                                    RequestsUserInput = $requestuserinput
-                                    ExclusiveInstall  = $exclusiveinstall
-                                    NetworkRequired   = $networkrequired
-                                    UninstallNotes    = $uninstallnotes
-                                    UninstallSteps    = $uninstallsteps
-                                    UpdateId          = $updateid
-                                    Supersedes        = $supersedes
-                                    SupersededBy      = $supersededby
-                                    Link              = $link.matches.value
-                                    InputObject       = $kb
-                                }))
+                        if (-not $script:kbcollection[$hashkey]) {
+                            $null = $script:kbcollection.Add($hashkey, (
+                                    [pscustomobject]@{
+                                        Title             = $title
+                                        Id                = $kbnumbers
+                                        Architecture      = $arch
+                                        Language          = $Language
+                                        Hotfix            = $ishotfix
+                                        Description       = $description
+                                        LastModified      = $lastmod
+                                        Size              = $size
+                                        Classification    = $classification
+                                        SupportedProducts = $supportedproducts
+                                        MSRCNumber        = $msrcnumber
+                                        MSRCSeverity      = $msrcseverity
+                                        RebootBehavior    = $rebootbehavior
+                                        RequestsUserInput = $requestuserinput
+                                        ExclusiveInstall  = $exclusiveinstall
+                                        NetworkRequired   = $networkrequired
+                                        UninstallNotes    = $uninstallnotes
+                                        UninstallSteps    = $uninstallsteps
+                                        UpdateId          = $updateid
+                                        Supersedes        = $supersedes
+                                        SupersededBy      = $supersededby
+                                        Link              = $link.matches.value
+                                        InputObject       = $kb
+                                    }))
+                        }
                         $script:kbcollection[$hashkey]
                     }
                 }
@@ -725,7 +727,7 @@ function Get-KbUpdate {
         "Link"
 
         if ($Simple) {
-            $properties = $properties | Where-Object { $PSItem -notin "ID", "LastModified", "Description", "Size", "Classification", "SupportedProducts", "MSRCNumber", "MSRCSeverity", "RebootBehavior", "RequestsUserInput", "ExclusiveInstall", "NetworkRequired", "UninstallNotes", "UninstallSteps", "SupersededBy", "Supersedes" }
+            $properties = "Title", "Architecture", "UpdateId", "Link"
         }
 
         if ($Source -eq "WSUS") {
@@ -813,7 +815,6 @@ function Get-KbUpdate {
 
             if ($Source -contains "Web") {
                 $results += Get-KbItemFromWeb -kb $kb -exact $exact -exclude $exclude
-
             }
 
             $allkbs += $results
