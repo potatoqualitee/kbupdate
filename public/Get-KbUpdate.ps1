@@ -303,6 +303,12 @@ function Get-KbUpdate {
                     $arch = "ARM32"
                 }
 
+                if ($wsuskb.ArrivalDate) {
+                    $lastmod = [datetime]$wsuskb.ArrivalDate
+                } else {
+                    $lastmod = $null
+                }
+
                 $null = $script:kbcollection.Add($hashkey, (
                         [pscustomobject]@{
                             Title             = $wsuskb.Title
@@ -311,7 +317,7 @@ function Get-KbUpdate {
                             Language          = $null
                             Hotfix            = $null
                             Description       = $wsuskb.Description
-                            LastModified      = $wsuskb.ArrivalDate
+                            LastModified      = $lastmod
                             Size              = $wsuskb.Size
                             Classification    = $wsuskb.UpdateClassificationTitle
                             SupportedProducts = $wsuskb.ProductTitles
@@ -612,6 +618,14 @@ function Get-KbUpdate {
 
                         # may fix later
                         $ishotfix = $null
+
+
+                        if ($lastmodified) {
+                            $lastmod = [datetime]$lastmodified
+                        } else {
+                            $lastmod = $null
+                        }
+
                         $null = $script:kbcollection.Add($hashkey, (
                                 [pscustomobject]@{
                                     Title             = $title
@@ -620,7 +634,7 @@ function Get-KbUpdate {
                                     Language          = $Language
                                     Hotfix            = $ishotfix
                                     Description       = $description
-                                    LastModified      = $lastmodified
+                                    LastModified      = $lastmod
                                     Size              = $size
                                     Classification    = $classification
                                     SupportedProducts = $supportedproducts
