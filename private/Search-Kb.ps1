@@ -37,34 +37,16 @@ function Search-Kb {
                 $object.Link = $link
             }
 
-            if ($OperatingSystem) {
+            if ($OperatingSystem -or $Product) {
+                $Product += $OperatingSystem
                 $match = @()
                 $allmatch = @()
-                foreach ($os in $OperatingSystem) {
-                    $allmatch += $allobjects | Where-Object SupportedProducts -Contains $os
-                    #$allmatch += $allobjects | Where-Object Title -match $os.Replace(' ', '.*')
+                foreach ($prod in $Product) {
+                    $allmatch += $allobjects | Where-Object SupportedProducts -Contains $prod
                 }
 
-                foreach ($os in $OperatingSystem) {
-                    $match += $object | Where-Object SupportedProducts -Contains $os
-                    #$match += $object | Where-Object Title -match $os.Replace(' ', '.*')
-                }
-                if (-not $match -and $allmatch) {
-                    continue
-                }
-            }
-
-            if ($Product) {
-                $match = @()
-                $allmatch = @()
-                foreach ($os in $OperatingSystem) {
-                    $allmatch += $allobjects | Where-Object SupportedProducts -Contains $os
-                    # $allmatch += $allobjects | Where-Object Title -match $os.Replace(' ', '.*')
-                }
-
-                foreach ($item in $Product) {
-                    $match += $object | Where-Object SupportedProducts -match $item.Replace(' ', '.*')
-                    $match += $object | Where-Object Title -match $item.Replace(' ', '.*')
+                foreach ($prod in $Product) {
+                    $match += $object | Where-Object SupportedProducts -Contains $prod
                 }
                 if (-not $match -and $allmatch) {
                     continue
