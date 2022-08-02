@@ -202,9 +202,9 @@ function Save-KbUpdate {
                         }
                     }
 
-                    foreach ($link in $object.Link) {
+                    foreach ($hyperlinklol in $object.Link) {
                         if (-not $PSBoundParameters.FilePath) {
-                            $FilePath = Split-Path -Path $link -Leaf
+                            $FilePath = Split-Path -Path $hyperlinklol -Leaf
                         } else {
                             $Path = Split-Path -Path $FilePath
                         }
@@ -223,17 +223,19 @@ function Save-KbUpdate {
 
                         if ((Get-Command Start-BitsTransfer -ErrorAction Ignore)) {
                             try {
-                                $null = Start-BitsTransfer -Source $link -Destination $file -ErrorAction Stop
+                                $null = Start-BitsTransfer -Source $hyperlinklol -Destination $file -ErrorAction Stop
                             } catch {
-                                Write-Progress -Activity "Downloading $FilePath" -Id 1
-                                $null = Invoke-TlsWebRequest -OutFile $file -Uri "$link"
-                                Write-Progress -Activity "Downloading $FilePath" -Id 1 -Completed
+                                foreach ($hyperlink in $hyperlinklol) {
+                                    Write-Progress -Activity "Downloading $FilePath" -Id 1
+                                    $null = Invoke-TlsWebRequest -OutFile $file -Uri "$hyperlink"
+                                    Write-Progress -Activity "Downloading $FilePath" -Id 1 -Completed
+                                }
                             }
                         } else {
                             try {
                                 # IWR is crazy slow for large downloads
                                 Write-Progress -Activity "Downloading $FilePath" -Id 1
-                                $null = Invoke-TlsWebRequest -OutFile $file -Uri "$link"
+                                $null = Invoke-TlsWebRequest -OutFile $file -Uri "$hyperlinklol"
                                 Write-Progress -Activity "Downloading $FilePath" -Id 1 -Completed
                             } catch {
                                 Stop-PSFFunction -EnableException:$EnableException -Message "Failure" -ErrorRecord $_ -Continue
