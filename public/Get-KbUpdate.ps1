@@ -365,15 +365,9 @@ function Get-KbUpdate {
             }
         }
 
-        function Get-GuidsFromWeb ($kb, $exact, $exclude) {
+        function Get-GuidsFromWeb ($kb) {
             Write-PSFMessage -Level Verbose -Message "$kb"
-            if ($Exact) {
-                $kb = "`"$kb`""
-            }
-            if ($Exclude) {
-                $excludestr = $exclude -join " -"
-                $kb = "$kb -$excludestr"
-            }
+
             if ($kb -match '^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$') {
                 Write-Verbose -Message "Guid passed in, skipping initial web search"
                 $guids = @()
@@ -441,8 +435,8 @@ function Get-KbUpdate {
                 $kb = "`"$kb`""
             }
             if ($Exclude) {
-                $excludestr = $exclude -join " -"
-                $kb = "$kb -$excludestr"
+                $excludestr = $exclude -join '" -"'
+                $kb = "$kb -`"$excludestr`""
             }
             # Wishing Microsoft offered an RSS feed. Since they don't, we are forced to parse webpages.
             function Get-Info ($Text, $Pattern) {
@@ -492,7 +486,7 @@ function Get-KbUpdate {
             }
 
             try {
-                $guids = Get-GuidsFromWeb -kb $kb -exact $exact -exclude $exclude
+                $guids = Get-GuidsFromWeb -kb $kb
 
                 foreach ($item in $guids) {
                     $guid = $item.Guid
