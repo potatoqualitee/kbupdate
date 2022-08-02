@@ -54,6 +54,9 @@ function Get-KbUpdate {
     .PARAMETER NoMultithreading
         Obsolete as multithreading is no longer enabled by default. It's too unreliable.
 
+    .PARAMETER Exact
+        Search for exact matches only. Basically, the search will be in quotes.
+
     .PARAMETER EnableException
         By default, when something goes wrong we try to catch it, interpret it and give you a friendly warning message.
         This avoids overwhelming you with "sea of red" exceptions, but is inconvenient because it basically disables advanced scripting.
@@ -116,6 +119,7 @@ function Get-KbUpdate {
         [string[]]$Product,
         [string]$Language,
         [switch]$Simple,
+        [switch]$Exact,
         [switch]$Latest,
         [switch]$Force,
         [switch]$Multithread,
@@ -231,6 +235,12 @@ function Get-KbUpdate {
                     if ($item.LastModified) {
                         $item.LastModified = Get-Date $item.LastModified -Format "yyyy-MM-dd"
                     }
+                    foreach ($super in $item.Supersedes) {
+                        $null = $super | Add-Member -MemberType ScriptMethod -Name ToString -Value { $this.Description } -Force
+                    }
+                    foreach ($superby in $item.SupersededBy) {
+                        $null = $superby | Add-Member -MemberType ScriptMethod -Name ToString -Value { $this.Description } -Force
+                    }
                 }
 
                 if (-not $item -and $Source -eq "Database") {
@@ -308,7 +318,6 @@ function Get-KbUpdate {
 
                 if ($wsuskb.ArrivalDate) {
                     $lastmod = Get-Date $wsuskb.ArrivalDate -Format "yyyy-MM-dd"
-                    $lastmod = $null
                 }
 
                 $null = $script:kbcollection.Add($hashkey, (
@@ -343,6 +352,9 @@ function Get-KbUpdate {
 
         function Get-GuidsFromWeb ($kb) {
             Write-PSFMessage -Level Verbose -Message "$kb"
+            if ($Exact) {
+                $kb = "`"$kb`""
+            }
             if ($kb -match '^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$') {
                 Write-Verbose -Message "Guid passed in, skipping initial web search"
                 $guids = @()
@@ -468,9 +480,11 @@ function Get-KbUpdate {
                 }
 
                 $scriptblock = {
+                    $completed++
                     $guid = $psitem.Guid
                     $itemtitle = $psitem.Title
                     Write-Verbose -Message "Downloading information for $itemtitle"
+                    Write-ProgressHelper -TotalSteps $guids.Count -StepNumber $completed -Activity "Searching catalog" -Message "Downloading information for $itemtitle"
                     $post = @{ size = 0; updateID = $guid; uidInfo = $guid } | ConvertTo-Json -Compress
                     $body = @{ updateIDs = "[$post]" }
                     Invoke-TlsWebRequest -Uri 'https://www.catalog.update.microsoft.com/DownloadDialog.aspx' -Method Post -Body $body | Select-Object -ExpandProperty Content
@@ -480,7 +494,9 @@ function Get-KbUpdate {
                 if ($guids.Count -gt 2 -and $Multithread) {
                     $downloaddialogs = $guids | Invoke-Parallel -ImportVariables -ImportFunctions -ScriptBlock $scriptblock -ErrorAction Stop -RunspaceTimeout 60
                 } else {
+                    $completed = 0
                     $downloaddialogs = $guids | ForEach-Object -Process $scriptblock
+                    Write-Progress -Activity "Searching catalog" -Id 1 -Completed
                 }
 
                 foreach ($downloaddialog in $downloaddialogs) {
