@@ -242,6 +242,14 @@ Describe "Integration Tests" -Tag "IntegrationTests" {
         }
     }
 
+
+    Context "Supports exclude" {
+        It "only returns one match" {
+            $results = Get-KbUpdate -OperatingSystem 'Windows Server 2019' -Latest -Architecture x64 -Pattern KB5015878 -Exclude 20H2, 21h2
+            $results.Id.Count | Should -Be 1
+        }
+    }
+
     Context "Get-KbUpdate regression test for #127" {
         It "Finds multiple OSes from web results" {
             $results = Get-KbUpdate -Pattern 4507004 | Where-Object SupportedProducts -contains "Windows 7" | Select-Object -First 1

@@ -42,6 +42,9 @@ function Get-KbUpdate {
     .PARAMETER Force
         When using Latest, the Web is required to get the freshest data unless Force is used.
 
+    .PARAMETER Exclude
+        Exclude matches for pattern
+
     .PARAMETER Simple
         A lil faster. Returns, at the very least: Title, Architecture, Language, UpdateId and Link
 
@@ -53,6 +56,9 @@ function Get-KbUpdate {
 
     .PARAMETER NoMultithreading
         Obsolete as multithreading is no longer enabled by default. It's too unreliable.
+
+    .PARAMETER Exact
+        Search for exact matches only. Basically, the search will be in quotes.
 
     .PARAMETER EnableException
         By default, when something goes wrong we try to catch it, interpret it and give you a friendly warning message.
@@ -103,6 +109,11 @@ function Get-KbUpdate {
         PS C:\> Get-KbUpdate -Pattern "KB2764916 Nederlands" -Simple
 
         An alternative way to search for language specific packages
+
+    .EXAMPLE
+        PS C:\> Get-KbUpdate -OperatingSystem 'Windows Server 2019' -Latest -Architecture x64 -Pattern KB5015878 -Exclude 20H2, 21h2
+
+        Gets the latest KB for KB5015878 for Windows Server 2019 x64, but excludes results for builds 20H2 and 21H2.
 #>
     [CmdletBinding()]
     param(
@@ -111,11 +122,13 @@ function Get-KbUpdate {
         [string[]]$Pattern,
         [string[]]$Architecture,
         [string[]]$OperatingSystem,
+        [string[]]$Exclude,
         [PSFComputer[]]$ComputerName,
         [pscredential]$Credential,
         [string[]]$Product,
         [string]$Language,
         [switch]$Simple,
+        [switch]$Exact,
         [switch]$Latest,
         [switch]$Force,
         [switch]$Multithread,
@@ -145,7 +158,7 @@ function Get-KbUpdate {
         $script:allresults = @()
         function Get-KbItemFromDb {
             [CmdletBinding()]
-            param($kb, $os, $arch, $lang)
+            param($kb, $os, $arch, $lang, $exclude)
             process {
                 # Join to dupe and check dupe
                 $kb = $kb.ToLower()
@@ -164,6 +177,12 @@ function Get-KbUpdate {
                 if ($lang) {
                     $lang = $lang -join "', '"
                     $query = "$query and Language in ('$lang') COLLATE NOCASE"
+                }
+
+                if ($exclude) {
+                    foreach ($ex in $exclude) {
+                        $query = "$query and UpdateId not in (select UpdateId from kb where UpdateId = '$ex' or Title like '%$ex%' or Id like '%$ex%' or Description like '%$ex%')"
+                    }
                 }
 
                 Write-PSFMessage -Level Verbose -Message "Query: $query"
@@ -230,6 +249,12 @@ function Get-KbUpdate {
                     }
                     if ($item.LastModified) {
                         $item.LastModified = Get-Date $item.LastModified -Format "yyyy-MM-dd"
+                    }
+                    foreach ($super in $item.Supersedes) {
+                        $null = $super | Add-Member -MemberType ScriptMethod -Name ToString -Value { $this.Description } -Force
+                    }
+                    foreach ($superby in $item.SupersededBy) {
+                        $null = $superby | Add-Member -MemberType ScriptMethod -Name ToString -Value { $this.Description } -Force
                     }
                 }
 
@@ -308,7 +333,6 @@ function Get-KbUpdate {
 
                 if ($wsuskb.ArrivalDate) {
                     $lastmod = Get-Date $wsuskb.ArrivalDate -Format "yyyy-MM-dd"
-                    $lastmod = $null
                 }
 
                 $null = $script:kbcollection.Add($hashkey, (
@@ -343,6 +367,7 @@ function Get-KbUpdate {
 
         function Get-GuidsFromWeb ($kb) {
             Write-PSFMessage -Level Verbose -Message "$kb"
+
             if ($kb -match '^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$') {
                 Write-Verbose -Message "Guid passed in, skipping initial web search"
                 $guids = @()
@@ -405,7 +430,14 @@ function Get-KbUpdate {
             $guids | Where-Object Guid -notin $script:allresults
         }
 
-        function Get-KbItemFromWeb ($kb) {
+        function Get-KbItemFromWeb ($kb, $exact, $exclude) {
+            if ($Exact) {
+                $kb = "`"$kb`""
+            }
+            if ($Exclude) {
+                $excludestr = $exclude -join '" -"'
+                $kb = "$kb -`"$excludestr`""
+            }
             # Wishing Microsoft offered an RSS feed. Since they don't, we are forced to parse webpages.
             function Get-Info ($Text, $Pattern) {
                 if ($Pattern -match "labelTitle") {
@@ -468,9 +500,11 @@ function Get-KbUpdate {
                 }
 
                 $scriptblock = {
+                    $completed++
                     $guid = $psitem.Guid
                     $itemtitle = $psitem.Title
                     Write-Verbose -Message "Downloading information for $itemtitle"
+                    Write-ProgressHelper -TotalSteps $guids.Count -StepNumber $completed -Activity "Searching catalog" -Message "Downloading information for $itemtitle"
                     $post = @{ size = 0; updateID = $guid; uidInfo = $guid } | ConvertTo-Json -Compress
                     $body = @{ updateIDs = "[$post]" }
                     Invoke-TlsWebRequest -Uri 'https://www.catalog.update.microsoft.com/DownloadDialog.aspx' -Method Post -Body $body | Select-Object -ExpandProperty Content
@@ -480,7 +514,9 @@ function Get-KbUpdate {
                 if ($guids.Count -gt 2 -and $Multithread) {
                     $downloaddialogs = $guids | Invoke-Parallel -ImportVariables -ImportFunctions -ScriptBlock $scriptblock -ErrorAction Stop -RunspaceTimeout 60
                 } else {
+                    $completed = 0
                     $downloaddialogs = $guids | ForEach-Object -Process $scriptblock
+                    Write-Progress -Activity "Searching catalog" -Id 1 -Completed
                 }
 
                 foreach ($downloaddialog in $downloaddialogs) {
@@ -764,16 +800,18 @@ function Get-KbUpdate {
         foreach ($kb in $Pattern) {
             $results = @()
             if ($Source -contains "Wsus") {
-                $results += Get-KbItemFromWsusApi $kb
+                $results += Get-KbItemFromWsusApi -kb $kb -exact $exact -exclude $exclude
             }
 
             if ($Source -contains "Database") {
-                $results += Get-KbItemFromDb -kb $kb -os $OperatingSystem -lang $Language -arch $Architecture
+                $results += Get-KbItemFromDb -kb $kb -os $OperatingSystem -lang $Language -arch $Architecture -exclude $exclude
             }
 
             if ($Source -contains "Web") {
-                $results += Get-KbItemFromWeb $kb
+                $results += Get-KbItemFromWeb -kb $kb -exact $exact -exclude $exclude
+
             }
+
             $allkbs += $results
         }
     }
