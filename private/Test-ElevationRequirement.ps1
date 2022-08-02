@@ -73,9 +73,9 @@ function Test-ElevationRequirement {
             Message = "Console not elevated, but elevation is required to perform some actions on localhost for this command."
         }
 
-        if (Test-Bound "Continue") { $splatStopFunction["Continue"] = $Continue }
-        if (Test-Bound "ContinueLabel") { $splatStopFunction["ContinueLabel"] = $ContinueLabel }
-        if (Test-Bound "SilentlyContinue") { $splatStopFunction["SilentlyContinue"] = $SilentlyContinue }
+        if ($PSBoundParameters.Continue) { $splatStopFunction["Continue"] = $Continue }
+        if ($PSBoundParameters.ContinueLabel) { $splatStopFunction["ContinueLabel"] = $ContinueLabel }
+        if ($PSBoundParameters.SilentlyContinue) { $splatStopFunction["SilentlyContinue"] = $SilentlyContinue }
 
         . Stop-PSFFunction @splatStopFunction -FunctionName (Get-PSCallStack)[1].Command
         return $testResult

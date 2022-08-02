@@ -331,8 +331,6 @@ function Install-KbUpdate {
                                 Stop-PSFFunction -EnableException:$EnableException -Message "Could not copy $updatefile to $remotefile" -ErrorRecord $PSItem -Continue
                             }
                         }
-                    } else {
-                        Stop-PSFFunction -EnableException:$EnableException -Message "Could not find $HotfixId and no file was specified" -Continue
                     }
                 }
 
