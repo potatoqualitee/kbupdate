@@ -138,7 +138,7 @@ function Save-KbUpdate {
             }
 
             default {
-                if ($Pattern.Count -gt 0 -and $PSBoundParameters.FilePath) {
+                if ($Pattern.Count -gt 1 -and $PSBoundParameters.FilePath) {
                     Stop-PSFFunction -EnableException:$EnableException -Message "You can only specify one KB when using FilePath"
                     return
                 }
