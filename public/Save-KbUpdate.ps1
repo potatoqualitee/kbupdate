@@ -111,23 +111,24 @@ function Save-KbUpdate {
         switch ($PSCmdlet.ParameterSetName) {
             'link' {
                 $Link | Foreach-Object {
-                    $fileName = Split-Path $_ -Leaf
+                    $hyperlinklol = $_
+                    $fileName = Split-Path $hyperlinklol -Leaf
                     $file = Join-Path $Path -ChildPath $fileName
                     if ((Get-Command Start-BitsTransfer -ErrorAction Ignore)) {
                         try {
-                            Start-BitsTransfer -Source $_ -Destination $Path -ErrorAction Stop
+                            Start-BitsTransfer -Source $hyperlinklol -Destination $Path -ErrorAction Stop
                             Get-ChildItem -Path $file
                         } catch {
-                            Write-Host "Going to use uri: $_" -ForegroundColor Green
+                            Write-Host "Going to use uri: $hyperlinklol" -ForegroundColor Green
                             Write-Progress -Activity "Downloading $FilePath" -Id 1
-                            Invoke-TlsWebRequest -OutFile $file -Uri $_
+                            Invoke-TlsWebRequest -OutFile $file -Uri $hyperlinklol
                             Write-Progress -Activity "Downloading $FilePath" -Id 1 -Completed
                         }
                     } else {
                         try {
                             # IWR is crazy slow for large downloads
                             Write-Progress -Activity "Downloading $FilePath" -Id 1
-                            Invoke-TlsWebRequest -OutFile $file -Uri $_
+                            Invoke-TlsWebRequest -OutFile $file -Uri $hyperlinklol
                             Write-Progress -Activity "Downloading $FilePath" -Id 1 -Completed
                         } catch {
                             Stop-PSFFunction -EnableException:$EnableException -Message "Failure" -ErrorRecord $_ -Continue
