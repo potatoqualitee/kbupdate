@@ -1,4 +1,9 @@
 function Invoke-TlsWebRequest {
+    $PSDefaultParameterValues["Invoke-WebRequest:UseBasicParsing"] = $true
+    $PSDefaultParameterValues["Invoke-WebRequest:WebSession"] = $script:websession
+    $PSDefaultParameterValues["Invoke-WebRequest:OutVariable"] = "script:previouspage"
+    $PSDefaultParameterValues["Invoke-WebRequest:ErrorAction"] = "Stop"
+
     <#
     Internal utility that mimics invoke-webrequest
     but enables all tls available version
@@ -45,9 +50,9 @@ function Invoke-TlsWebRequest {
     }
 
     if ($script:websession -and $script:websession.Headers."Accept-Language" -eq $Language) {
-        Invoke-WebRequest @Args -WebSession $script:websession -UseBasicParsing -ErrorAction Stop
+        Invoke-WebRequest @Args -WebSession $script:websession -UseBasicParsing -ErrorAction Stop -OutVariable script:previouspage
     } else {
-        Invoke-WebRequest @Args -SessionVariable websession -Headers @{ "Accept-Language" = $Language } -UseBasicParsing -ErrorAction Stop
+        Invoke-WebRequest @Args -SessionVariable websession -Headers @{ "Accept-Language" = $Language } -WebSession $null
         $script:websession = $websession
     }
 
