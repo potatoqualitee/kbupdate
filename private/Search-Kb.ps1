@@ -41,13 +41,13 @@ function Search-Kb {
                 $match = @()
                 $allmatch = @()
                 foreach ($os in $OperatingSystem) {
-                    $allmatch += $allobjects | Where-Object SupportedProducts -match $os.Replace(' ', '.*')
-                    $allmatch += $allobjects | Where-Object Title -match $os.Replace(' ', '.*')
+                    $allmatch += $allobjects | Where-Object SupportedProducts -Contains $os
+                    #$allmatch += $allobjects | Where-Object Title -match $os.Replace(' ', '.*')
                 }
 
                 foreach ($os in $OperatingSystem) {
-                    $match += $object | Where-Object SupportedProducts -match $os.Replace(' ', '.*')
-                    $match += $object | Where-Object Title -match $os.Replace(' ', '.*')
+                    $match += $object | Where-Object SupportedProducts -Contains $os
+                    #$match += $object | Where-Object Title -match $os.Replace(' ', '.*')
                 }
                 if (-not $match -and $allmatch) {
                     continue
@@ -58,8 +58,8 @@ function Search-Kb {
                 $match = @()
                 $allmatch = @()
                 foreach ($os in $OperatingSystem) {
-                    $allmatch += $allobjects | Where-Object SupportedProducts -match $os.Replace(' ', '.*')
-                    $allmatch += $allobjects | Where-Object Title -match $os.Replace(' ', '.*')
+                    $allmatch += $allobjects | Where-Object SupportedProducts -Contains $os
+                    # $allmatch += $allobjects | Where-Object Title -match $os.Replace(' ', '.*')
                 }
 
                 foreach ($item in $Product) {
