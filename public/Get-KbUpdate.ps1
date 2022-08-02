@@ -228,6 +228,9 @@ function Get-KbUpdate {
                     if ($item.link -match "ARM-based" -and -not $item.Architecture) {
                         $item.Architecture = "ARM32"
                     }
+                    if ($item.LastModified) {
+                        $item.LastModified = Get-Date $item.LastModified -Format "yyyy-MM-dd"
+                    }
                 }
 
                 if (-not $item -and $Source -eq "Database") {
@@ -304,8 +307,7 @@ function Get-KbUpdate {
                 }
 
                 if ($wsuskb.ArrivalDate) {
-                    $lastmod = [datetime]$wsuskb.ArrivalDate
-                } else {
+                    $lastmod = Get-Date $wsuskb.ArrivalDate -Format "yyyy-MM-dd"
                     $lastmod = $null
                 }
 
@@ -621,7 +623,7 @@ function Get-KbUpdate {
 
 
                         if ($lastmodified) {
-                            $lastmod = [datetime]$lastmodified
+                            $lastmod = Get-Date $lastmodified -Format "yyyy-MM-dd"
                         } else {
                             $lastmod = $null
                         }
