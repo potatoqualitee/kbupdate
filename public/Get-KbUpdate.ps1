@@ -140,16 +140,35 @@ function Get-KbUpdate {
         }
 
         Write-PSFMessage -Level Verbose -Message "Source set to $Source"
+        Write-PSFMessage -Level Verbose -Message "Operating system set to $OperatingSystem"
 
         $script:allresults = @()
         function Get-KbItemFromDb {
             [CmdletBinding()]
-            param($kb)
+            param($kb, $os, $arch, $lang)
             process {
                 # Join to dupe and check dupe
                 $kb = $kb.ToLower()
+                $query = "select *, NULL AS SupersededBy, NULL AS Supersedes, NULL AS Link from kb where UpdateId in (select UpdateId from kb where UpdateId = '$kb' or Title like '%$kb%' or Id like '%$kb%' or Description like '%$kb%' or MSRCNumber like '%$kb%')"
 
-                $allitems = Invoke-SqliteQuery -DataSource $script:basedb -Query "select *, NULL AS SupersededBy, NULL AS Supersedes, NULL AS Link from kb where UpdateId in (select UpdateId from kb where UpdateId = '$kb' or Title like '%$kb%' or Id like '%$kb%' or Description like '%$kb%' or MSRCNumber like '%$kb%')" |
+                if ($os) {
+                    $oses = $os -join "', '"
+                    $query = "$query and SupportedProducts in ('$oses') COLLATE NOCASE"
+                }
+
+                if ($arch) {
+                    $arch = $arch -join "', '"
+                    $query = "$query and Architecture in ('$arch') COLLATE NOCASE"
+                }
+
+                if ($lang) {
+                    $lang = $lang -join "', '"
+                    $query = "$query and Language in ('$lang') COLLATE NOCASE"
+                }
+
+                Write-PSFMessage -Level Verbose -Message "Query: $query"
+
+                $allitems = Invoke-SqliteQuery -DataSource $script:basedb -Query $query |
                     Where-Object UpdateId -notin $script:allresults | Sort-Object UpdateId -Unique
 
                 if ($allitems.UpdateId) {
@@ -159,11 +178,11 @@ function Get-KbUpdate {
                 foreach ($item in $allitems) {
                     $script:allresults += $item.UpdateId
                     # I do wish my import didn't return empties but sometimes it does so check for length of 3
-                    $item.SupersededBy = Invoke-SqliteQuery -DataSource $script:basedb -Query "select KB, Description from SupersededBy where UpdateId = '$($item.UpdateId)' and LENGTH(kb) > 3"
+                    $item.SupersededBy = Invoke-SqliteQuery -DataSource $script:basedb -Query "select KB, Description from SupersededBy where UpdateId = '$($item.UpdateId)' COLLATE NOCASE and LENGTH(kb) > 3"
 
                     # I do wish my import didn't return empties but sometimes it does so check for length of 3
-                    $item.Supersedes = Invoke-SqliteQuery -DataSource $script:basedb -Query "select KB, Description from Supersedes where UpdateId = '$($item.UpdateId)' and LENGTH(kb) > 3"
-                    $item.Link = (Invoke-SqliteQuery -DataSource $script:basedb -Query "select DISTINCT Link from Link where UpdateId = '$($item.UpdateId)'").Link
+                    $item.Supersedes = Invoke-SqliteQuery -DataSource $script:basedb -Query "select KB, Description from Supersedes where UpdateId = '$($item.UpdateId)' COLLATE NOCASE and LENGTH(kb) > 3"
+                    $item.Link = (Invoke-SqliteQuery -DataSource $script:basedb -Query "select DISTINCT Link from Link where UpdateId = '$($item.UpdateId)' COLLATE NOCASE").Link
                     $item
 
                     if ($item.SupportedProducts -match "\|") {
@@ -326,7 +345,8 @@ function Get-KbUpdate {
             } else {
                 Write-Progress -Activity "Searching catalog for $kb" -Id 1 -Status "Contacting catalog.update.microsoft.com"
                 if ($OperatingSystem) {
-                    $url = "https://www.catalog.update.microsoft.com/Search.aspx?q=$kb+$OperatingSystem"
+                    $os = $OperatingSystem -join '" "'
+                    $url = "https://www.catalog.update.microsoft.com/Search.aspx?q=$kb+`"$os`""
                     Write-PSFMessage -Level Verbose -Message "Accessing $url"
                     $results = Invoke-TlsWebRequest -Uri $url
                     $kbids = $results.InputFields |
@@ -715,11 +735,14 @@ function Get-KbUpdate {
         }
 
         $boundparams = @{
-            OperatingSystem = $OperatingSystem
-            Architecture    = $Architecture
-            Product         = $PSBoundParameters.Product
-            Language        = $PSBoundParameters.Language
-            Source          = $Source
+            Source  = $Source
+            Product = $PSBoundParameters.Product
+        }
+
+        if ($Source -ne "Database") {
+            $boundparams.Architecture = $Architecture
+            $boundparams.Language = $PSBoundParameters.Language
+            $boundparams.OperatingSystem = $OperatingSystem
         }
 
         foreach ($kb in $Pattern) {
@@ -729,7 +752,7 @@ function Get-KbUpdate {
             }
 
             if ($Source -contains "Database") {
-                $results += Get-KbItemFromDb $kb
+                $results += Get-KbItemFromDb -kb $kb -os $OperatingSystem -lang $Language -arch $Architecture
             }
 
             if ($Source -contains "Web") {
