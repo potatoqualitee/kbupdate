@@ -469,6 +469,7 @@ function Install-KbUpdate {
                                 $VerbosePreference,
                                 $ManualFileName
                             )
+                            $PSDefaultParameterValues.Remove("Invoke-WebRequest:ErrorAction")
                             $PSDefaultParameterValues['*:ErrorAction'] = 'SilentlyContinue'
                             $ErrorActionPreference = "Stop"
 
