@@ -51,6 +51,7 @@ function Invoke-TlsWebRequest {
     }
 
     if ($script:Maxpages -eq 1 -or $args[1] -notmatch "Search.aspx") {
+        Write-PSFMessage -Level Verbose -Message "URL: $($args[1])"
         if ($script:websession -and $script:websession.Headers."Accept-Language" -eq $Language) {
             Invoke-WebRequest @Args
         } else {
@@ -59,10 +60,10 @@ function Invoke-TlsWebRequest {
         }
     } else {
         1..$script:MaxPages | ForEach-Object -Process {
+            Write-PSFMessage -Level Verbose -Message "URL: $($arrgs[1])"
             if ($PSItem -gt 1) {
                 $body = @{
                     '__EVENTTARGET'        = 'ctl00$catalogBody$nextPageLinkText'
-                    'ctl00$searchTextBox'  = ''
                     '__VIEWSTATE'          = ($script:previouspage.InputFields | Where-Object Name -eq __VIEWSTATE).Value
                     '__EVENTARGUMENT'      = ($script:previouspage.InputFields | Where-Object Name -eq __EVENTARGUMENT).Value
                     '__VIEWSTATEGENERATOR' = ($script:previouspage.InputFields | Where-Object Name -eq __VIEWSTATEGENERATOR).Value

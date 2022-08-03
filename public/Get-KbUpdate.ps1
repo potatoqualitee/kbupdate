@@ -61,7 +61,9 @@ function Get-KbUpdate {
         Search for exact matches only. Basically, the search will be in quotes.
 
     .PARAMETER MaxPages
-        Maximum number of pages to parse when using the web source. Default is 1 (up to 25 results).
+        Maximum number of pages to parse when using the web source, each page returns 25 results. Defaults to 1 for a total of 25 max results from the web.
+
+        Unless you set -Source Web, more than 25xMaxPages may be returned (because db lookups are faster and dont need to care about paging).
 
     .PARAMETER EnableException
         By default, when something goes wrong we try to catch it, interpret it and give you a friendly warning message.
@@ -523,8 +525,11 @@ function Get-KbUpdate {
                     $downloaddialogs = $guids | ForEach-Object -Process $scriptblock
                     Write-Progress -Activity "Searching catalog" -Id 1 -Completed
                 }
+                $completed = 0
                 foreach ($downloaddialog in $downloaddialogs) {
+                    $completed++
                     $title = Get-Info -Text $downloaddialog -Pattern 'enTitle ='
+                    Write-ProgressHelper -TotalSteps $downloaddialogs.Count -StepNumber $completed -Activity "Downloading details" -Message "Getting details for $title"
                     $arch = $null
                     $longlang = Get-Info -Text $downloaddialog -Pattern 'longLanguages ='
                     if ($Pattern -match '^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$') {
