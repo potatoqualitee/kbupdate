@@ -31,7 +31,7 @@
     RequiredModules   = @(
         # load up everything in Windows
         @{ ModuleName = 'PSFramework'; ModuleVersion = '1.7.227' },
-        @{ ModuleName = 'kbupdate-library'; ModuleVersion = '1.1.5' },
+        @{ ModuleName = 'kbupdate-library'; ModuleVersion = '1.1.6' },
         @{ ModuleName = 'PSSQLite'; ModuleVersion = '1.1.0' }
     )
 
