@@ -119,6 +119,11 @@ function Get-KbUpdate {
         PS C:\> Get-KbUpdate -OperatingSystem 'Windows Server 2019' -Latest -Architecture x64 -Pattern KB5015878 -Exclude 20H2, 21h2
 
         Gets the latest KB for KB5015878 for Windows Server 2019 x64, but excludes results for builds 20H2 and 21H2.
+
+    .EXAMPLE
+        PS C:\> Get-KbUpdate -Pattern "Windows Server 2019" -MaxPages 2 -Source Web
+
+        Gets KBs for Windows Server 2019 from the web, and returns 2 pages (up to 50 results) instead of 1 (25 max).
 #>
     [CmdletBinding()]
     param(
