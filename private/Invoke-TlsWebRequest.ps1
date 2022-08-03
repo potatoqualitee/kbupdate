@@ -3,9 +3,9 @@ function Invoke-TlsWebRequest {
     $PSDefaultParameterValues["Invoke-WebRequest:UseBasicParsing"] = $true
     $PSDefaultParameterValues["Invoke-WebRequest:WebSession"] = $script:websession
     $PSDefaultParameterValues["Invoke-WebRequest:OutVariable"] = "script:previouspage"
-    if (-not $PSDefaultParameterValues["*:ErrorAction"]) {
-        $PSDefaultParameterValues["Invoke-WebRequest:ErrorAction"] = "Stop"
-    }
+
+    $PSDefaultParameterValues.Remove("*:ErrorAction")
+    $PSDefaultParameterValues["Invoke-WebRequest:ErrorAction"] = "Stop"
 
     <#
     Internal utility that mimics invoke-webrequest
