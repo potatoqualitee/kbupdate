@@ -143,42 +143,63 @@ function Install-KbUpdate {
                 if ($InputObject.InputObject) {
                     $searchresult = $InputObject.InputObject
                 } else {
-                    $session = New-Object -ComObject Microsoft.Update.Session
-                    $session.ClientApplicationID = "kbupdate installer"
                     $sessiontype = [type]::GetTypeFromProgID("Microsoft.Update.Session")
                     $session = [activator]::CreateInstance($sessiontype)
+                    $session.ClientApplicationID = "kbupdate installer"
 
                     if ($InputObject.InputObject) {
                         $searchresult.Updates = $InputObject.InputObject
                     } else {
-                        $searcher = $session.CreateUpdateSearcher()
-                        $searchresult = $searcher.Search("IsInstalled=0 and Type='Software'")
+                        $searchresult = $session.CreateUpdateSearcher().Search("Type='Software'").Updates
                     }
                 }
 
                 # iterate the updates in searchresult
                 # it must be force iterated like this
-                foreach ($update in $searchresult.Updates) {
-                    foreach ($bundle in $update.BundledUpdates) {
-                        $files = New-Object -ComObject "Microsoft.Update.StringColl.1"
-                        foreach ($file in $bundle.DownloadContents) {
-                            if ($file.DownloadUrl) {
-                                $filename = Split-Path -Path $file.DownloadUrl -Leaf
-                                $fullpath = Join-Path -Path $RepositoryPath -ChildPath $filename
-                                $null = $files.Add($fullpath)
+                if ($searchresult.Updates) {
+                    foreach ($update in $searchresult.Updates) {
+                        foreach ($bundle in $update.BundledUpdates) {
+                            $files = New-Object -ComObject "Microsoft.Update.StringColl.1"
+                            foreach ($file in $bundle.DownloadContents) {
+                                if ($file.DownloadUrl) {
+                                    $filename = Split-Path -Path $file.DownloadUrl -Leaf
+                                    $fullpath = Join-Path -Path $RepositoryPath -ChildPath $filename
+                                    $null = $files.Add($fullpath)
+                                }
+                            }
+                            # load into Windows Update API
+                            try {
+                                $bundle.CopyToCache($files)
+                            } catch {
+                                Stop-PSFFunction -EnableException:$EnableException -Message "Failure on $env:ComputerName" -ErrorRecord $PSItem -Continue
                             }
                         }
-                        # load into Windows Update API
-                        try {
-                            #$bundle.CopyToCache($files)
-                        } catch {
-                            write-warning $PSItem
+                    }
+                } else {
+                    $files = New-Object -ComObject "Microsoft.Update.StringColl.1"
+                    foreach ($link in $searchresult.Link) {
+                        if ($link) {
+                            $filename = Split-Path -Path $link -Leaf
+                            $fullpath = Join-Path -Path $RepositoryPath -ChildPath $filename
+                            $null = $files.Add($fullpath)
                         }
                     }
+                    # load into Windows Update API
+                    try {
+                        $bundle.CopyToCache($files)
+                    } catch {
+                        Stop-PSFFunction -EnableException:$EnableException -Message "Failure on $env:ComputerName" -ErrorRecord $PSItem -Continue
+                    }
                 }
-                $installer = $session.CreateUpdateInstaller()
-                $installer.Updates = $searchresult.Updates
-                $installer.Install()
+
+
+                try {
+                    $installer = $session.CreateUpdateInstaller()
+                    $installer.Updates = $searchresult.Updates
+                    $installer.Install()
+                } catch {
+                    Stop-PSFFunction -EnableException:$EnableException -Message "Failure on $env:ComputerName" -ErrorRecord $PSItem -Continue
+                }
             } else {
                 # Method is DSC
                 if ($PSDefaultParameterValues["Invoke-PSFCommand:ComputerName"]) {
