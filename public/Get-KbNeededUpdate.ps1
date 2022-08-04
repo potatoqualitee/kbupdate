@@ -1,10 +1,10 @@
 function Get-KbNeededUpdate {
     <#
     .SYNOPSIS
-         Sup
+         Checks for needed updates.
 
     .DESCRIPTION
-         Sup
+         Checks for needed updates.
 
     .PARAMETER ComputerName
         Used to connect to a remote host. Connects to localhost by default -- if scanning the local computer, the command must be run as administrator.
