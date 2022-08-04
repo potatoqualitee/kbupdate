@@ -1,22 +1,24 @@
 function Get-KbNeededUpdate {
     <#
     .SYNOPSIS
-        Replacement for Get-Hotfix, Get-Package, searching the registry and searching CIM for updates
+         Sup
 
     .DESCRIPTION
-        Replacement for Get-Hotfix, Get-Package, searching the registry and searching CIM for updates.
-
-    .PARAMETER Pattern
-        Any pattern. But really, a KB pattern is your best bet.
+         Sup
 
     .PARAMETER ComputerName
-        Used to connect to a remote host
+        Used to connect to a remote host. Connects to localhost by default -- if scanning the local computer, the command must be run as administrator.
 
     .PARAMETER Credential
         The optional alternative credential to be used when connecting to ComputerName
 
-    .PARAMETER IncludeHidden
-        Include KBs that are hidden due to misconfiguration.
+    .PARAMETER ScanFilePath
+        If Windows Update does not have access to WSUS or Microsoft's update catalog, a local copy of the catalog can be provided. This parameter is optional.
+
+        The local copy can be downloaded using Save-KbScanFile from an internet-connected computer.
+
+    .PARAMETER Force
+        Force will copies the scan file to a temporary directory on the remote system if required.
 
     .PARAMETER EnableException
         By default, when something goes wrong we try to catch it, interpret it and give you a friendly warning message.
@@ -31,17 +33,17 @@ function Get-KbNeededUpdate {
     .EXAMPLE
         PS C:\> Get-KbNeededUpdate
 
-        Gets all the updates installed on the local machine
+        Gets all the updates needed on the local machine
 
     .EXAMPLE
         PS C:\> Get-KbNeededUpdate -ComputerName server01
 
-        Gets all the updates installed on server01
+        Gets all the updates needed on server01
 
     .EXAMPLE
         PS C:\> Get-KbNeededUpdate | Save-KbUpdate -Path C:\temp
 
-        Gets all the updates installed on server01 that match KB4057119
+        Saves all the updates needed on the local machine to C:\temp
 #>
     [CmdletBinding()]
     param(
