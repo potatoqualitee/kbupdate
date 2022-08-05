@@ -11,8 +11,8 @@ jobs:
       - name: Check for needed updates
         shell: powershell
         run: |
-          Set-Service wsusservice -StartupType Automatic
-          Start-Service wsusservice
+          Set-Service wuauserv -StartupType Automatic
+          Start-Service wuauserv
           Set-PSRepository -Name PSGallery -InstallationPolicy Trusted
           Install-Module PSFramework, kbupdate-library, PSSQLite
           Import-Module ./kbupdate.psd1 -ErrorAction Stop
