@@ -22,10 +22,11 @@ jobs:
           $scanfile = Save-KbScanFile -Path C:\temp -AllowClobber
           Write-Output "Getting needed updates"
           Get-KbNeededUpdate -ScanFilePath $scanfile | Where-Object Link | Select-Object -First 1 -OutVariable saveit
-          mkdir C:\temp\xml
+          $null = mkdir C:\temp\xml
           $saveit | Export-CliXml -Path C:\temp\xml\results.xml
-          $saveit | Save-KbUpdate -Path C:\temp
+          $null = $saveit | Save-KbUpdate -Path C:\temp
           $saveit | Install-KbUpdate -RepositoryPath C:\temp
+          $error | Export-CliXml -Path C:\temp\xml\error.xml
 
       - name: 🪠 Upload
         uses: actions/upload-artifact@v3
