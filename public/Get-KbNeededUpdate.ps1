@@ -41,6 +41,11 @@ function Get-KbNeededUpdate {
         Gets all the updates needed on server01
 
     .EXAMPLE
+        PS C:\> Get-KbNeededUpdate -ComputerName server01 -ScanFilePath $scanfile | Install-KbUpdate
+
+        Installs needed updates on server01
+
+    .EXAMPLE
         PS C:\> Get-KbNeededUpdate | Save-KbUpdate -Path C:\temp
 
         Saves all the updates needed on the local machine to C:\temp
