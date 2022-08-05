@@ -82,6 +82,12 @@ function Install-KbUpdate {
         Installs KB4498951 on sql2017 then uninstalls it ✔
 
     .EXAMPLE
+        PS C:\> Get-KbNeededUpdate -OutVariable needed | Save-KbUpdate -Path C:\temp
+        PS C:\> $needed | Install-KbUpdate -RepositoryPath C:\temp
+
+        Saves the files for needed updates then installs them from that path
+
+    .EXAMPLE
         PS C:\> Get-KbNeededUpdate | Install-KbUpdate -Method WindowsUpdate -Verbose
 
         Installs needed updates, only works on localhost
