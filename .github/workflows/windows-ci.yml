@@ -27,10 +27,12 @@ jobs:
           Write-Output "Getting needed updates"
           Get-KbNeededUpdate -ScanFilePath $scanfile | Where-Object Link | Select-Object -First 1 -OutVariable saveit
           $null = mkdir C:\temp\xml
+          Write-Output "Found $($saveit.KBUpdate.Count) updates"
           $saveit | Export-CliXml -Path C:\temp\xml\results.xml
           $null = $saveit | Save-KbUpdate -Path C:\temp
           Write-Output "Installing needed updates"
           $saveit | Install-KbUpdate -RepositoryPath C:\temp -Verbose
+          Get-KbInstalledUpdate -Pattern $saveit.KBUpdate
           $error | Export-CliXml -Path C:\temp\xml\error.xml
 
       - name: 🪠 Upload
