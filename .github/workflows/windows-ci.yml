@@ -8,6 +8,11 @@ jobs:
 
     steps:
       - uses: actions/checkout@v1
+      - name: Install and cache PowerShell modules
+        uses: potatoqualitee/psmodulecache@v4.5
+        with:
+          modules-to-cache: PSFramework, PSSQLite
+
       - name: Check for needed updates
         shell: powershell
         run: |
@@ -19,9 +24,8 @@ jobs:
           Write-Output "Enabling WinRM"
           winrm quickconfig -quiet
 
-          Write-Output "Downloading modules"
-          Set-PSRepository -Name PSGallery -InstallationPolicy Trusted
-          Install-Module PSFramework, kbupdate-library, PSSQLite
+          Write-Output "Downloading freshest library"
+          Install-Module kbupdate-library
           Import-Module ./kbupdate.psd1 -ErrorAction Stop
 
           Write-Output "Saving scanfile"
