@@ -18,4 +18,4 @@ jobs:
           Set-PSRepository -Name PSGallery -InstallationPolicy Trusted
           Install-Module PSFramework, kbupdate-library, PSSQLite
           Import-Module ./kbupdate.psd1 -ErrorAction Stop
-          (Get-KbUpdate -Name KB2992080 -Source Web).Title | Should -NotBeNull
+          (Get-KbUpdate -Name KB2992080 -Source Web).Title | Should -Not -BeNull
