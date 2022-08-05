@@ -14,6 +14,5 @@ jobs:
           Set-PSRepository -Name PSGallery -InstallationPolicy Trusted
           Install-Module PSFramework, kbupdate-library, PSSQLite
           Import-Module ./kbupdate.psd1 -ErrorAction Stop
-          mkdir C:\temp
           $scanfile = Save-KbScanFile -Path C:\temp -AllowClobber
           Get-KbNeededUpdate -ScanFilePath $scanfile
