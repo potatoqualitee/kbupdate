@@ -170,8 +170,8 @@ function Install-KbUpdate {
                         $null = $update.AcceptEula()
                         foreach ($bundle in $update.BundledUpdates) {
                             $files = New-Object -ComObject "Microsoft.Update.StringColl.1"
-                            foreach ($file in $bundle.DownloadContents) {
-                                if ($file.DownloadUrl -and $RepositoryPath) {
+                            foreach ($file in $bundle.DownloadContents.DownloadUrl) {
+                                if ($RepositoryPath) {
                                     $filename = Split-Path -Path $file.DownloadUrl -Leaf
                                     Write-PSFMessage -Level Verbose -Message "Adding $filename"
                                     $fullpath = Join-Path -Path $RepositoryPath -ChildPath $filename
