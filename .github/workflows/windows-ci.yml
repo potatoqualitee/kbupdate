@@ -11,11 +11,13 @@ jobs:
       - name: Check for needed updates
         shell: powershell
         run: |
-          Write-Output "Starting service"
+          Write-Output "Starting services"
           Set-Service wuauserv -StartupType Automatic
           Set-Service WinRM -StartupType Automatic
           Start-Service wuauserv
           Start-Service WinRM
+          Write-Output "Enabling WinRM"
+          Enable-PSRemoting -Force
           Write-Output "Downloading modules"
           Set-PSRepository -Name PSGallery -InstallationPolicy Trusted
           Install-Module PSFramework, kbupdate-library, PSSQLite
