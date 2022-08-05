@@ -11,10 +11,22 @@ jobs:
       - name: Check for needed updates
         shell: powershell
         run: |
+          Write-Output "Starting service"
           Set-Service wuauserv -StartupType Automatic
           Start-Service wuauserv
+          Write-Output "Downloading modules"
           Set-PSRepository -Name PSGallery -InstallationPolicy Trusted
           Install-Module PSFramework, kbupdate-library, PSSQLite
           Import-Module ./kbupdate.psd1 -ErrorAction Stop
+          Write-Output "Saving scanfile"
           $scanfile = Save-KbScanFile -Path C:\temp -AllowClobber
-          Get-KbNeededUpdate -ScanFilePath $scanfile
+          Write-Output "Getting needed updates"
+          Get-KbNeededUpdate -ScanFilePath $scanfile -OutVariable saveit
+          mkdir C:\temp\xml
+          $saveit | Export-CliXml -Path C:\temp\xml
+
+      - name: 🪠 Upload
+        uses: actions/upload-artifact@v3
+        with:
+          name: needed
+          path: "C:\\temp\\xml"
