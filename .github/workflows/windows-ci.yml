@@ -23,7 +23,7 @@ jobs:
           Write-Output "Getting needed updates"
           Get-KbNeededUpdate -ScanFilePath $scanfile -OutVariable saveit
           mkdir C:\temp\xml
-          $saveit | Export-CliXml -Path C:\temp\xml
+          $saveit | Export-CliXml -Path C:\temp\xml\results.xml
 
       - name: 🪠 Upload
         uses: actions/upload-artifact@v3
