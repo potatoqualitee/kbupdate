@@ -33,7 +33,7 @@ jobs:
           $null = $saveit | Save-KbUpdate -Path C:\temp
           Write-Output "Installing needed updates"
           $saveit | Install-KbUpdate -RepositoryPath C:\temp -Verbose
-          Get-KbInstalledUpdate -Pattern $saveit.KBUpdate
+          Get-KbInstalledUpdate -Pattern $needed.KBUpdate
           $error | Export-CliXml -Path C:\temp\xml\error.xml
 
       - name: 🪠 Upload
