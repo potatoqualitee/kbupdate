@@ -29,7 +29,8 @@ jobs:
           $null = mkdir C:\temp\xml
           $saveit | Export-CliXml -Path C:\temp\xml\results.xml
           $null = $saveit | Save-KbUpdate -Path C:\temp
-          $saveit | Install-KbUpdate -RepositoryPath C:\temp
+          Write-Output "Installing needed updates"
+          $saveit | Install-KbUpdate -RepositoryPath C:\temp -Verbose
           $error | Export-CliXml -Path C:\temp\xml\error.xml
 
       - name: 🪠 Upload
