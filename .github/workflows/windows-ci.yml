@@ -14,7 +14,7 @@ jobs:
           modules-to-cache: PSFramework, PSSQLite
           shell: powershell, pwsh
 
-      - name: Check for needed updates
+      - name: Starting services and enabling WinRM
         shell: powershell
         run: |
           Write-Output "Starting services"
@@ -25,12 +25,19 @@ jobs:
           Write-Output "Enabling WinRM"
           winrm quickconfig -quiet
 
+      - name: Downloading everything
+        shell: powershell
+        run: |
           Write-Output "Downloading freshest library"
           Install-Module kbupdate-library
           Import-Module ./kbupdate.psd1 -ErrorAction Stop
 
           Write-Output "Saving scanfile"
           $scanfile = Save-KbScanFile -Path C:\temp -AllowClobber
+
+      - name: Getting needed updates
+        shell: powershell
+        run: |
           Write-Output "Getting needed updates"
           Get-KbNeededUpdate -ScanFilePath $scanfile -OutVariable needed | Select-Object -First 1 -OutVariable saveit
           $null = mkdir C:\temp\xml
@@ -40,15 +47,12 @@ jobs:
           $saveit | Export-CliXml -Path C:\temp\xml\results.xml
           $null = $saveit | Save-KbUpdate -Path C:\temp
 
+      - name: Installing updates
+        shell: powershell
+        run: |
+          $saveit = Import-CliXml -Path C:\temp\xml\results.xml
           Write-Output "Installing needed updates"
           $saveit | Install-KbUpdate -RepositoryPath C:\temp -Verbose
           if ($($saveit.Count) -gt 0) {
             Get-KbInstalledUpdate -Pattern $needed.KBUpdate
           }
-          $error | Export-CliXml -Path C:\temp\xml\error.xml
-
-      - name: 🪠 Upload
-        uses: actions/upload-artifact@v3
-        with:
-          name: needed
-          path: "C:\\temp\\xml"
