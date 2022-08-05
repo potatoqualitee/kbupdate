@@ -25,9 +25,10 @@ jobs:
           Write-Output "Saving scanfile"
           $scanfile = Save-KbScanFile -Path C:\temp -AllowClobber
           Write-Output "Getting needed updates"
-          Get-KbNeededUpdate -ScanFilePath $scanfile | Where-Object Link | Select-Object -First 1 -OutVariable saveit
+          Get-KbNeededUpdate -ScanFilePath $scanfile -OutVariable needed | Select-Object -First 1 -OutVariable saveit
           $null = mkdir C:\temp\xml
-          Write-Output "Found $($saveit.KBUpdate.Count) updates"
+          Write-Output "Found $($needed.Count) needed updates"
+          Write-Output "Found $($saveit.Count) updates"
           $saveit | Export-CliXml -Path C:\temp\xml\results.xml
           $null = $saveit | Save-KbUpdate -Path C:\temp
           Write-Output "Installing needed updates"
