@@ -81,6 +81,17 @@ function Install-KbUpdate {
 
         Installs KB4498951 on sql2017 then uninstalls it ✔
 
+    .EXAMPLE
+        PS C:\> Get-KbNeededUpdate -OutVariable needed | Save-KbUpdate -Path C:\temp
+        PS C:\> $needed | Install-KbUpdate -RepositoryPath C:\temp
+
+        Saves the files for needed updates then installs them from that path
+
+    .EXAMPLE
+        PS C:\> Get-KbNeededUpdate | Install-KbUpdate -Method WindowsUpdate -Verbose
+
+        Installs needed updates, only works on localhost
+
     #>
     [CmdletBinding(SupportsShouldProcess, ConfirmImpact = "Medium")]
     param (
@@ -124,65 +135,104 @@ function Install-KbUpdate {
             $PSDefaultParameterValues["*:Credential"] = $Credential
         }
 
+        if (-not $PSBoundParameters.ComputerName -and $InputObject) {
+            $ComputerName = [PSFComputer]$InputObject.ComputerName
+            Write-PSFMessage -Level Verbose -Message "Added $ComputerName"
+        }
+
         foreach ($item in $ComputerName) {
             $computer = $item.ComputerName
             if ($item.IsLocalHost -and -not (Test-ElevationRequirement -ComputerName $computer)) {
                 Stop-PSFFunction -EnableException:$EnableException -Message "You must be an administrator to run this command on the local host" -Continue
             }
 
-            #if (-not $item.IsLocalHost -and $Method -eq "WindowsUpdate") {
-            if ($Method -eq "WindowsUpdate") {
-                Stop-PSFFunction -EnableException:$EnableException -Message "The WindowsUpdate method is not yet implemented" -Continue
+            if (-not $item.IsLocalHost -and $Method -eq "WindowsUpdate") {
+                Stop-PSFFunction -EnableException:$EnableException -Message "The Windows Update method is only supported on localhost due to Windows security restrictions" -Continue
             }
             # null out a couple things to be safe
             $remotefileexists = $programhome = $remotesession = $null
-
             Write-PSFMessage -Level Verbose -Message "Processing $computer"
 
+
             if ($Method -eq "WindowsUpdate") {
+                $sessiontype = [type]::GetTypeFromProgID("Microsoft.Update.Session")
+                $session = [activator]::CreateInstance($sessiontype)
+                $session.ClientApplicationID = "kbupdate installer"
+                $downloadat = $false
+                $updateinstall = New-Object -ComObject 'Microsoft.Update.UpdateColl'
+
                 if ($InputObject.InputObject) {
+                    Write-PSFMessage -Level Verbose -Message "Got an input object"
                     $searchresult = $InputObject.InputObject
                 } else {
-                    $session = New-Object -ComObject Microsoft.Update.Session
-                    $session.ClientApplicationID = "kbupdate installer"
-                    $sessiontype = [type]::GetTypeFromProgID("Microsoft.Update.Session")
-                    $session = [activator]::CreateInstance($sessiontype)
-
-                    if ($InputObject.InputObject) {
-                        $searchresult.Updates = $InputObject.InputObject
-                    } else {
-                        $searcher = $session.CreateUpdateSearcher()
-                        $searchresult = $searcher.Search("IsInstalled=0 and Type='Software'")
-                    }
+                    Write-PSFMessage -Level Verbose -Message "Build needed updates"
+                    $searchresult = $session.CreateUpdateSearcher().Search("Type='Software'")
                 }
 
                 # iterate the updates in searchresult
                 # it must be force iterated like this
-                foreach ($update in $searchresult.Updates) {
-                    foreach ($bundle in $update.BundledUpdates) {
-                        $files = New-Object -ComObject "Microsoft.Update.StringColl.1"
-                        foreach ($file in $bundle.DownloadContents) {
-                            if ($file.DownloadUrl) {
-                                $filename = Split-Path -Path $file.DownloadUrl -Leaf
-                                $fullpath = Join-Path -Path $RepositoryPath -ChildPath $filename
-                                $null = $files.Add($fullpath)
+                if ($searchresult.Updates) {
+                    foreach ($update in $searchresult.Updates) {
+                        $null = $update.AcceptEula()
+                        foreach ($bundle in $update.BundledUpdates) {
+                            $files = New-Object -ComObject "Microsoft.Update.StringColl.1"
+                            foreach ($file in $bundle.DownloadContents.DownloadUrl) {
+                                if ($RepositoryPath) {
+                                    $filename = Split-Path -Path $file.DownloadUrl -Leaf
+                                    Write-PSFMessage -Level Verbose -Message "Adding $filename"
+                                    $fullpath = Join-Path -Path $RepositoryPath -ChildPath $filename
+                                    Write-PSFMessage -Level Verbose -Message $fullpath
+                                    $null = $files.Add($fullpath)
+                                }
                             }
                         }
-                        # load into Windows Update API
+                        if (-not $update.IsDownloaded) { $downloadat = $true }
+                        $updateinstall.Add($update) | Out-Null
+                    }
+
+                    if ($downloadat) {
                         try {
-                            #$bundle.CopyToCache($files)
+                            $downloader = $session.CreateUpdateDownloader()
+                            $downloader.Updates = $searchresult.Updates
+                            $null = $downloader.Download()
                         } catch {
-                            write-warning $PSItem
+                            Stop-PSFFunction -EnableException:$EnableException -Message "Failure on $env:ComputerName" -ErrorRecord $PSItem -Continue
                         }
                     }
+                } else {
+                    $files = New-Object -ComObject "Microsoft.Update.StringColl.1"
+                    Write-PSFMessage -Level Verbose -Message "Link"
+                    foreach ($link in $searchresult.Link) {
+                        if ($link -and $RepositoryPath) {
+                            $filename = Split-Path -Path $link -Leaf
+                            $fullpath = Join-Path -Path $RepositoryPath -ChildPath $filename
+                            $null = $files.Add($fullpath)
+                        }
+                    }
+
+                    # load into Windows Update API
+                    try {
+                        $bundle.CopyToCache($files)
+                    } catch {
+                        Stop-PSFFunction -EnableException:$EnableException -Message "Failure on $env:ComputerName" -ErrorRecord $PSItem -Continue
+                    }
                 }
-                $installer = $session.CreateUpdateInstaller()
-                $installer.Updates = $searchresult.Updates
-                $installer.Install()
+
+                try {
+                    $installer = $session.CreateUpdateInstaller()
+                    if ($updateinstall) {
+                        $installer.Updates = $updateinstall
+                    } else {
+                        $installer.Updates = $searchresult.Updates
+                    }
+                    $installer.Install()
+                } catch {
+                    Stop-PSFFunction -EnableException:$EnableException -Message "Failure on $env:ComputerName" -ErrorRecord $PSItem -Continue
+                }
             } else {
                 # Method is DSC
                 if ($PSDefaultParameterValues["Invoke-PSFCommand:ComputerName"]) {
-                    $null = $PSDefaultParameterValues["Invoke-PSFCommand:ComputerName"].Remove()
+                    $null = $PSDefaultParameterValues.Remove("Invoke-PSFCommand:ComputerName")
                 }
 
                 if ($item.IsLocalHost) {
@@ -241,8 +291,16 @@ function Install-KbUpdate {
                     }
                 }
 
+                if ($InputObject.Link -and $RepositoryPath) {
+                    $filename = Split-Path -Path $InputObject.Link -Leaf
+                    Write-PSFMessage -Level Verbose -Message "Adding $filename"
+                    $FilePath = Join-Path -Path $RepositoryPath -ChildPath $filename
+                    $PSBoundParameters.FilePath = Join-Path -Path $RepositoryPath -ChildPath $filename
+                    Write-PSFMessage -Level Verbose -Message "Adding $($PSBoundParameters.FilePath)"
+                }
+
                 if ($PSBoundParameters.FilePath) {
-                    $remotefileexists = Invoke-PSFCommand -ArgumentList $FilePath -ScriptBlock {
+                    $remotefileexists = $updatefile = Invoke-PSFCommand -ArgumentList $FilePath -ScriptBlock {
                         Get-ChildItem -Path $args -ErrorAction SilentlyContinue
                     }
                 }
@@ -350,7 +408,7 @@ function Install-KbUpdate {
                         Write-PSFMessage -Level Verbose -Message "Trying to get Title from $($updatefile.FullName)"
                         $Title = $updatefile.VersionInfo.ProductName
                     }
-                } else {
+                } elseif ($remotefile) {
                     $FilePath = $remotefile
                 }
 

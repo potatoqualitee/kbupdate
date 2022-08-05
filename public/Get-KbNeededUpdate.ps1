@@ -41,6 +41,11 @@ function Get-KbNeededUpdate {
         Gets all the updates needed on server01
 
     .EXAMPLE
+        PS C:\> Get-KbNeededUpdate -ComputerName server01 -ScanFilePath $scanfile | Install-KbUpdate
+
+        Installs needed updates on server01
+
+    .EXAMPLE
         PS C:\> Get-KbNeededUpdate | Save-KbUpdate -Path C:\temp
 
         Saves all the updates needed on the local machine to C:\temp
@@ -98,43 +103,46 @@ function Get-KbNeededUpdate {
                 }
                 $searcher = $wua.CreateUpdateSearcher()
                 Write-Verbose -Message "Searching for needed updates"
-                $wsuskbs = $searcher.Search("IsAssigned=1 and IsHidden=0 and IsInstalled=0").Updates
+                $wsuskbs = $searcher.Search("IsAssigned=1 and IsHidden=0 and IsInstalled=0")
+                Write-Verbose -Message "Found $($wsuskbs.Count) updates"
 
-                foreach ($wsuskb in $wsuskbs) {
-                    # iterate the updates in searchresult
-                    # it must be force iterated like this
-                    $links = @()
-                    foreach ($bundle in $wsuskb.BundledUpdates) {
-                        foreach ($file in $bundle.DownloadContents) {
-                            if ($file.DownloadUrl) {
-                                $links += $file.DownloadUrl.Replace("http://download.windowsupdate.com", "https://catalog.s.download.windowsupdate.com")
+                foreach ($wsu in $wsuskbs) {
+                    foreach ($wsuskb in $wsu.Updates) {
+                        # iterate the updates in searchresult
+                        # it must be force iterated like this
+                        $links = @()
+                        foreach ($bundle in $wsuskb.BundledUpdates) {
+                            foreach ($file in $bundle.DownloadContents) {
+                                if ($file.DownloadUrl) {
+                                    $links += $file.DownloadUrl.Replace("http://download.windowsupdate.com", "https://catalog.s.download.windowsupdate.com")
+                                }
                             }
                         }
-                    }
 
-                    [pscustomobject]@{
-                        ComputerName      = $Computer
-                        Title             = $wsuskb.Title
-                        Id                = ($wsuskb.KBArticleIDs | Select-Object -First 1)
-                        UpdateId          = $wsuskb.Identity.UpdateID
-                        Description       = $wsuskb.Description
-                        LastModified      = $wsuskb.ArrivalDate
-                        Size              = $wsuskb.Size
-                        Classification    = $wsuskb.UpdateClassificationTitle
-                        KBUpdate          = "KB$($wsuskb.KBArticleIDs | Select-Object -First 1)"
-                        SupportedProducts = $wsuskb.ProductTitles
-                        MSRCNumber        = $alert
-                        MSRCSeverity      = $wsuskb.MsrcSeverity
-                        RebootBehavior    = $wsuskb.InstallationBehavior.RebootBehavior -eq $true
-                        RequestsUserInput = $wsuskb.InstallationBehavior.CanRequestUserInput
-                        ExclusiveInstall  = $null
-                        NetworkRequired   = $wsuskb.InstallationBehavior.RequiresNetworkConnectivity
-                        UninstallNotes    = $wsuskb.UninstallNotes
-                        UninstallSteps    = $wsuskb.UninstallSteps
-                        Supersedes        = $null #TODO
-                        SupersededBy      = $null #TODO
-                        Link              = $links
-                        InputObject       = $wsuskb
+                        [pscustomobject]@{
+                            ComputerName      = $Computer
+                            Title             = $wsuskb.Title
+                            Id                = ($wsuskb.KBArticleIDs | Select-Object -First 1)
+                            UpdateId          = $wsuskb.Identity.UpdateID
+                            Description       = $wsuskb.Description
+                            LastModified      = $wsuskb.ArrivalDate
+                            Size              = $wsuskb.Size
+                            Classification    = $wsuskb.UpdateClassificationTitle
+                            KBUpdate          = "KB$($wsuskb.KBArticleIDs | Select-Object -First 1)"
+                            SupportedProducts = $wsuskb.ProductTitles
+                            MSRCNumber        = $alert
+                            MSRCSeverity      = $wsuskb.MsrcSeverity
+                            RebootBehavior    = $wsuskb.InstallationBehavior.RebootBehavior -eq $true
+                            RequestsUserInput = $wsuskb.InstallationBehavior.CanRequestUserInput
+                            ExclusiveInstall  = $null
+                            NetworkRequired   = $wsuskb.InstallationBehavior.RequiresNetworkConnectivity
+                            UninstallNotes    = $wsuskb.UninstallNotes
+                            UninstallSteps    = $wsuskb.UninstallSteps
+                            Supersedes        = $null #TODO
+                            SupersededBy      = $null #TODO
+                            Link              = $links
+                            InputObject       = $wsu
+                        }
                     }
                 }
                 try {
