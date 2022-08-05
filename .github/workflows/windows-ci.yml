@@ -15,9 +15,8 @@ jobs:
           Set-Service wuauserv -StartupType Automatic
           Set-Service WinRM -StartupType Automatic
           Start-Service wuauserv
-          Start-Service WinRM
           Write-Output "Enabling WinRM"
-          Enable-PSRemoting -Force
+          winrm quickconfig -quiet
           Write-Output "Downloading modules"
           Set-PSRepository -Name PSGallery -InstallationPolicy Trusted
           Install-Module PSFramework, kbupdate-library, PSSQLite
@@ -28,7 +27,7 @@ jobs:
           Get-KbNeededUpdate -ScanFilePath $scanfile -OutVariable needed | Select-Object -First 1 -OutVariable saveit
           $null = mkdir C:\temp\xml
           Write-Output "Found $($needed.Count) needed updates"
-          Write-Output "Found $($saveit.Count) updates"
+          Write-Output "Will try to install $($saveit.Count) update"
           $saveit | Export-CliXml -Path C:\temp\xml\results.xml
           $null = $saveit | Save-KbUpdate -Path C:\temp
           Write-Output "Installing needed updates"
