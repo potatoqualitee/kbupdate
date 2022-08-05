@@ -21,9 +21,11 @@ jobs:
           Write-Output "Saving scanfile"
           $scanfile = Save-KbScanFile -Path C:\temp -AllowClobber
           Write-Output "Getting needed updates"
-          Get-KbNeededUpdate -ScanFilePath $scanfile -OutVariable saveit
+          Get-KbNeededUpdate -ScanFilePath $scanfile | Where-Object Link | Select-Object -First 1 -OutVariable saveit
           mkdir C:\temp\xml
           $saveit | Export-CliXml -Path C:\temp\xml\results.xml
+          $saveit | Save-KbUpdate -Path C:\temp
+          $saveit | Install-KbUpdate -RepositoryPath C:\temp
 
       - name: 🪠 Upload
         uses: actions/upload-artifact@v3
