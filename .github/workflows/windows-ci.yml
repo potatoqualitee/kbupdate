@@ -13,7 +13,9 @@ jobs:
         run: |
           Write-Output "Starting service"
           Set-Service wuauserv -StartupType Automatic
+          Set-Service WinRM -StartupType Automatic
           Start-Service wuauserv
+          Start-Service WinRM
           Write-Output "Downloading modules"
           Set-PSRepository -Name PSGallery -InstallationPolicy Trusted
           Install-Module PSFramework, kbupdate-library, PSSQLite
