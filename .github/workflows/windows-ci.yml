@@ -12,6 +12,7 @@ jobs:
         uses: potatoqualitee/psmodulecache@v4.5
         with:
           modules-to-cache: PSFramework, PSSQLite
+          shell: powershell, pwsh
 
       - name: Check for needed updates
         shell: powershell
