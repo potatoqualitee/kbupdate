@@ -40,7 +40,7 @@ jobs:
         run: |
           Write-Output "Getting needed updates"
           Import-Module ./kbupdate.psd1 -ErrorAction Stop
-          Get-KbNeededUpdate -ScanFilePath $scanfile -OutVariable needed | Select-Object -First 1 -OutVariable saveit
+          Get-KbNeededUpdate -ScanFilePath C:\temp\wsusscn2.cab -OutVariable needed | Select-Object -First 1 -OutVariable saveit
           $null = mkdir C:\temp\xml
 
           Write-Output "Found $($needed.Count) needed updates"
