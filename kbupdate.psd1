@@ -7,7 +7,7 @@
 #
 @{
     # Version number of this module.
-    ModuleVersion     = '1.5.12'
+    ModuleVersion     = '1.5.13'
 
     # ID used to uniquely identify this module
     GUID              = 'f292e190-ed32-4232-b9f3-b50b42a5655f'
@@ -31,7 +31,7 @@
     RequiredModules   = @(
         # load up everything in Windows
         @{ ModuleName = 'PSFramework'; ModuleVersion = '1.7.227' },
-        @{ ModuleName = 'kbupdate-library'; ModuleVersion = '1.1.7' },
+        @{ ModuleName = 'kbupdate-library'; ModuleVersion = '1.1.8' },
         @{ ModuleName = 'PSSQLite'; ModuleVersion = '1.1.0' }
     )
 
