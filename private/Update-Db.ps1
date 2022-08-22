@@ -177,7 +177,12 @@ function Update-Db {
                         try {
                             Invoke-SQLiteBulkCopy -DataTable ($kb | ConvertTo-DbaDataTable) -DataSource $dailydb -Table Kb -Confirm:$false
                         } catch {
-                            Invoke-SQLiteBulkCopy -DataTable ([pscustomobject]@{ UpdateId = $guid; Dupe = $file.BaseName } |
+                            if ($file.BaseName) {
+                                $value = $file.BaseName
+                            } else {
+                                $value = $file
+                            }
+                            Invoke-SQLiteBulkCopy -DataTable ([pscustomobject]@{ UpdateId = $guid; Dupe = $value } |
                                     ConvertTo-DbaDataTable) -DataSource $dailydb -Table KbDupe -Confirm:$false
                 #Add-Content -Path C:\temp\dupes.txt -Value $guid, $file.BaseName
 
