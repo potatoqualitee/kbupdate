@@ -192,7 +192,7 @@ function Get-KbNeededUpdate {
                     Write-PSFMessage -Level Verbose -Message "Checking to see if $cabpath already exists on $computer"
 
                     $exists = Invoke-PSFCommand -Computer $computer -Credential $Credential -ArgumentList $cabpath -ErrorAction Stop -ScriptBlock {
-                        Get-ChildItem -Path $args
+                        Get-ChildItem -Path $args -ErrorAction Ignore
                     }
 
                     if ($exists.BaseName -and $scanfile.Length -eq $exists.Length) {
