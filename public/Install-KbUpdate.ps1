@@ -531,6 +531,7 @@ function Install-KbUpdate {
                             $PSDefaultParameterValues['*:ErrorAction'] = 'SilentlyContinue'
                             $ErrorActionPreference = "Stop"
 
+                            Import-Module PSDesiredStateConfiguration
                             if (-not (Get-Command Invoke-DscResource)) {
                                 throw "Invoke-DscResource not found on $env:ComputerName"
                             }
