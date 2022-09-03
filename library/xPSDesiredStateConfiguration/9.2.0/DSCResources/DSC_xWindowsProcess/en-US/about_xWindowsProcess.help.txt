@@ -1,0 +1,340 @@
+.NAME
+    xWindowsProcess
+
+.DESCRIPTION
+    Provides a mechanism to start and stop a Windows process.
+
+    #### Parameters
+
+    * **[String] Path** _(Key)_: The executable file of the process. This can be
+      defined as either the full path to the file or as the name of the file if it
+      is accessible through the environment path. Relative paths are not supported.
+    * **[String] Arguments** _(Key)_: A single string containing all the arguments
+      to pass to the process. Pass in an empty string if no arguments are needed.
+    * **[PSCredential] Credential** _(Write)_: The credential of the user account
+      to run the process under. If this user is from the local system, the
+      StandardOutputPath, StandardInputPath, and WorkingDirectory parameters cannot
+      be provided at the same time.
+    * **[String] Ensure** _(Write)_: Specifies whether or not the process should be
+      running. To start the process, specify this property as Present. To stop the
+      process, specify this property as Absent. { *Present* | Absent }.
+    * **[String] StandardOutputPath** _(Write)_: The file path to which to write
+      the standard output from the process. Any existing file at this file path
+      will be overwritten. This property cannot be specified at the same time as
+      Credential when running the process as a local user.
+    * **[String] StandardErrorPath** _(Write)_: The file path to which to write the
+      standard error output from the process. Any existing file at this file path
+      will be overwritten.
+    * **[String] StandardInputPath** _(Write)_: The file path from which to receive
+      standard input for the process. This property cannot be specified at the same
+      time as Credential when running the process as a local user.
+    * **[String] WorkingDirectory** _(Write)_: The file path to the working
+      directory under which to run the process. This property cannot be specified
+      at the same time as Credential when running the process as a local user.
+
+.PARAMETER Path
+    Key - String
+    The full path or file name to the process executable to start or stop.
+
+.PARAMETER Arguments
+    Key - String
+    A string of arguments to pass to the process executable. Pass in an empty string if no arguments are needed.
+
+.PARAMETER Credential
+    Write - Instance
+    The credential to run the process under.
+
+.PARAMETER Ensure
+    Write - String
+    Allowed values: Present, Absent
+    Indicates whether the process is present (running) or absent (not running).
+
+.PARAMETER StandardOutputPath
+    Write - String
+    The path to write the standard output stream to.
+
+.PARAMETER StandardErrorPath
+    Write - String
+    The path to write the standard error stream to.
+
+.PARAMETER StandardInputPath
+    Write - String
+    The path to receive standard input from.
+
+.PARAMETER WorkingDirectory
+    Write - String
+    The directory to run the processes under.
+
+.PARAMETER PagedMemorySize
+    Read - UInt64
+    The amount of paged memory, in bytes, allocated for the process.
+
+.PARAMETER NonPagedMemorySize
+    Read - UInt64
+    The amount of nonpaged memory, in bytes, allocated for the process.
+
+.PARAMETER VirtualMemorySize
+    Read - UInt64
+    The amount of virtual memory, in bytes, allocated for the process.
+
+.PARAMETER HandleCount
+    Read - SInt32
+    The number of handles opened by the process.
+
+.PARAMETER ProcessId
+    Read - SInt32
+    The unique identifier of the process.
+
+.PARAMETER ProcessCount
+    Read - SInt32
+    The number of instances of the given process that are currently running.
+
+.EXAMPLE 1
+
+
+#Requires -Module xPSDesiredStateConfiguration
+
+<#
+    .DESCRIPTION
+        Configuration that starts a process that is provided in the given file
+        path with the specified arguments.
+
+    .PARAMETER FilePath
+        The path to the executable file to start.
+
+    .PARAMETER Argument
+        The arguments for the process to start. Defaults to no argument.
+
+    .EXAMPLE
+        xWindowsProcess_StartProcess_Config -FilePath 'C:\WINDOWS\system32\PING.EXE' -Argument '-t localhost'
+
+        Compiles a configuration that starts a process that continuously ping
+        localhost, and monitors that the process 'ping' is always started.
+#>
+Configuration xWindowsProcess_StartProcess_Config
+{
+    [CmdletBinding()]
+    param
+    (
+        [Parameter(Mandatory = $true)]
+        [ValidateNotNullOrEmpty()]
+        [System.String]
+        $FilePath,
+
+        [Parameter()]
+        [ValidateNotNullOrEmpty()]
+        [System.String]
+        $Argument
+    )
+
+    Import-DscResource -ModuleName xPSDesiredStateConfiguration
+
+    Node localhost
+    {
+        xWindowsProcess StartProcess
+        {
+            Path      = $FilePath
+            Arguments = $Argument
+            Ensure    = 'Present'
+        }
+    }
+}
+
+.EXAMPLE 2
+
+
+#Requires -Module xPSDesiredStateConfiguration
+
+<#
+    .DESCRIPTION
+        Configuration that starts a process under the given credential, that is
+        provided in the given file path with the specified arguments.
+
+    .PARAMETER FilePath
+        The path to the executable file to start.
+
+    .PARAMETER Argument
+        The arguments for the process to start. Defaults to no argument.
+
+    .PARAMETER Credential
+        Credential to start the process under.
+
+    .NOTES
+        To use the sample(s) with credentials, see blog at:
+        http://blogs.msdn.com/b/powershell/archive/2014/01/31/want-to-secure-credentials-in-windows-powershell-desired-state-configuration.aspx
+
+    .EXAMPLE
+        xWindowsProcess_StartProcessUnderUser_Config -FilePath 'C:\WINDOWS\system32\PING.EXE' -Argument '-t localhost' -Credential (Get-Credential)
+
+        Compiles a configuration that starts a 'ping' process under the given
+        credential, that continuously ping localhost, and monitors that the
+        process 'ping' is always started.
+#>
+Configuration xWindowsProcess_StartProcessUnderUser_Config
+{
+    [CmdletBinding()]
+    param
+    (
+        [Parameter(Mandatory = $true)]
+        [ValidateNotNullOrEmpty()]
+        [System.String]
+        $FilePath,
+
+        [Parameter()]
+        [ValidateNotNullOrEmpty()]
+        [System.String]
+        $Argument,
+
+        [Parameter(Mandatory = $true)]
+        [System.Management.Automation.PSCredential]
+        [System.Management.Automation.Credential()]
+        $Credential
+    )
+
+    Import-DscResource -ModuleName xPSDesiredStateConfiguration
+
+    Node localhost
+    {
+        xUser CreateUserAccount
+        {
+            Ensure   = 'Present'
+            UserName = Split-Path -Path $Credential.UserName -Leaf
+            Password = $Credential
+        }
+
+        xWindowsProcess StartProcessUnderUser
+        {
+            Path       = $FilePath
+            Arguments  = $Argument
+            Credential = $Credential
+            Ensure     = 'Present'
+        }
+    }
+}
+
+.EXAMPLE 3
+
+
+#Requires -Module xPSDesiredStateConfiguration
+
+<#
+    .DESCRIPTION
+        Configuration that stops the process that is provided in the given file
+        path, where the argument matches, and if the process is running.
+
+    .PARAMETER FilePath
+        The path to the executable file to (process) to stop.
+
+    .PARAMETER Argument
+        The arguments for the process to stop. Defaults to no argument.
+
+    .NOTES
+        The FilePath could be set to just the process name only if the number of
+        returned processed is less than or equal to 8. If more than 8 processes
+        are returned, another filter is used to optimize performance, and that
+        filter needs the full path to the executable file.
+
+    .EXAMPLE
+        xWindowsProcess_StopProcess_Config -FilePath 'C:\WINDOWS\system32\PING.EXE' -Argument '-t localhost'
+
+        Compiles a configuration that stops a 'ping' process if the process exist.
+#>
+Configuration xWindowsProcess_StopProcess_Config
+{
+    [CmdletBinding()]
+    param
+    (
+        [Parameter(Mandatory = $true)]
+        [ValidateNotNullOrEmpty()]
+        [System.String]
+        $FilePath,
+
+        [Parameter()]
+        [ValidateNotNullOrEmpty()]
+        [System.String]
+        $Argument
+    )
+
+    Import-DscResource -ModuleName xPSDesiredStateConfiguration
+
+    Node localhost
+    {
+        xWindowsProcess StopProcess
+        {
+            Path      = $FilePath
+            Arguments = $Argument
+            Ensure    = 'Absent'
+        }
+    }
+}
+
+.EXAMPLE 4
+
+
+#Requires -Module xPSDesiredStateConfiguration
+
+<#
+    .DESCRIPTION
+        Configuration that stops the process under the given credential, that is
+        provided in the given file path, where the argument matches, and if the
+        process is running.
+
+    .PARAMETER FilePath
+        The path to the executable file to (process) to stop.
+
+    .PARAMETER Argument
+        The arguments for the process to stop. Defaults to no argument.
+
+    .PARAMETER Credential
+        Credential that the process is running under.
+
+    .NOTES
+        The FilePath could be set to just the process name only if the number of
+        returned processed is less than or equal to 8. If more than 8 processes
+        are returned, another filter is used to optimize performance, and that
+        filter needs the full path to the executable file.
+
+        To use the sample(s) with credentials, see blog at:
+        http://blogs.msdn.com/b/powershell/archive/2014/01/31/want-to-secure-credentials-in-windows-powershell-desired-state-configuration.aspx
+
+    .EXAMPLE
+        xWindowsProcess_StopProcessUnderUser_Config -FilePath 'C:\WINDOWS\system32\PING.EXE' -Argument '-t localhost' -Credential (Get-Credential)
+
+        Compiles a configuration that stops a 'ping' process under the given
+        credential, if the process exist.
+#>
+Configuration xWindowsProcess_StopProcessUnderUser_Config
+{
+    [CmdletBinding()]
+    param
+    (
+        [Parameter(Mandatory = $true)]
+        [ValidateNotNullOrEmpty()]
+        [System.String]
+        $FilePath,
+
+        [Parameter()]
+        [ValidateNotNullOrEmpty()]
+        [System.String]
+        $Argument,
+
+        [Parameter(Mandatory = $true)]
+        [System.Management.Automation.PSCredential]
+        [System.Management.Automation.Credential()]
+        $Credential
+    )
+
+    Import-DscResource -ModuleName xPSDesiredStateConfiguration
+
+    Node localhost
+    {
+        xWindowsProcess StopProcess
+        {
+            Path       = $FilePath
+            Arguments  = $Argument
+            Credential = $Credential
+            Ensure     = 'Absent'
+        }
+    }
+}
+

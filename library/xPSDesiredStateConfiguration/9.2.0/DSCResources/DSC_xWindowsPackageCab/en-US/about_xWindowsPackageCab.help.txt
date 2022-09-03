@@ -1,0 +1,103 @@
+.NAME
+    xWindowsPackageCab
+
+.DESCRIPTION
+    Provides a mechanism to install or uninstall a package from a windows cabinet
+    (cab) file on a target node. This resource works on Nano Server.
+
+    ## Requirements
+
+    - Target machine must have access to the DISM PowerShell module.
+
+    ## Parameters
+
+    * **[String] Name** _(Key)_: The name of the package to install or uninstall.
+    * **[String] Ensure** _(Required)_: Specifies whether the package should be
+      installed or uninstalled. To install the package, set this property to
+      Present. To uninstall the package, set the property to Absent. { *Present* |
+      Absent }.
+    * **[String] SourcePath** _(Required)_: The path to the cab file to install or
+      uninstall the package from.
+    * **[String] LogPath** _(Write)_: The path to a file to log the operation to.
+      There is no default value, but if not set, the log will appear at
+      %WINDIR%\Logs\Dism\dism.log.
+
+.PARAMETER Name
+    Key - String
+    The name of the package to install or uninstall.
+
+.PARAMETER Ensure
+    Required - String
+    Allowed values: Present, Absent
+    Specifies whether the package should be installed or uninstalled. To install the package, set this property to Present. To uninstall the package, set the property to Absent.
+
+.PARAMETER SourcePath
+    Required - String
+    The path to the cab file to install or uninstall the package from.
+
+.PARAMETER LogPath
+    Write - String
+    The path to a file to log the operation to.
+
+.EXAMPLE 1
+
+
+#Requires -Module xPSDesiredStateConfiguration
+
+<#
+    .DESCRIPTION
+        Installs a package from the cab file with the specified name from the
+        specified source path and outputs a log to the specified log path.
+
+    .PARAMETER Name
+        The name of the package to install.
+
+    .PARAMETER SourcePath
+        The path to the cab file to install the package from.
+
+    .PARAMETER LogPath
+        The path to a file to log the install operation to.
+
+    .NOTES
+        The DISM PowerShell module must be available on the target machine.
+
+    .EXAMPLE
+        xWindowsPackageCab_InstallPackage_Config -Name 'MyPackage' -SourcePath 'C:\MyPackage.cab' -LogPath 'C:\Log\MyPackage.log'
+
+        Compiles a configuration that installs a package named 'MyPackage' from
+        the path 'C:\MyPackage.cab', and logs the operation in 'C:\Log\MyPackage.log'.
+#>
+Configuration xWindowsPackageCab_InstallPackage_Config
+{
+    param
+    (
+        [Parameter (Mandatory = $true)]
+        [ValidateNotNullOrEmpty()]
+        [System.String]
+        $Name,
+
+        [Parameter (Mandatory = $true)]
+        [ValidateNotNullOrEmpty()]
+        [System.String]
+        $SourcePath,
+
+        [Parameter(Mandatory = $true)]
+        [ValidateNotNullOrEmpty()]
+        [System.String]
+        $LogPath
+    )
+
+    Import-DscResource -ModuleName xPSDesiredStateConfiguration
+
+    Node localhost
+    {
+        xWindowsPackageCab WindowsPackageCab
+        {
+            Name       = $Name
+            Ensure     = 'Present'
+            SourcePath = $SourcePath
+            LogPath    = $LogPath
+        }
+    }
+}
+

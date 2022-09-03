@@ -1,0 +1,262 @@
+.NAME
+    xPSEndpoint
+
+.DESCRIPTION
+    Creates and registers a new session configuration endpoint.
+
+.PARAMETER Name
+    Key - String
+    Specifies the name of the session configuration.
+
+.PARAMETER Ensure
+    Write - String
+    Allowed values: Present, Absent
+    Indicates if the session configuration should exist. The default value is 'Present'.
+
+.PARAMETER StartupScript
+    Write - String
+    Specifies the startup script for the configuration. Enter the fully qualified path of a Windows PowerShell script.
+
+.PARAMETER RunAsCredential
+    Write - Instance
+    Specifies the credential for commands of this session configuration. By default, commands run with the permissions of the current user.
+
+.PARAMETER SecurityDescriptorSDDL
+    Write - String
+    Specifies the Security Descriptor Definition Language (SDDL) string for the configuration. This string determines the permissions that are required to use the new session configuration. To use a session configuration in a session, users must have at least Execute(Invoke) permission for the configuration.
+
+.PARAMETER AccessMode
+    Write - String
+    Allowed values: Local, Remote, Disabled
+    Enables and disables the session configuration and determines whether it can be used for remote or local sessions on the computer. The default value is 'Remote'.
+
+.EXAMPLE 1
+
+
+#Requires -Module xPSDesiredStateConfiguration
+
+<#
+    .DESCRIPTION
+        Configuration that creates and registers a new session configuration
+        endpoint.
+
+    .PARAMETER Name
+        The name of the session configuration.
+
+    .PARAMETER AccessMode
+        The access mode for the session configuration. The default value is 'Remote'.
+
+    .EXAMPLE
+        xPSEndpoint_NewConfig -Name 'MaintenanceShell'
+
+        Compiles a configuration that creates and registers a new session configuration
+        endpoint named 'MaintenanceShell'.
+
+    .EXAMPLE
+        xPSEndpoint_New_Config -Name 'MaintenanceShell'
+
+        Compiles a configuration that creates and registers a new session
+        configuration endpoint named 'MaintenanceShell'.
+
+    .EXAMPLE
+        xPSEndpoint_New_Config -Name 'Microsoft.PowerShell.Workflow' -AccessMode 'Local'
+
+        Compiles a configuration that sets the access mode to 'Local' for the
+        endpoint named 'Microsoft.PowerShell.Workflow'.
+
+    .EXAMPLE
+        xPSEndpoint_New_Config -Name 'Microsoft.PowerShell.Workflow' -AccessMode 'Disable'
+
+        Compiles a configuration that disables access for the endpoint named
+        'Microsoft.PowerShell.Workflow'.
+#>
+Configuration xPSEndpoint_New_Config
+{
+    param
+    (
+        [Parameter(Mandatory = $true)]
+        [System.String]
+        $Name,
+
+        [Parameter()]
+        [ValidateSet('Local', 'Remote', 'Disabled')]
+        [System.String]
+        $AccessMode = 'Remote'
+    )
+
+    Import-DscResource -ModuleName xPSDesiredStateConfiguration
+
+    Node 'localhost'
+    {
+        xPSEndpoint NewEndpoint
+        {
+            Name       = $Name
+            AccessMode = $AccessMode
+            Ensure     = 'Present'
+        }
+    }
+}
+
+.EXAMPLE 2
+
+
+#Requires -Module xPSDesiredStateConfiguration
+
+<#
+    .DESCRIPTION
+        Configuration that creates and registers a new session configuration
+        endpoint.
+
+    .PARAMETER Name
+        The name of the session configuration.
+
+    .PARAMETER AccessMode
+        The access mode for the session configuration. The default value is 'Remote'.
+
+    .PARAMETER RunAsCredential
+        The credential for commands of this session configuration.
+
+    .PARAMETER SecurityDescriptorSddl
+        The permissions that are required to use the new session configuration
+        in the form of a Security Descriptor Definition Language (SDDL) string.
+
+    .PARAMETER StartupScript
+        The access mode for the session configuration. The default value is
+        'Remote'.
+
+    .NOTES
+        To use the sample(s) with credentials, see blog at
+        http://blogs.msdn.com/b/powershell/archive/2014/01/31/want-to-secure-credentials-in-windows-powershell-desired-state-configuration.aspx
+
+    .EXAMPLE
+        xPSEndpoint_NewCustom_Config -Name 'MaintenanceShell' -RunAsCredential (Get-Credential) -AccessMode 'Remote' -SecurityDescriptorSddl 'O:NSG:BAD:P(A;;GX;;;DU)S:P(AU;FA;GA;;;WD)(AU;SA;GXGW;;;WD)' -StartupScript 'C:\Scripts\Maintenance.ps1'
+
+        Compiles a configuration that creates and registers a new session configuration
+        endpoint named 'MaintenanceShell'. The group 'Domain Users' has Invoke
+        permission, and commands will run with the credentials provided in the
+        parameter RunAsCredential. The script 'C:\Scripts\Maintenance.ps1' will
+        run when a new session is started using this session configuration
+        endpoint.
+#>
+Configuration xPSEndpoint_NewCustom_Config
+{
+    param
+    (
+        [Parameter(Mandatory = $true)]
+        [System.String]
+        $Name,
+
+        [Parameter()]
+        [ValidateSet('Local', 'Remote', 'Disabled')]
+        [System.String]
+        $AccessMode = 'Remote',
+
+        [Parameter(Mandatory = $true)]
+        [System.Management.Automation.PSCredential]
+        $RunAsCredential,
+
+        [Parameter(Mandatory = $true)]
+        [System.String]
+        $SecurityDescriptorSddl,
+
+        [Parameter(Mandatory = $true)]
+        [System.String]
+        $StartupScript
+    )
+
+    Import-DscResource -ModuleName xPSDesiredStateConfiguration
+
+    Node 'localhost'
+    {
+        xPSEndpoint NewEndpoint
+        {
+            Name                   = $Name
+            Ensure                 = 'Present'
+            AccessMode             = $AccessMode
+            RunAsCredential        = $RunAsCredential
+            SecurityDescriptorSddl = $SecurityDescriptorSddl
+            StartupScript          = $StartupScript
+        }
+    }
+}
+
+.EXAMPLE 3
+
+
+#Requires -Module xPSDesiredStateConfiguration
+
+<#
+    .DESCRIPTION
+        Configuration that creates and registers a new session configuration
+        endpoint.
+
+    .PARAMETER Name
+        The name of the session configuration.
+
+    .EXAMPLE
+        xPSEndpoint_NewWithDefaults_Config -Name 'MaintenanceShell'
+
+        Compiles a configuration that creates and registers a new session
+        configuration endpoint named 'MaintenanceShell'.
+#>
+Configuration xPSEndpoint_NewWithDefaults_Config
+{
+    param
+    (
+        [Parameter(Mandatory = $true)]
+        [System.String]
+        $Name
+    )
+
+    Import-DscResource -ModuleName xPSDesiredStateConfiguration
+
+    Node localhost
+    {
+        xPSEndpoint NewEndpoint
+        {
+            Name   = $Name
+            Ensure = 'Present'
+        }
+    }
+}
+
+.EXAMPLE 4
+
+
+#Requires -Module xPSDesiredStateConfiguration
+
+<#
+    .DESCRIPTION
+        Configuration that creates and registers a new session configuration
+        endpoint.
+
+    .PARAMETER Name
+        The name of the session configuration.
+
+    .EXAMPLE
+        xPSEndpoint_Remove_Config -Name 'MaintenanceShell'
+
+        Compiles a configuration that removes the session configuration
+        endpoint named 'MaintenanceShell'.
+#>
+Configuration xPSEndpoint_Remove_Config
+{
+    param
+    (
+        [Parameter(Mandatory = $true)]
+        [System.String]
+        $Name
+    )
+
+    Import-DscResource -ModuleName xPSDesiredStateConfiguration
+
+    Node localhost
+    {
+        xPSEndpoint RemoveEndpoint
+        {
+            Name       = $Name
+            Ensure     = 'Absent'
+        }
+    }
+}
+

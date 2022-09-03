@@ -1,0 +1,11 @@
+[Description("The xGroup resource provides a mechanism to manage local groups on the target node.") : Amended,AMENDMENT, LOCALE("MS_409")]
+class DSC_xGroupResource : OMI_BaseResource
+{
+  [Key,Description("The name of the group to create, modify, or remove.") : Amended] String GroupName;
+  [Description("Indicates if the group should exist or not.") : Amended] String Ensure;
+  [Description("The description the group should have.") : Amended] String Description;
+  [Description("The members the group should have. This property will replace all the current group members with the specified members. Members should be specified as strings in the format of their domain qualified name, UPN ,distinguished name or username (for local machine accounts). Using either the MembersToExclude or MembersToInclude properties in the same configuration as this property will generate an error.") : Amended] String Members[];
+  [Description("The members the group should include. This property will only add members to a group. Members should be specified as strings in the format of their domain qualified name, UPN ,distinguished name or username (for local machine accounts). Using the Members property in the same configuration as this property will generate an error.") : Amended] String MembersToInclude[];
+  [Description("The members the group should exclude. This property will only remove members from a group. Members should be specified as strings in the format of their domain qualified name, UPN ,distinguished name or username (for local machine accounts). Using the Members property in the same configuration as this property will generate an error.") : Amended] String MembersToExclude[];
+  [Description("A credential to resolve non-local group members.") : Amended] String Credential;
+};

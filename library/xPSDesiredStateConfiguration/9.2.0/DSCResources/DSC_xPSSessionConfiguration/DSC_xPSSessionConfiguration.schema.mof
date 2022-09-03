@@ -1,0 +1,11 @@
+[ClassVersion("1.0.0.0"), FriendlyName("xPSEndpoint")]
+class DSC_xPSSessionConfiguration : OMI_BaseResource
+{
+    [Key, Description("Specifies the name of the session configuration.")] String Name;
+    [Write, Description("Indicates if the session configuration should exist. The default value is 'Present'."), ValueMap{"Present","Absent"}, Values{"Present","Absent"}] String Ensure;
+    [Write, Description("Specifies the startup script for the configuration. Enter the fully qualified path of a Windows PowerShell script.")] String StartupScript;
+    [Write, Description("Specifies the credential for commands of this session configuration. By default, commands run with the permissions of the current user."), EmbeddedInstance("MSFT_Credential")] String RunAsCredential;
+    [Write, Description("Specifies the Security Descriptor Definition Language (SDDL) string for the configuration. This string determines the permissions that are required to use the new session configuration. To use a session configuration in a session, users must have at least Execute(Invoke) permission for the configuration.")] String SecurityDescriptorSDDL;
+    [Write, Description("Enables and disables the session configuration and determines whether it can be used for remote or local sessions on the computer. The default value is 'Remote'."), ValueMap{"Local","Remote", "Disabled"}, Values{"Local","Remote","Disabled"}] String AccessMode;
+};
+

@@ -1,0 +1,19 @@
+[Description("The xWindowsProcess resource provides a mechanism to manage processes.") : Amended,AMENDMENT, LOCALE("MS_409")]
+class DSC_xWindowsProcess : OMI_BaseResource
+{
+  [Key, Description("The full path or file name to the process executable to start or stop.") : Amended] String Path;
+  [Key, Description("A string of arguments to pass to the process executable. Pass in an empty string if no arguments are needed.") : Amended] String Arguments;
+  [Description("The credential to run the process under.") : Amended] String Credential;
+  [Description("Indicates whether the process is present (running) or absent (not running).\nPresent {default}  \nAbsent   \n") : Amended] String Ensure;
+  [Description("The path to write the standard output stream to.") : Amended] String StandardOutputPath;
+  [Description("The path to write the standard error stream to.") : Amended] String StandardErrorPath;
+  [Description("The path to receive standard input from.") : Amended] String StandardInputPath;
+  [Description("The directory to run the processes under.") : Amended] String WorkingDirectory;
+  [Description("The amount of paged memory, in bytes, allocated for the process.") : Amended] UInt64 PagedMemorySize;
+  [Description("The amount of nonpaged memory, in bytes, allocated for the process.") : Amended] UInt64 NonPagedMemorySize;
+  [Description("The amount of virtual memory, in bytes, allocated for the process.") : Amended] UInt64 VirtualMemorySize;
+  [Description("The number of handles opened by the process.") : Amended] SInt32 HandleCount;
+  [Description("The unique identifier of the process.") : Amended] SInt32 ProcessId;
+  [Description("The number of instances of the given process that are currently running.") : Amended] SInt32 ProcessCount;
+};
+

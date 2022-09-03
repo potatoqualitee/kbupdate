@@ -291,6 +291,30 @@ function Install-KbUpdate {
                     }
                 }
 
+                $hasxdsc = Invoke-PSFCommand -ScriptBlock {
+                    Get-Module -ListAvailable xPSDesiredStateConfiguration
+                }
+
+                if (-not $hasxdsc) {
+                    try {
+                        # Copy xWindowsUpdate to Program Files. The module is pretty much required to be in the PS Modules directory.
+                        $oldpref = $ProgressPreference
+                        $ProgressPreference = "SilentlyContinue"
+                        $programfiles = Invoke-PSFCommand -ScriptBlock {
+                            $env:ProgramFiles
+                        }
+                        if ($item.IsLocalhost) {
+                            $null = Copy-Item -Path "$script:ModuleRoot\library\xPSDesiredStateConfiguration" -Destination "$programfiles\WindowsPowerShell\Modules\xPSDesiredStateConfiguration" -Recurse -Force
+                        } else {
+                            $null = Copy-Item -Path "$script:ModuleRoot\library\xPSDesiredStateConfiguration" -Destination "$programfiles\WindowsPowerShell\Modules\xPSDesiredStateConfiguration" -ToSession $remotesession -Recurse -Force
+                        }
+
+                        $ProgressPreference = $oldpref
+                    } catch {
+                        Stop-PSFFunction -EnableException:$EnableException -Message "Couldn't auto-install newer DSC resources on $computer. Please Install-Module xPSDesiredStateConfiguration on $computer to continue." -Continue
+                    }
+                }
+
                 if ($InputObject.Link -and $RepositoryPath) {
                     $filename = Split-Path -Path $InputObject.Link -Leaf
                     Write-PSFMessage -Level Verbose -Message "Adding $filename"
@@ -493,7 +517,7 @@ function Install-KbUpdate {
                     # this takes care of things like SQL Server updates
                     $hotfix = @{
                         Name       = 'Package'
-                        ModuleName = 'PSDesiredStateConfiguration'
+                        ModuleName = 'xPSDesiredStateConfiguration'
                         Property   = @{
                             Ensure     = 'Present'
                             ProductId  = $Guid

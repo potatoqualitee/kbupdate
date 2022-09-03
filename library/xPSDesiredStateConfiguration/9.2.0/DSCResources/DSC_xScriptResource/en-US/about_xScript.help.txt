@@ -1,0 +1,106 @@
+.NAME
+    xScript
+
+.DESCRIPTION
+    Provides a mechanism to run PowerShell script blocks on a target node.
+    This resource works on Nano Server.
+
+.PARAMETER GetScript
+    Key - String
+    A string that can be used to create a PowerShell script block that retrieves the current state of the resource. This script block runs when the Get-DscConfiguration cmdlet is called. This script block should return a hash table containing one key named Result with a string value.
+
+.PARAMETER SetScript
+    Key - String
+    A string that can be used to create a PowerShell script block that sets the resource to the desired state. This script block runs conditionally when the Start-DscConfiguration cmdlet is called. The TestScript script block will run first. If the TestScript block returns False, this script block will run. If the TestScript block returns True, this script block will not run. This script block should not return.
+
+.PARAMETER TestScript
+    Key - String
+    A string that can be used to create a PowerShell script block that validates whether or not the resource is in the desired state. This script block runs when the Start-DscConfiguration cmdlet is called or when the Test-DscConfiguration cmdlet is called. This script block should return a boolean with True meaning that the resource is in the desired state and False meaning that the resource is not in the desired state.
+
+.PARAMETER Credential
+    Write - Instance
+    The credential of the user account to run the script under if needed.
+
+.PARAMETER Result
+    Read - String
+    The result from the GetScript script block.
+
+.EXAMPLE 1
+
+
+#Requires -Module xPSDesiredStateConfiguration
+
+<#
+    .DESCRIPTION
+        Configuration that creates a file at the given file path with the
+        specified content, using the xScript resource.
+        If the content of the file is changed, the configuration will update
+        the file content to match the content in the configuration.
+
+    .PARAMETER FilePath
+        The path at which to create the file.
+
+    .PARAMETER FileContent
+        The content to set in the file.
+
+    .EXAMPLE
+        xScript_WatchFileContent_Config -FilePath 'C:\test.txt' -FileContent 'Just some sample text to write to the file'
+
+        Compiles a configuration that make sure the is a file 'C:\test.txt' with
+        the content 'Just some sample text to write to the file'.
+#>
+Configuration xScript_WatchFileContent_Config {
+    [CmdletBinding()]
+    param
+    (
+        [Parameter(Mandatory = $true, HelpMessage='The path at which to create the file.')]
+        [ValidateNotNullOrEmpty()]
+        [System.String]
+        $FilePath,
+
+        [Parameter(Mandatory = $true, HelpMessage='The content to set in the file.')]
+        [ValidateNotNullOrEmpty()]
+        [System.String]
+        $FileContent
+    )
+
+    Import-DscResource -ModuleName xPSDesiredStateConfiguration
+
+    Node localhost
+    {
+        xScript ScriptExample
+        {
+            SetScript  = {
+                $streamWriter = New-Object -TypeName 'System.IO.StreamWriter' -ArgumentList @( $using:FilePath )
+                $streamWriter.WriteLine($using:FileContent)
+                $streamWriter.Close()
+            }
+
+            TestScript = {
+                if (Test-Path -Path $using:FilePath)
+                {
+                    $fileContent = Get-Content -Path $using:filePath -Raw
+                    return $fileContent -eq $using:FileContent
+                }
+                else
+                {
+                    return $false
+                }
+            }
+
+            GetScript  = {
+                $fileContent = $null
+
+                if (Test-Path -Path $using:FilePath)
+                {
+                    $fileContent = Get-Content -Path $using:filePath -Raw
+                }
+
+                return @{
+                    Result = $fileContent
+                }
+            }
+        }
+    }
+}
+

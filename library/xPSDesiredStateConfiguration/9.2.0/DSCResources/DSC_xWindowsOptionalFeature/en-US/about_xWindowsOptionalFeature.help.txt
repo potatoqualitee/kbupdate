@@ -1,0 +1,159 @@
+.NAME
+    xWindowsOptionalFeature
+
+.DESCRIPTION
+    This resource is used to enable and disable Windows optional features.
+    This resource works on Nano Server.
+
+    ## Requirements
+
+    - Target machine must be running a Windows client operating system, Windows
+      Server 2012 or later, or Nano Server.
+    - Target machine must have access to the DISM PowerShell module.
+
+.PARAMETER Name
+    Key - String
+    The name of the Windows optional feature to enable or disable.
+
+.PARAMETER Ensure
+    Write - String
+    Allowed values: Present, Absent
+    Specifies whether the feature should be enabled or disabled. To enable the feature, set this property to Present. To disable the feature, set the property to Absent. The default value is Present.
+
+.PARAMETER RemoveFilesOnDisable
+    Write - Boolean
+    Specifies that all files associated with the feature should be removed if the feature is being disabled.
+
+.PARAMETER NoWindowsUpdateCheck
+    Write - Boolean
+    Specifies whether or not DISM contacts Windows Update (WU) when searching for the source files to enable the feature. If $true, DISM will not contact WU.
+
+.PARAMETER LogLevel
+    Write - String
+    Allowed values: ErrorsOnly, ErrorsAndWarning, ErrorsAndWarningAndInformation
+    The maximum output level to show in the log. Accepted values are: ErrorsOnly (only errors are logged), ErrorsAndWarning (errors and warnings are logged), and ErrorsAndWarningAndInformation (errors, warnings, and debug information are logged).
+
+.PARAMETER LogPath
+    Write - String
+    The path to the log file to log this operation. There is no default value, but if not set, the log will appear at %WINDIR%\Logs\Dism\dism.log.
+
+.PARAMETER CustomProperties
+    Read - StringArray
+    The custom properties retrieved from the Windows optional feature as an array of strings.
+
+.PARAMETER Description
+    Read - String
+    The description retrieved from the Windows optional feature.
+
+.PARAMETER DisplayName
+    Read - String
+    The display name retrieved from the Windows optional feature.
+
+.EXAMPLE 1
+
+
+#Requires -Module xPSDesiredStateConfiguration
+
+<#
+    .DESCRIPTION
+        Enables the Windows optional feature with the specified name and outputs
+        a log to the specified path.
+
+    .PARAMETER Name
+        The name of the Windows optional feature to enable.
+
+    .PARAMETER LogPath
+        The path to the file to log the enable operation to.
+
+    .NOTES
+        Can only be run on Windows client operating systems and Windows Server 2012
+        or later.
+        The DISM PowerShell module must be available on the target machine.
+
+    .EXAMPLE
+        xWindowsOptionalFeature_Enable_Config -Name 'TelnetClient' -LogPath 'c:\log\feature.log'
+
+        Compiles a configuration that ensures that the Telnet Client optional
+        feature is enabled, and logs the operation to 'C:\log\feature.log'.
+#>
+Configuration xWindowsOptionalFeature_Enable_Config
+{
+    param
+    (
+        [Parameter(Mandatory = $true)]
+        [System.String]
+        $Name,
+
+        [Parameter(Mandatory = $true)]
+        [System.String]
+        $LogPath
+    )
+
+    Import-DscResource -ModuleName xPSDesiredStateConfiguration
+
+    Node localhost
+    {
+        xWindowsOptionalFeature EnableOptionalFeature
+        {
+            Name    = $Name
+            Ensure  = 'Present'
+            LogPath = $LogPath
+        }
+    }
+}
+
+.EXAMPLE 2
+
+
+#Requires -Module xPSDesiredStateConfiguration
+
+<#
+    .DESCRIPTION
+        Disables the Windows optional feature with the specified name and outputs
+        a log to the specified path. When the optional feature is disabled, the
+        files associated with the feature will also be removed.
+
+    .PARAMETER Name
+        The name of the Windows optional feature to disable.
+
+    .PARAMETER LogPath
+        The path to the file to log the disable operation to.
+
+    .NOTES
+        Can only be run on Windows client operating systems and Windows Server 2012
+        or later.
+        The DISM PowerShell module must be available on the target machine.
+
+    .EXAMPLE
+        xWindowsOptionalFeature_Disable_Config -Name 'SMB1Protocol' -LogPath 'c:\log\feature.log'
+
+        Compiles a configuration that ensures that the SMB1Protocol optional
+        feature is disabled, and logs the operation to 'C:\log\feature.log'.
+#>
+Configuration xWindowsOptionalFeature_Disable_Config
+{
+    param
+    (
+        [Parameter(Mandatory = $true)]
+        [System.String]
+        $Name,
+
+        [Parameter(Mandatory = $true)]
+        [System.String]
+        $LogPath
+    )
+
+    Import-DscResource -ModuleName xPSDesiredStateConfiguration
+
+    Node localhost
+    {
+        xWindowsOptionalFeature DisableOptionalFeature
+        {
+            Name                 = $Name
+            Ensure               = 'Absent'
+            LogPath              = $LogPath
+            RemoveFilesOnDisable = $true
+        }
+    }
+}
+

@@ -1,0 +1,13 @@
+[ClassVersion("1.0.0"), FriendlyName("xUser")]
+class DSC_xUserResource : OMI_BaseResource
+{
+  [Key, Description("Indicates the account name for which you want to ensure a specific state.")] String UserName;
+  [Write, Description("Specified if the user account is present or absent."), ValueMap{"Present", "Absent"}, Values{"Present", "Absent"}] String Ensure;
+  [Write, Description("The full name of the user account.")] String FullName;
+  [Write, Description("Indicates the description you want to use for the user account.")] String Description;
+  [Write, Description("Indicates the password you want to use for this account."), EmbeddedInstance("MSFT_Credential")] String Password;
+  [Write, Description("Indicates if the account is enabled. Set this property to $true to ensure that this account is disabled, and set it to $false to ensure that it is enabled. Defaults to $false.")] Boolean Disabled;
+  [Write, Description("Indicates if the password will expire. To ensure that the password for this account will never expire, set this property to $true, and set it to $false if the password will expire.")] Boolean PasswordNeverExpires;
+  [Write, Description("Indicates if the user must change the password at the next sign in. Set this property to $true if the user must change the password.")] Boolean PasswordChangeRequired;
+  [Write, Description("Indicates if the user can change the password. Set this property to $true to ensure that the user cannot change the password, and set it to $false to allow the user to change the password.")] Boolean PasswordChangeNotAllowed;
+};

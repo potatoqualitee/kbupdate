@@ -1,0 +1,278 @@
+.NAME
+    xRegistry
+
+.DESCRIPTION
+    Provides a mechanism to manage registry keys and values on a target node.
+
+.PARAMETER Key
+    Key - String
+    The path of the registry key to add, modify, or remove. This path must include the registry hive/drive.
+
+.PARAMETER ValueName
+    Key - String
+    The name of the registry value. To add or remove a registry key, specify this property as an empty string without specifying ValueType or ValueData. To modify or remove the default value of a registry key, specify this property as an empty string while also specifying ValueType or ValueData.
+
+.PARAMETER ValueData
+    Write - StringArray
+    The data the specified registry key value should have as a string or an array of strings (MultiString only).
+
+.PARAMETER ValueType
+    Write - String
+    Allowed values: String, Binary, DWord, QWord, MultiString, ExpandString
+    The type the specified registry key value should have.
+
+.PARAMETER Ensure
+    Write - String
+    Allowed values: Present, Absent
+    Specifies whether or not the registry key or value should exist. To add or modify a registry key or value, set this property to Present. To remove a registry key or value, set the property to Absent.
+
+.PARAMETER Hex
+    Write - Boolean
+    Specifies whether or not the specified DWord or QWord registry key data is provided in a hexadecimal format. Not valid for types other than DWord and QWord. The default value is $false.
+
+.PARAMETER Force
+    Write - Boolean
+    Specifies whether or not to overwrite the specified registry key value if it already has a value or whether or not to delete a registry key that has subkeys. The default value is $false.
+
+.EXAMPLE 1
+
+
+#Requires -Module xPSDesiredStateConfiguration
+
+<#
+    .DESCRIPTION
+        Configuration that creates a new registry key called MyNewKey as a sub-key under
+        the key 'HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\Environment'.
+
+    .PARAMETER Path
+        The path to the key in the registry that should be created.
+
+    .EXAMPLE
+        xRegistry_AddKey_Config -Path 'HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\Environment\MyNewKey'
+
+        Compiles a configuration that creates a new registry key called MyNewKey under
+        the parent key 'HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\Environment'.
+#>
+Configuration xRegistry_AddKey_Config
+{
+    [CmdletBinding()]
+    param
+    (
+        [Parameter(Mandatory = $true)]
+        [System.String]
+        $Path
+    )
+
+    Import-DscResource -ModuleName xPSDesiredStateConfiguration
+
+    Node localhost
+    {
+        xRegistry AddKey
+        {
+            Key       = $Path
+            Ensure    = 'Present'
+            ValueName = ''
+        }
+    }
+}
+
+.EXAMPLE 2
+
+
+#Requires -Module xPSDesiredStateConfiguration
+
+<#
+    .DESCRIPTION
+        Configuration that creates a new registry key with a value.
+
+    .PARAMETER Path
+        The path to the key in the registry that should be created or modified.
+
+    .PARAMETER ValueName
+        The name of the registry value to set. To modify or remove the default
+        value of a registry key, specify this property as an empty string while
+        also specifying ValueType or ValueData.
+
+    .PARAMETER ValueData
+        The data to set as the registry key value.
+
+    .PARAMETER ValueType
+        The type of the value to set. Defaults to 'String'.
+        { String | Binary | DWord | QWord | MultiString | ExpandString }
+
+    .PARAMETER Hex
+        Specifies whether or not the value data should be expressed in hexadecimal format.
+        If specified, DWORD/QWORD value data is presented in hexadecimal format.
+        Not valid for other value types.
+        The default value is $false.
+
+    .PARAMETER OverwriteExisting
+         Specifies whether or not to overwrite the with the new value if the
+         registry key is already present.
+         The default value is $false.
+
+    .EXAMPLE
+        xRegistry_AddOrModifyValue_Config -Path 'HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\Environment' -ValueName 'MyValue' -ValueType 'Binary' -ValueData @('0x00') -OverwriteExisting $true
+
+        Compiles a configuration that creates a new registry value called MyValue under
+        the parent key 'HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\Environment'.
+
+        If the registry key value MyValue under the key
+        'HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\Environment'
+        does not exist, then the key value is created with the Binary value 0, and
+        will then make sure that the value always exist and have the correct
+        value (make sure it is in desired state).
+
+    .EXAMPLE
+        $configurationParameters = @{
+            Path = 'HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\Environment'
+            ValueName = 'MyValue'
+            ValueType = 'Binary'
+            ValueData = @('0x00')
+            OverwriteExisting = $true
+        }
+        Start-AzureRmAutomationDscCompilationJob -ResourceGroupName '<resource-group>' -AutomationAccountName '<automation-account>' -ConfigurationName 'xRegistryResource_AddOrModifyValueConfig' -Parameters $configurationParameters
+
+        Compiles a configuration in Azure Automation that that creates a new
+        registry value called MyValue under the parent key
+        'HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\Environment'.
+
+        Replace the <resource-group> and <automation-account> with correct values.
+#>
+Configuration xRegistry_AddOrModifyValue_Config
+{
+    [CmdletBinding()]
+    param
+    (
+        [Parameter(Mandatory = $true)]
+        [System.String]
+        $Path,
+
+        [Parameter(Mandatory = $true)]
+        [AllowEmptyString()]
+        [System.String]
+        $ValueName,
+
+        [Parameter()]
+        [System.String[]]
+        $ValueData,
+
+        [Parameter()]
+        [ValidateSet('String', 'Binary', 'DWord', 'QWord', 'MultiString', 'ExpandString')]
+        [System.String]
+        $ValueType = 'String',
+
+        [Parameter()]
+        [System.Boolean]
+        $HexValue,
+
+        [Parameter()]
+        [System.Boolean]
+        $OverwriteExisting
+    )
+
+    Import-DscResource -ModuleName xPSDesiredStateConfiguration
+
+    Node localhost
+    {
+        xRegistry AddOrModifyValue
+        {
+            Key       = $Path
+            Ensure    = 'Present'
+            ValueName = $ValueName
+            ValueType = $ValueType
+            ValueData = $ValueData
+            Force     = $OverwriteExisting
+        }
+    }
+}
+
+.EXAMPLE 3
+
+
+#Requires -Module xPSDesiredStateConfiguration
+
+<#
+    .DESCRIPTION
+        Configuration that removes a registry key.
+
+    .PARAMETER Path
+        The path to the key in the registry that should be removed.
+
+    .EXAMPLE
+        xRegistry_AddKey_Config -Path 'HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\Environment\MyNewKey'
+
+        Compiles a configuration that removes the registry key called MyNewKey under
+        the parent key 'HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\Environment'.
+#>
+Configuration xRegistry_RemoveKey_Config
+{
+    [CmdletBinding()]
+    param
+    (
+        [Parameter(Mandatory = $true)]
+        [System.String]
+        $Path
+    )
+
+    Import-DscResource -ModuleName xPSDesiredStateConfiguration
+
+    Node localhost
+    {
+        xRegistry RemoveKey
+        {
+            Key       = $Path
+            Ensure    = 'Absent'
+            ValueName = ''
+        }
+    }
+}
+
+.EXAMPLE 4
+
+
+#Requires -Module xPSDesiredStateConfiguration
+
+<#
+    .DESCRIPTION
+        Configuration that removes a registry value.
+
+    .PARAMETER Path
+        The path to the key in the registry from which the value should be removed.
+
+    .PARAMETER ValueName
+        The name of the value to remove.
+
+    .EXAMPLE
+        xRegistry_RemoveValueConfig -Path 'HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\Environment' -ValueName 'MyValue'
+
+        Compiles a configuration that removes the registry value MyValue from
+        the key 'HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\Environment'.
+#>
+Configuration xRegistry_RemoveValue_Config
+{
+    [CmdletBinding()]
+    param
+    (
+        [Parameter(Mandatory = $true)]
+        [System.String]
+        $Path,
+
+        [Parameter(Mandatory = $true)]
+        [System.String]
+        $ValueName
+    )
+
+    Import-DscResource -ModuleName xPSDesiredStateConfiguration
+
+    Node localhost
+    {
+        xRegistry RemoveValue
+        {
+            Key       = $Path
+            Ensure    = 'Absent'
+            ValueName = $ValueName
+        }
+    }
+}
+

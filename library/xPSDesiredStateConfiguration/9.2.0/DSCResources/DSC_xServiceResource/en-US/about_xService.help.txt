@@ -1,0 +1,322 @@
+.NAME
+    xService
+
+.DESCRIPTION
+    Provides a mechanism to configure and manage Windows services.
+    This resource works on Nano Server.
+
+.PARAMETER Name
+    Key - String
+    Indicates the service name. Note that sometimes this is different from the display name. You can get a list of the services and their current state with the Get-Service cmdlet.
+
+.PARAMETER Ensure
+    Write - String
+    Allowed values: Present, Absent
+    Ensures that the service is present or absent. Defaults to Present.
+
+.PARAMETER Path
+    Write - String
+    The path to the service executable file. Required when creating a service. The user account specified by BuiltInAccount or Credential must have access to this path in order to start the service.
+
+.PARAMETER StartupType
+    Write - String
+    Allowed values: Automatic, Manual, Disabled
+    Indicates the startup type for the service. If StartupType is 'Disabled' and Service is not installed the resource will complete as being DSC compliant.
+
+.PARAMETER State
+    Write - String
+    Allowed values: Running, Stopped, Ignore
+    Indicates the state you want to ensure for the service. Defaults to 'Running'.
+
+.PARAMETER BuiltInAccount
+    Write - String
+    Allowed values: LocalSystem, LocalService, NetworkService
+    The built-in account the service should start under. Cannot be specified at the same time as Credential or GroupManagedServiceAccount. The user account specified by this property must have access to the service executable path defined by Path in order to start the service.
+
+.PARAMETER GroupManagedServiceAccount
+    Write - String
+    The Group Managed Service Account the service should start under. Cannot be specified at the same time as Credential or BuiltinAccount. The user account specified by this property must have access to the service executable path defined by Path in order to start the service. When specified in a DOMAIN\User$ form, remember to also input the trailing dollar sign.
+
+.PARAMETER Credential
+    Write - Instance
+    The credential of the user account the service should start under. Cannot be specified at the same time as BuiltInAccount or GroupManagedServiceAccount. The user specified by this credential will automatically be granted the Log on as a Service right. The user account specified by this property must have access to the service executable path defined by Path in order to start the service.
+
+.PARAMETER DesktopInteract
+    Write - Boolean
+    Indicates whether or not the service should be able to communicate with a window on the desktop. Must be false for services not running as LocalSystem. The default value is False.
+
+.PARAMETER DisplayName
+    Write - String
+    The display name of the service.
+
+.PARAMETER Description
+    Write - String
+    The description of the service.
+
+.PARAMETER Dependencies
+    Write - StringArray
+    An array of strings indicating the names of the dependencies of the service.
+
+.PARAMETER StartupTimeout
+    Write - UInt32
+    The time to wait for the service to start in milliseconds. Defaults to 30000 (30 seconds).
+
+.PARAMETER TerminateTimeout
+    Write - UInt32
+    The time to wait for the service to stop in milliseconds. Defaults to 30000 (30 seconds).
+
+.EXAMPLE 1
+
+
+#Requires -Module xPSDesiredStateConfiguration
+
+<#
+    .DESCRIPTION
+        Configuration that changes the state for an existing service.
+
+    .PARAMETER Name
+        The name of the Windows service.
+
+    .PARAMETER State
+        The state that the Windows service should have.
+
+    .EXAMPLE
+        xService_ChangeServiceState_Config -Name 'spooler' -State 'Stopped'
+
+        Compiles a configuration that make sure the state for the Windows
+        service 'spooler' is 'Stopped'. If the service is running the
+        Windows service will be stopped.
+#>
+Configuration xService_ChangeServiceState_Config
+{
+    [CmdletBinding()]
+    param
+    (
+        [Parameter(Mandatory = $true)]
+        [System.String]
+        $Name,
+
+        [Parameter()]
+        [ValidateSet('Running', 'Stopped')]
+        [System.String]
+        $State = 'Running'
+    )
+
+    Import-DscResource -ModuleName xPSDesiredStateConfiguration
+
+    Node localhost
+    {
+        xService ChangeServiceState
+        {
+            Name   = $Name
+            State  = $State
+            Ensure = 'Present'
+        }
+    }
+}
+
+.EXAMPLE 2
+
+
+#Requires -Module xPSDesiredStateConfiguration
+
+<#
+    .DESCRIPTION
+        Configuration that creates a new Windows service from an executable.
+        The executable must be built to run as a Windows service.
+
+    .PARAMETER Path
+        The path to the executable for the Windows service.
+
+    .PARAMETER Name
+        The name of the Windows service to be created.
+
+    .EXAMPLE
+        xService_CreateService_Config -Path 'C:\FilePath\MyServiceExecutable.exe' -Name 'Service1'
+
+        Compiles a configuration that creates a new service with the name Service1
+        using the executable path 'C:\FilePath\MyServiceExecutable.exe'.
+        If the service with the name Service1 already exists and the executable
+        path is different, then the executable will be changed for the service.
+        The service is started by default if it is not running already.
+#>
+Configuration xService_CreateService_Config
+{
+    [CmdletBinding()]
+    param
+    (
+        [Parameter(Mandatory = $true)]
+        [System.String]
+        $Path,
+
+        [Parameter(Mandatory = $true)]
+        [System.String]
+        $Name
+    )
+
+    Import-DscResource -ModuleName xPSDesiredStateConfiguration
+
+    Node localhost
+    {
+        xService CreateService
+        {
+            Name   = $Name
+            Ensure = 'Present'
+            Path   = $Path
+        }
+    }
+}
+
+.EXAMPLE 3
+
+
+#Requires -Module xPSDesiredStateConfiguration
+
+<#
+    .DESCRIPTION
+        Configuration that creates a new Windows service from an executable.
+        The executable must be built to run as a Windows service.
+
+    .PARAMETER Path
+        The path to the executable for the Windows service.
+
+    .PARAMETER Name
+        The name of the Windows service to be created.
+
+    .PARAMETER GroupManagedServiceAccount
+        The name of the GroupManagedServiceAccount to run the service.
+
+    .EXAMPLE
+        $gmsaSplat = @{
+            Path                        = 'C:\FilePath\MyServiceExecutable.exe'
+            Name                        = 'Service1'
+            GroupManagedServiceAccount  = 'DOMAIN\gMSA$'
+        }
+
+        xService_CreateServiceConfigGroupManagedServiceAccount_Config @gmsaSplat
+
+        Compiles a configuration that creates a new service with the name Service1
+        using the executable path 'C:\FilePath\MyServiceExecutable.exe'.
+        If the service with the name Service1 already exists and the executable
+        path is different, then the executable will be changed for the service.
+        The service is started by default if it is not running already. The user
+        DOMAIN\gMSA$ is used to start the service, the username could also be provided
+        in UPN format (gMSA$@domain.fqdn).
+#>
+Configuration xService_CreateServiceConfigGroupManagedServiceAccount_Config
+{
+    [CmdletBinding()]
+    param
+    (
+        [Parameter(Mandatory = $true)]
+        [System.String]
+        $Path,
+
+        [Parameter(Mandatory = $true)]
+        [System.String]
+        $Name,
+
+        [Parameter(Mandatory = $true)]
+        [System.String]
+        $GroupManagedServiceAccount
+    )
+
+    Import-DscResource -ModuleName xPSDesiredStateConfiguration
+
+    Node localhost
+    {
+        xService CreateService
+        {
+            Name                        = $Name
+            Ensure                      = 'Present'
+            Path                        = $Path
+            GroupManagedServiceAccount  = $GroupManagedServiceAccount
+        }
+    }
+}
+
+.EXAMPLE 4
+
+
+#Requires -Module xPSDesiredStateConfiguration
+
+<#
+    .DESCRIPTION
+        Configuration that stops and then removes a Windows service.
+
+    .PARAMETER Name
+        The name of the Windows service to be removed.
+
+    .EXAMPLE
+        xService_RemoveService_Config -Name 'Service1'
+
+        Compiles a configuration that stops and then removes the service with the
+        name Service1.
+#>
+Configuration xService_RemoveService_Config
+{
+    [CmdletBinding()]
+    param
+    (
+        [Parameter(Mandatory = $true)]
+        [System.String]
+        $Name
+    )
+
+    Import-DscResource -ModuleName xPSDesiredStateConfiguration
+
+    Node localhost
+    {
+        xService RemoveService
+        {
+            Name   = $Name
+            Ensure = 'Absent'
+        }
+    }
+}
+
+.EXAMPLE 5
+
+
+#Requires -Module xPSDesiredStateConfiguration
+
+<#
+    .DESCRIPTION
+        Configuration that updates startup type to manual for the service Print
+        Spooler, ignoring it's current state (e.g. running, stopped, etc).
+
+    .NOTES
+        If the service with the name spooler does not exist, this configuration would throw an
+        error since the Path is not included here.
+
+        If the service with the name spooler already exists, sets the startup type of the service
+        with the name spooler to Manual and ignores the state that the service is currently in.
+        If State is not specified, the configuration will ensure that the state of the service is
+        Running by default.
+
+    .EXAMPLE
+        xService_UpdateStartupTypeIgnoreState_Config
+
+        Compiles a configuration that make sure the service Print Spooler
+        has the startup type set to 'Manual' regardless of the current state
+        of the service (e.g. running, stopped, etc).
+#>
+Configuration xService_UpdateStartupTypeIgnoreState_Config
+{
+    [CmdletBinding()]
+    param ()
+
+    Import-DscResource -ModuleName xPSDesiredStateConfiguration
+
+    Node localhost
+    {
+        xService ServiceResource1
+        {
+            Name = 'spooler'
+            Ensure = 'Present'
+            StartupType = 'Manual'
+            State = 'Ignore'
+        }
+    }
+}
+

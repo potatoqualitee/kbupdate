@@ -1,0 +1,25 @@
+TOPIC
+    about_xWindowsUpdate
+
+SHORT DESCRIPTION
+    DSC resources for configuration of Microsoft Windows Update and installing Windows updates.
+
+LONG DESCRIPTION
+    This module contains DSC resources for configuration of Microsoft Windows Update and installing Windows updates.
+
+EXAMPLES
+    PS C:\> Get-DscResource -Module xWindowsUpdate
+
+NOTE:
+    Thank you to the DSC Community contributors who contributed to this module by
+    writing code, sharing opinions, and provided feedback.
+
+TROUBLESHOOTING NOTE:
+    Go to the Github repository for read about issues, submit a new issue, and read
+    about new releases. https://github.com/dsccommunity/xWindowsUpdate
+
+SEE ALSO
+    - https://github.com/dsccommunity/xWindowsUpdate
+
+KEYWORDS
+    DSC, DscResource, WindowsUpdate, Hotfix

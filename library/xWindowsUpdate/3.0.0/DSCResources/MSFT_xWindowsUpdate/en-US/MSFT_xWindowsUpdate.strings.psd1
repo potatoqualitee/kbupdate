@@ -1,0 +1,30 @@
+ConvertFrom-StringData @'
+    GettingHotfixMessage = Getting the hotfix patch with ID {0}.
+    StartKeyWord = START
+    EndKeyWord = END
+    ActionInstallUsingWsusa = Install using 'wsusa.exe'.
+    ActionUninstallUsingWsusa = Uninstall using 'wsusa.exe'.
+    LogNotSpecified = Log name hasn't been specified. Hotfix will use the temporary log {0} .
+    ErrorOccurredOnHotfixInstall = \nCould not install the windows update. Details are stored in the log {0}. Error message is \n\n {1}.\n\nPlease look at Windows Update error codes here for more information - http://technet.microsoft.com/en-us/library/dd939837(WS.10).aspx.
+    ErrorOccurredOnHotfixUninstall = \nCould not uninstall the windows update. Details are stored in the log {0}. Error message is \n\n {1}.\n\nPlease look at Windows Update error codes here for more information - http://technet.microsoft.com/en-us/library/dd939837(WS.10).aspx.
+    TestingEnsure = Testing whether hotfix is {0}.
+    InvalidPath = The specified Path ({0}) is not in a valid format. Valid formats are local paths, UNC, and HTTP. The uri scheme was '{1}'.
+    InvalidBinaryType = The specified Path ({0}) does not appear to specify an MSU file and as such is not supported.
+    TestStandardArgumentsPathWasPath = Test-StandardArguments, Path was {0}.
+    NeedToDownloadFileFromSchemeDestinationWillBeDestName = Need to download file from {0}, destination will be {1}.
+    NeedsMoreInfo = Id is required.
+    InvalidIdFormat = Id must be formatted as either KBNNNNNNN or NNNNNNN.
+    CreatingCacheLocation = Creating cache location.
+    CouldNotOpenDestFile = Cannot open the file {0} for writing.
+    CreatingTheSchemeStream = Creating the {0} stream.
+    SettingDefaultCredential = Setting default credential.
+    SettingAuthenticationLevel = Setting authentication level.
+    IgnoringBadCertificates = Ignoring bad certificates.
+    GettingTheSchemeResponseStream = Getting the {0} response stream.
+    CopyingTheSchemeStreamBytesToTheDiskCache = Copying the {0} stream bytes to the disk cache.
+    RedirectingPackagePathToCacheFileLocation = Redirecting package path to cache file location.
+    ThePathExtensionWasPathExt = The path extension was {0}.
+    CreatingTheDestinationCacheFile = Creating the destination cache file.
+    CouldNotGetHttpStream = Could not open the stream for the path '{1}' and the scheme '{0}'.
+    ErrorCopyingDataToFile = Could not write the stream from the path '{0}' to the destination file '{1}'.
+'@

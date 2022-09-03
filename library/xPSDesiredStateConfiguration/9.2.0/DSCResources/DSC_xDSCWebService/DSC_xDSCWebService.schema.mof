@@ -1,0 +1,25 @@
+[ClassVersion("1.0.0"), FriendlyName("xDSCWebService")]
+class DSC_xDSCWebService : OMI_BaseResource
+{
+  [Key, Description("Prefix of the WCF SVC file.")] string EndpointName;
+  [Write, Description("Specifies is self-signed certs will be accepted for client authentication.")] boolean AcceptSelfSignedCertificates;
+  [Write, Description("The IIS Application Pool to use for the Pull Server. If not specified a pool with name 'PSWS' will be created.")] string ApplicationPoolName;
+  [Write, Description("The subject of the Certificate in CERT:\\LocalMachine\\MY\\ for Pull Server.")] string CertificateSubject;
+  [Write, Description("The certificate Template Name of the Certificate in CERT:\\LocalMachine\\MY\\ for Pull Server.")] string CertificateTemplateName;
+  [Write, Description("The thumbprint of the Certificate in CERT:\\LocalMachine\\MY\\ for Pull Server.")] string CertificateThumbPrint;
+  [Write, Description("The location on the disk where the Configuration is stored.")] string ConfigurationPath;
+  [Write, Description("Enable incoming firewall exceptions for the configured DSC Pull Server port. Defaults to true.")] boolean ConfigureFirewall;
+  [Write, Description("The location on the disk where the database is stored.")] string DatabasePath;
+  [Write, Description("A list of exceptions to the security best practices to apply."), ValueMap{"SecureTLSProtocols"},Values{"SecureTLSProtocols"}] string DisableSecurityBestPractices [];
+  [Write, Description("Enable the DSC Pull Server to run in a 32-bit process on a 64-bit operating system.")] boolean Enable32BitAppOnWin64;
+  [Write, Description("Specifies if the DSC Web Service should be installed."), ValueMap{"Present","Absent"},Values{"Present","Absent"}] string Ensure;
+  [Write, Description("The location on the disk where the Modules are stored.")] string ModulePath;
+  [Write, Description("The physical path for the IIS Endpoint on the machine (usually under inetpub).")] string PhysicalPath;
+  [Write, Description("The port number of the DSC Pull Server IIS Endpoint.")] uint32 Port;
+  [Write, Description("The location on the disk where the RegistrationKeys file is stored.")] string RegistrationKeyPath;
+  [Write, Description("The connection string to use to connect to the SQL server backend database. Required if SqlProvider is true.")] string SqlConnectionString;
+  [Write, Description("Enable DSC Pull Server to use SQL server as the backend database.")] boolean SqlProvider;
+  [Write, Description("Specifies the state of the DSC Web Service."), ValueMap{"Started","Stopped"},Values{"Started","Stopped"}] string State;
+  [Required, Description("This property will ensure that the Pull Server is created with the most secure practices.")] boolean UseSecurityBestPractices;
+  [Read, Description("The URL of the DSC Pull Server.")] string DSCServerUrl;
+};

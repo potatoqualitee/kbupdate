@@ -1,0 +1,30 @@
+[ClassVersion("1.0.0"),FriendlyName("xPackage")]
+class DSC_xPackageResource : OMI_BaseResource
+{
+  [Key, Description("The name of the package to be added or removed.")] string Name;
+  [Key, Description("The identifying number used to uniquely identify this package.")] string ProductId;
+  [Required, Description("The path, URL or UNC path to the package.")] string Path;
+  [Write, Description("Indicates whether to Ensure that the package is 'Present' or 'Absent'. Defaults to 'Present'."), ValueMap{"Present", "Absent"},Values{"Present", "Absent"}] string Ensure;
+  [Write, Description("The arguments to be passed to the package during addition or removal. When installing MSI packages, the '/quiet' and '/norestart' arguments are automatically applied.")] string Arguments;
+  [Write, Description("The credentials to be used for mounting the UNC path (if applicable)."), EmbeddedInstance("MSFT_Credential")] string Credential;
+  [Write, Description("The list of possible valid return codes for this install or removal.")] uint32 ReturnCode[];
+  [Write, Description("The path to log the output of the MSI or EXE.")] string LogPath;
+  [Write, Description("The expected hash value of the file found in the Path location.")] string FileHash;
+  [Write, Description("The algorithm used to generate the FileHash value. Defaults to 'SHA256'."), ValueMap{"SHA1","SHA256","SHA384","SHA512","MD5","RIPEMD160"}, Values{"SHA1","SHA256","SHA384","SHA512","MD5","RIPEMD160"}] string HashAlgorithm;
+  [Write, Description("The subject that must match the signer certificate of the digital signature. Wildcards are allowed.")] string SignerSubject;
+  [Write, Description("The certificate thumbprint which must match the signer certificate of the digital signature.")] string SignerThumbprint;
+  [Write, Description("PowerShell code used to validate SSL certificates of HTTPS url assigned to Path.")] string ServerCertificateValidationCallback;
+  [Write, Description("The hive in which to create the registry key. Defaults to 'LocalMachine'."), ValueMap{"LocalMachine","CurrentUser"}, Values{"LocalMachine","CurrentUser"}] string InstalledCheckRegHive;
+  [Write, Description("The registry key to validate the package is installed.")] string InstalledCheckRegKey;
+  [Write, Description("The registry value name to validate the package is installed.")] string InstalledCheckRegValueName;
+  [Write, Description("The registry value to validate the package is installed.")] string InstalledCheckRegValueData;
+  [Write, Description("Specifies if a registry value should be created when the packages is installed.")] boolean CreateCheckRegValue;
+  [Write, Description("Ignore a pending reboot if requested by package installation. The default value is $false and DSC will try to reboot the system.")] Boolean IgnoreReboot;
+  [Write, Description("The credentials under which to run the installation."), EmbeddedInstance("MSFT_Credential")] string RunAsCredential;
+  [Read, Description("The description of the identified package.")] string PackageDescription;
+  [Read, Description("The publisher for the identified package.")] string Publisher;
+  [Read, Description("The date that the identified package was last serviced or its install date, whichever is later.")] string InstalledOn;
+  [Read, Description("The size of the identified package.")] uint32 Size;
+  [Read, Description("The version number of the identified package.")] string Version;
+  [Read, Description("Whether the identified package is installed.")] boolean Installed;
+};

@@ -1,0 +1,262 @@
+.NAME
+    xWindowsFeature
+
+.DESCRIPTION
+    This resource is used to install, uninstall and query roles or features on
+    the node.
+
+    ## Requirements
+
+    - Target machine must be running Windows Server 2008 or later.
+    - Target machine must have access to the DISM PowerShell module.
+    - Target machine must have access to the ServerManager module.
+
+.PARAMETER Name
+    Key - String
+    Indicates the name of the role or feature that you want to ensure is added or removed. This is the same as the Name property from the Get-WindowsFeature cmdlet, and not the display name of the role or feature.
+
+.PARAMETER Ensure
+    Write - String
+    Allowed values: Present, Absent
+    Specifies whether the feature should be installed (Present) or uninstalled (Absent). Defaults to 'Present'.
+
+.PARAMETER IncludeAllSubFeature
+    Write - Boolean
+    Set this property to $true to ensure the state of all required subfeatures with the state of the feature you specify with the Name property. The default value is $false.
+
+.PARAMETER Credential
+    Write - Instance
+    Indicates the credential to use to add or remove the role or feature if needed.
+
+.PARAMETER LogPath
+    Write - String
+    Indicates the path to a log file to log the operation. If not specified, the default log path will be used (%WINDIR%\logs\ServerManager.log).
+
+.PARAMETER DisplayName
+    Read - String
+    The display name of the retrieved role or feature.
+
+.EXAMPLE 1
+
+
+#Requires -Module xPSDesiredStateConfiguration
+
+<#
+    .DESCRIPTION
+        Configuration that adds a role or feature.
+
+    .PARAMETER Name
+        Name of the role or feature that you want to ensure is added.
+        This is the same as the Name parameter from the Get-WindowsFeature
+        cmdlet, and not the display name of the role or feature.
+
+    .PARAMETER IncludeAllSubFeature
+        Set this parameter to $true to ensure the state of all required
+        sub-features with the state of the feature you specify with the Name
+        parameter. The default value is $false.
+
+    .EXAMPLE
+        xWindowsFeature_AddFeature_Config -Name 'Telnet-Client' -IncludeAllSubFeature $false
+
+        Compiles a configuration that adds the feature Telnet-Client.
+#>
+Configuration xWindowsFeature_AddFeature_Config
+{
+    [CmdletBinding()]
+    param
+    (
+        [Parameter(Mandatory = $true)]
+        [System.String]
+        $Name,
+
+        [Parameter()]
+        [System.Boolean]
+        $IncludeAllSubFeature
+    )
+
+    Import-DscResource -ModuleName xPSDesiredStateConfiguration
+
+    Node localhost
+    {
+        xWindowsFeature AddFeature
+        {
+            Name                 = $Name
+            Ensure               = 'Present'
+            IncludeAllSubFeature = $IncludeAllSubFeature
+        }
+    }
+}
+
+
+.EXAMPLE 2
+
+
+#Requires -Module xPSDesiredStateConfiguration
+
+<#
+    .DESCRIPTION
+        Configuration that adds a role or feature, using the given credentials.
+
+    .PARAMETER Name
+        Name of the role or feature that you want to ensure is added.
+        This is the same as the Name parameter from the Get-WindowsFeature
+        cmdlet, and not the display name of the role or feature.
+
+    .PARAMETER Credential
+        The credentials to use to add or remove the role or feature.
+
+    .PARAMETER IncludeAllSubFeature
+        Set this parameter to $true to ensure the state of all required
+        sub-features with the state of the feature you specify with the Name
+        parameter. The default value is $false.
+
+    .EXAMPLE
+        xWindowsFeature_AddFeatureUsingCredential_Config -Name 'Telnet-Client' -IncludeAllSubFeature $false -Credential (Get-Credential)
+
+        Compiles a configuration that adds the feature Telnet-Client.
+#>
+Configuration xWindowsFeature_AddFeatureUsingCredential_Config
+{
+    [CmdletBinding()]
+    param
+    (
+        [Parameter(Mandatory = $true)]
+        [System.String]
+        $Name,
+
+        [Parameter()]
+        [System.Boolean]
+        $IncludeAllSubFeature,
+
+        [Parameter(Mandatory = $true)]
+        [System.Management.Automation.PSCredential]
+        [System.Management.Automation.Credential()]
+        $Credential
+    )
+
+    Import-DscResource -ModuleName xPSDesiredStateConfiguration
+
+    Node localhost
+    {
+        xWindowsFeature AddFeatureUsingCredential
+        {
+            Name                 = $Name
+            Ensure               = 'Present'
+            IncludeAllSubFeature = $IncludeAllSubFeature
+            Credential           = $Credential
+        }
+    }
+}
+
+.EXAMPLE 3
+
+
+#Requires -Module xPSDesiredStateConfiguration
+
+<#
+    .DESCRIPTION
+        Configuration that adds a  role or feature, and outputs a log to the
+        specified file.
+
+    .PARAMETER Name
+        Name of the role or feature that you want to ensure is added.
+        This is the same as the Name parameter from the Get-WindowsFeature
+        cmdlet, and not the display name of the role or feature.
+
+    .PARAMETER IncludeAllSubFeature
+        Set this parameter to $true to ensure the state of all required
+        sub-features with the state of the feature you specify with the Name
+        parameter. The default value is $false.
+
+    .PARAMETER LogPath
+        The path to a log file to log the operation.
+
+    .EXAMPLE
+        xWindowsFeature_AddFeatureWithLogPath_Config -Name 'Telnet-Client' -IncludeAllSubFeature $false -LogPath "$env:TEMP\windowsfeature.log"
+
+        Compiles a configuration that adds the feature Telnet-Client.
+#>
+Configuration xWindowsFeature_AddFeatureWithLogPath_Config
+{
+    [CmdletBinding()]
+    param
+    (
+        [Parameter(Mandatory = $true)]
+        [System.String]
+        $Name,
+
+        [Parameter(Mandatory = $true)]
+        [System.String]
+        $LogPath,
+
+        [Parameter()]
+        [System.Boolean]
+        $IncludeAllSubFeature
+    )
+
+    Import-DscResource -ModuleName xPSDesiredStateConfiguration
+
+    Node localhost
+    {
+        xWindowsFeature AddFeatureWithLogPath
+        {
+            Name                 = $Name
+            Ensure               = 'Present'
+            IncludeAllSubFeature = $IncludeAllSubFeature
+            LogPath              = $LogPath
+        }
+    }
+}
+
+
+.EXAMPLE 4
+
+
+#Requires -Module xPSDesiredStateConfiguration
+
+<#
+    .DESCRIPTION
+        Configuration that removes a role or feature.
+
+    .PARAMETER Name
+        Name of the role or feature that you want to ensure is removed.
+        This is the same as the Name parameter from the Get-WindowsFeature
+        cmdlet, and not the display name of the role or feature.
+
+    .PARAMETER IncludeAllSubFeature
+        Set this parameter to $true to ensure the state of all required
+        sub-features with the state of the feature you specify with the Name
+        parameter. The default value is $false.
+
+    .EXAMPLE
+        xWindowsFeature_RemoveFeature_Config -Name 'Telnet-Client' -IncludeAllSubFeature $false
+
+        Compiles a configuration that adds the feature Telnet-Client.
+#>
+Configuration xWindowsFeature_RemoveFeature_Config
+{
+    [CmdletBinding()]
+    param
+    (
+        [Parameter(Mandatory = $true)]
+        [System.String]
+        $Name,
+
+        [Parameter()]
+        [System.Boolean]
+        $IncludeAllSubFeature
+    )
+
+    Import-DscResource -ModuleName xPSDesiredStateConfiguration
+
+    Node localhost
+    {
+        xWindowsFeature RemoveFeature
+        {
+            Name                 = $Name
+            Ensure               = 'Absent'
+            IncludeAllSubFeature = $IncludeAllSubFeature
+        }
+    }
+}
+

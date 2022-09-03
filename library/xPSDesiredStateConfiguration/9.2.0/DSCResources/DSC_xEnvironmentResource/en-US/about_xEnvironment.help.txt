@@ -1,0 +1,334 @@
+.NAME
+    xEnvironment
+
+.DESCRIPTION
+    Provides a mechanism to configure and manage environment variables for a
+    machine or process.
+
+.PARAMETER Name
+    Key - String
+    The name of the environment variable for which you want to ensure a specific state.
+
+.PARAMETER Value
+    Write - String
+    The desired value for the environment variable. The default value is an empty string which either indicates that the variable should be removed entirely or that the value does not matter when testing its existence. Multiple entries can be entered and separated by semicolons.
+
+.PARAMETER Ensure
+    Write - String
+    Allowed values: Present, Absent
+    Specifies if the environment variable should exist.
+
+.PARAMETER Path
+    Write - Boolean
+    Indicates whether or not the environment variable is a path variable. If the variable being configured is a path variable, the value provided will be appended to or removed from the existing value, otherwise the existing value will be replaced by the new value. When configured as a Path variable, multiple entries separated by semicolons are ensured to be either present or absent without affecting other Path entries.
+
+.PARAMETER Target
+    Write - StringArray
+    Allowed values: Process, Machine
+    Indicates the target where the environment variable should be set.
+
+.EXAMPLE 1
+
+
+#Requires -Module xPSDesiredStateConfiguration
+
+<#
+    .DESCRIPTION
+        Configuration that creates or modifies an environment variable containing
+        paths.
+        If the environment variable does not exist, the environment variable is
+        created, and the paths will added as values.
+        If the environment variable already exist, an either of the new path
+        values do not exist in the environment variable, they will be appended
+        without modifying any preexisting values. If either of the paths already
+        exist as a value in in the environment variable, that path will be
+        skipped (it is not added twice).
+
+    .PARAMETER Name
+        The name of the environment variable to create or modify.
+
+    .PARAMETER Value
+        The paths to add to the environment variable as a comma-separated list,
+        e.g. 'C:\test123;C:\test456;C:\test789'.
+
+    .PARAMETER Target
+        The scope to set the environment variable. Can be set to either the
+        'Machine', the 'Process' or both. Default value is 'Machine'.
+        { Process | Machine }
+
+    .EXAMPLE
+        xEnvironment_AddMultiplePaths_Config -Name 'TestPath' -Value 'C:\test123;C:\test456;C:\test789' -Target @('Process', 'Machine')
+
+        Compiles a configuration that creates the environment variable
+        'TestPath' with the paths 'C:\test123', 'C:\test456' and 'C:\test789'
+        in both the scopes 'Machine' and 'Process'.
+
+    .EXAMPLE
+        $configurationParameters = @{
+            Name = 'TestPath'
+            Value = 'C:\test123;C:\test456;C:\test789'
+            Target = @('Process', 'Machine')
+        }
+        Start-AzureRmAutomationDscCompilationJob -ResourceGroupName '<resource-group>' -AutomationAccountName '<automation-account>' -ConfigurationName 'xEnvironment_AddMultiplePathsConfig' -Parameters $configurationParameters
+
+        Compiles a configuration in Azure Automation that creates the environment
+        variable 'TestPath' with the paths 'C:\test123', 'C:\test456'
+        and 'C:\test789' in both the scopes 'Machine' and 'Process'.
+
+        Replace the <resource-group> and <automation-account> with correct values.
+#>
+Configuration xEnvironment_AddMultiplePaths_Config
+{
+    param
+    (
+        [Parameter(Mandatory = $true)]
+        [System.String]
+        $Name,
+
+        [Parameter(Mandatory = $true)]
+        [System.String]
+        $Value,
+
+        [Parameter()]
+        [ValidateSet('Process', 'Machine')]
+        [System.String[]]
+        $Target = 'Machine'
+    )
+
+    Import-DscResource -ModuleName xPSDesiredStateConfiguration
+
+    Node localhost
+    {
+        xEnvironment AddMultiplePaths
+        {
+            Name   = $Name
+            Value  = $Value
+            Ensure = 'Present'
+            Path   = $true
+            Target = $Target
+        }
+    }
+}
+
+.EXAMPLE 2
+
+
+#Requires -Module xPSDesiredStateConfiguration
+
+<#
+    .DESCRIPTION
+        Configuration that creates or modifies an environment variable.
+        If the environment variable does not exist, the environment variable is
+        created, and the value will be added.
+        If the environment variable already exist, and the value differs, then
+        the value will be changed.
+
+    .PARAMETER Name
+        The name of the environment variable to create or modify.
+
+    .PARAMETER Value
+        The value to set on the environment variable.
+
+    .PARAMETER Target
+        The scope to set the environment variable. Can be set to either the
+        'Machine', the 'Process' or both. Default value is 'Machine'.
+        { Process | Machine }
+
+    .EXAMPLE
+        xEnvironment_CreateNonPathVariable_Config -Name 'TestVariable' -Value 'TestValue' -Target @('Process', 'Machine')
+
+        Compiles a configuration that creates the environment variable
+        'TestVariable' and sets the value to 'TestValue' both on the machine
+        scope and within the process scope.
+
+    .EXAMPLE
+        $configurationParameters = @{
+            Name = 'TestVariable'
+            Value = 'TestValue'
+            Target = @('Process', 'Machine')
+        }
+        Start-AzureRmAutomationDscCompilationJob -ResourceGroupName '<resource-group>' -AutomationAccountName '<automation-account>' -ConfigurationName 'xEnvironment_CreateNonPathVariableConfig' -Parameters $configurationParameters
+
+        Compiles a configuration in Azure Automation that creates the environment
+        variable 'TestVariable' and sets the value to 'TestValue' both on the
+        machine scope and within the process scope.
+
+        Replace the <resource-group> and <automation-account> with correct values.
+#>
+Configuration xEnvironment_CreateNonPathVariable_Config
+{
+    param
+    (
+        [Parameter(Mandatory = $true)]
+        [System.String]
+        $Name,
+
+        [Parameter(Mandatory = $true)]
+        [System.String]
+        $Value,
+
+        [Parameter()]
+        [ValidateSet('Process', 'Machine')]
+        [System.String[]]
+        $Target = 'Machine'
+    )
+
+    Import-DscResource -ModuleName xPSDesiredStateConfiguration
+
+    Node localhost
+    {
+        xEnvironment NewVariable
+        {
+            Name   = $Name
+            Value  = $Value
+            Ensure = 'Present'
+            Path   = $false
+            Target = $Target
+        }
+    }
+}
+
+.EXAMPLE 3
+
+
+#Requires -Module xPSDesiredStateConfiguration
+
+<#
+    .DESCRIPTION
+        Configuration that removes one or more path values, if the values exist,
+        from and environment variable containing paths. Other values of the
+        environment variable will not be modified and will be left intact.
+
+    .PARAMETER Name
+        The name of the environment variable to modify.
+
+    .PARAMETER Value
+        The paths to remove from the environment variable as a comma-separated
+        list, e.g. 'C:\test123;C:\test456'.
+
+    .PARAMETER Target
+        The scope in which to modify the environment variable. Can be set to
+        either the 'Machine', the 'Process' or both. Default value is 'Machine'.
+        { Process | Machine }
+
+    .EXAMPLE
+        xEnvironment_RemoveMultiplePaths_Config -Name 'TestPath' -Value 'C:\test456;C:\test123' -Target @('Process', 'Machine')
+
+        Compiles a configuration that removes the paths 'C:\test123' and
+        'C:\test456', if the values exist, from the environment variable 'TestPath'
+        in both the scopes 'Machine' and 'Process'.
+        Other values of the environment variable 'TestPath' will not be modified,
+        and will be left intact.
+
+    .EXAMPLE
+        $configurationParameters = @{
+            Name = 'TestPath'
+            Value = 'C:\test456;C:\test123'
+            Target = @('Process', 'Machine')
+        }
+        Start-AzureRmAutomationDscCompilationJob -ResourceGroupName '<resource-group>' -AutomationAccountName '<automation-account>' -ConfigurationName 'xEnvironment_RemoveMultiplePathsConfig' -Parameters $configurationParameters
+
+        Compiles a configuration in Azure Automation that removes the paths
+        'C:\test123' and 'C:\test456', if the values exist, from the environment
+        variable 'TestPath' in both the scopes 'Machine' and 'Process'.
+        Other values of the environment variable 'TestPath' will not be modified,
+        and will be left intact.
+
+        Replace the <resource-group> and <automation-account> with correct values.
+#>
+Configuration xEnvironment_RemoveMultiplePaths_Config
+{
+    param
+    (
+        [Parameter(Mandatory = $true)]
+        [System.String]
+        $Name,
+
+        [Parameter(Mandatory = $true)]
+        [System.String]
+        $Value,
+
+        [Parameter()]
+        [ValidateSet('Process', 'Machine')]
+        [System.String[]]
+        $Target = 'Machine'
+    )
+
+    Import-DscResource -ModuleName xPSDesiredStateConfiguration
+
+    Node localhost
+    {
+        xEnvironment RemoveMultiplePaths
+        {
+            Name   = $Name
+            Value  = $Value
+            Ensure = 'Absent'
+            Path   = $true
+            Target = $Target
+        }
+    }
+}
+
+.EXAMPLE 4
+
+
+#Requires -Module xPSDesiredStateConfiguration
+
+<#
+    .DESCRIPTION
+        Configuration that removes an environment variable.
+
+    .PARAMETER Name
+        The name of the environment variable to remove.
+
+    .PARAMETER Target
+        The scope in which to remove the environment variable. Can be set to
+        either the 'Machine', the 'Process' or both. Default value is 'Machine'.
+        { Process | Machine }
+
+    .EXAMPLE
+        xEnvironment_RemoveVariable_Config -Name 'TestVariable' -Target @('Process', 'Machine')
+
+        Compiles a configuration that removes the environment variable
+        'TestVariable' from both the machine and the process scope.
+
+    .EXAMPLE
+        $configurationParameters = @{
+            Name = 'TestVariable'
+            Target = @('Process', 'Machine')
+        }
+        Start-AzureRmAutomationDscCompilationJob -ResourceGroupName '<resource-group>' -AutomationAccountName '<automation-account>' -ConfigurationName 'xEnvironment_RemoveVariableConfig' -Parameters $configurationParameters
+
+        Compiles a configuration in Azure Automation that removes the environment
+        variable 'TestVariable' from both the machine and the process scope.
+
+        Replace the <resource-group> and <automation-account> with correct values.
+#>
+Configuration xEnvironment_RemoveVariable_Config
+{
+    param
+    (
+        [Parameter(Mandatory = $true)]
+        [System.String]
+        $Name,
+
+        [Parameter()]
+        [ValidateSet('Process', 'Machine')]
+        [System.String[]]
+        $Target = 'Machine'
+    )
+
+    Import-DscResource -ModuleName xPSDesiredStateConfiguration
+
+    Node localhost
+    {
+        xEnvironment NewVariable
+        {
+            Name   = $Name
+            Ensure = 'Absent'
+            Path   = $false
+            Target = $Target
+        }
+    }
+}
+
