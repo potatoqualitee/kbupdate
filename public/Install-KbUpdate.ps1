@@ -295,12 +295,12 @@ function Install-KbUpdate {
                 }
 
                 $hasxdsc = Invoke-PSFCommand -ScriptBlock {
-                    Get-Module -ListAvailable xPSDesiredStateConfiguration -ErrorAction Ignore | Where-Object Version -eq 9.2.0
+                    Get-Module -ListAvailable PSDesiredStateConfiguration -ErrorAction Ignore | Where-Object Version -eq 3.0.0
                 }
 
                 if (-not $hasxdsc) {
                     try {
-                        Write-PSFMessage -Level Verbose -Message "Adding xPSDesiredStateConfiguration to $computer"
+                        Write-PSFMessage -Level Verbose -Message "Adding PSDesiredStateConfiguration to $computer"
                         # Copy xWindowsUpdate to Program Files. The module is pretty much required to be in the PS Modules directory.
                         $oldpref = $ProgressPreference
                         $ProgressPreference = "SilentlyContinue"
@@ -308,16 +308,16 @@ function Install-KbUpdate {
                             $env:ProgramFiles
                         }
                         if ($item.IsLocalhost) {
-                            Write-PSFMessage -Level Verbose -Message "Copying xPSDesiredStateConfiguration to $computer (local to $env:ProgramFiles)"
-                            $null = Copy-Item -Path "$script:ModuleRoot\library\xPSDesiredStateConfiguration" -Destination "$programfiles\WindowsPowerShell\Modules\xPSDesiredStateConfiguration" -Recurse -Force
+                            Write-PSFMessage -Level Verbose -Message "Copying PSDesiredStateConfiguration to $computer (local to $programfiles\WindowsPowerShell\Modules\PSDesiredStateConfiguration)"
+                            $null = Copy-Item -Path "$script:ModuleRoot\library\PSDesiredStateConfiguration" -Destination "$programfiles\WindowsPowerShell\Modules" -Recurse -Force
                         } else {
-                            Write-PSFMessage -Level Verbose -Message "Copying xPSDesiredStateConfiguration to $computer (remote)"
-                            $null = Copy-Item -Path "$script:ModuleRoot\library\xPSDesiredStateConfiguration" -Destination "$programfiles\WindowsPowerShell\Modules\xPSDesiredStateConfiguration" -ToSession $remotesession -Recurse -Force
+                            Write-PSFMessage -Level Verbose -Message "Copying PSDesiredStateConfiguration to $computer (remote)"
+                            $null = Copy-Item -Path "$script:ModuleRoot\library\PSDesiredStateConfiguration" -Destination "$programfiles\WindowsPowerShell\Modules" -ToSession $remotesession -Recurse -Force
                         }
 
                         $ProgressPreference = $oldpref
                     } catch {
-                        Stop-PSFFunction -EnableException:$EnableException -Message "Couldn't auto-install newer DSC resources on $computer. Please Install-Module xPSDesiredStateConfiguration on $computer to continue." -Continue
+                        Stop-PSFFunction -EnableException:$EnableException -Message "Couldn't auto-install newer DSC resources on $computer. Please Install-Module PSDesiredStateConfiguration on $computer to continue." -Continue
                     }
                 }
 
@@ -524,8 +524,8 @@ function Install-KbUpdate {
                     $hotfix = @{
                         Name       = 'Package'
                         ModuleName = @{
-                            ModuleName    = "xPSDesiredStateConfiguration"
-                            ModuleVersion = "9.2.0"
+                            ModuleName    = "PSDesiredStateConfiguration"
+                            ModuleVersion = "3.0.0"
                         }
                         Property   = @{
                             Ensure     = 'Present'
@@ -563,7 +563,8 @@ function Install-KbUpdate {
                                 $VerbosePreference,
                                 $ManualFileName
                             )
-                            Import-Module xPSDesiredStateConfiguration -RequiredVersion 9.2.0 -Force
+                            if ($PS)
+                            Import-Module PSDesiredStateConfiguration -RequiredVersion 3.0.0 -Force
                             Import-Module xWindowsUpdate -RequiredVersion 3.0.0 -Force
                             $PSDefaultParameterValues.Remove("Invoke-WebRequest:ErrorAction")
                             $PSDefaultParameterValues['*:ErrorAction'] = 'SilentlyContinue'
