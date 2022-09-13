@@ -523,7 +523,10 @@ function Install-KbUpdate {
                     # this takes care of things like SQL Server updates
                     $hotfix = @{
                         Name       = 'Package'
-                        ModuleName = 'xPSDesiredStateConfiguration'
+                        ModuleName = @{
+                            ModuleName    = "xPSDesiredStateConfiguration"
+                            ModuleVersion = "9.2.0"
+                        }
                         Property   = @{
                             Ensure     = 'Present'
                             ProductId  = $Guid
@@ -537,7 +540,10 @@ function Install-KbUpdate {
                     # this takes care of WSU files
                     $hotfix = @{
                         Name       = 'xHotFix'
-                        ModuleName = 'xWindowsUpdate'
+                        ModuleName = @{
+                            ModuleName    = "xWindowsUpdate"
+                            ModuleVersion = "3.0.0"
+                        }
                         Property   = @{
                             Ensure = 'Present'
                             Id     = $HotfixId
@@ -558,7 +564,7 @@ function Install-KbUpdate {
                                 $ManualFileName
                             )
                             Import-Module xPSDesiredStateConfiguration -RequiredVersion 9.2.0 -Force
-                            Import-Module xWindowsUpdate -RequiredVersion 3.0.0
+                            Import-Module xWindowsUpdate -RequiredVersion 3.0.0 -Force
                             $PSDefaultParameterValues.Remove("Invoke-WebRequest:ErrorAction")
                             $PSDefaultParameterValues['*:ErrorAction'] = 'SilentlyContinue'
                             $ErrorActionPreference = "Stop"
