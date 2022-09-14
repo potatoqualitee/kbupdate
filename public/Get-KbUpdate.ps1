@@ -673,7 +673,8 @@ function Get-KbUpdate {
 
 
                         if ($lastmodified) {
-                            $lastmod = Get-Date $lastmodified -Format "yyyy-MM-dd"
+                            $DateTime = [DateTime]::ParseExact("$lastmodified 12:00:00 AM", "M/d/yyyy h:mm:ss tt",[System.Globalization.DateTimeFormatInfo]::InvariantInfo, "None")
+                            $lastmod = Get-Date $datetime -Format "yyyy-MM-dd"
                         } else {
                             $lastmod = $null
                         }
