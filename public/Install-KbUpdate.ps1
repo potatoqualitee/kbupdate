@@ -153,20 +153,23 @@ function Install-KbUpdate {
             $remotefileexists = $programhome = $remotesession = $null
             Write-PSFMessage -Level Verbose -Message "Processing $computer"
 
+            if (($item.IsLocalhost -and $Method -ne "DSC") -or $Method -eq "WindowsUpdate") {
+                try {
+                    $sessiontype = [type]::GetTypeFromProgID("Microsoft.Update.Session")
+                    $session = [activator]::CreateInstance($sessiontype)
+                    $session.ClientApplicationID = "kbupdate installer"
+                    $downloadfile = $false
+                    $updateinstall = New-Object -ComObject 'Microsoft.Update.UpdateColl'
 
-            if ($Method -eq "WindowsUpdate") {
-                $sessiontype = [type]::GetTypeFromProgID("Microsoft.Update.Session")
-                $session = [activator]::CreateInstance($sessiontype)
-                $session.ClientApplicationID = "kbupdate installer"
-                $downloadat = $false
-                $updateinstall = New-Object -ComObject 'Microsoft.Update.UpdateColl'
-
-                if ($InputObject.InputObject) {
-                    Write-PSFMessage -Level Verbose -Message "Got an input object"
-                    $searchresult = $InputObject.InputObject
-                } else {
-                    Write-PSFMessage -Level Verbose -Message "Build needed updates"
-                    $searchresult = $session.CreateUpdateSearcher().Search("Type='Software'")
+                    if ($InputObject.InputObject) {
+                        Write-PSFMessage -Level Verbose -Message "Got an input object"
+                        $searchresult = $InputObject.InputObject
+                    } else {
+                        Write-PSFMessage -Level Verbose -Message "Build needed updates"
+                        $searchresult = $session.CreateUpdateSearcher().Search("Type='Software'")
+                    }
+                } catch {
+                    Stop-PSFFunction -EnableException:$EnableException -Message "Failed to create update searcher" -ErrorRecord $_ -Continue
                 }
 
                 # iterate the updates in searchresult
@@ -186,11 +189,11 @@ function Install-KbUpdate {
                                 }
                             }
                         }
-                        if (-not $update.IsDownloaded) { $downloadat = $true }
+                        if (-not $update.IsDownloaded) { $downloadfile = $true }
                         $updateinstall.Add($update) | Out-Null
                     }
 
-                    if ($downloadat) {
+                    if ($downloadfile) {
                         try {
                             $downloader = $session.CreateUpdateDownloader()
                             $downloader.Updates = $searchresult.Updates

@@ -40,7 +40,7 @@ function Get-KbUpdate {
         Filters out any patches that have been superseded by other patches in the batch
 
     .PARAMETER Force
-        When using Latest, the Web is required to get the freshest data unless Force is used.
+        When using Latest, the Web is required to get the freshest data unless Force is used. Also when Force is used, the cache is ignored.
 
     .PARAMETER Exclude
         Exclude matches for pattern
@@ -284,8 +284,12 @@ function Get-KbUpdate {
                 $script:allresults += $guid
                 $hashkey = "$guid-$Simple"
                 if ($script:kbcollection.ContainsKey($hashkey)) {
-                    $script:kbcollection[$hashkey]
-                    continue
+                    if ($Force) {
+                        $script:kbcollection.Remove($hashkey)
+                    } else {
+                        $script:kbcollection[$hashkey]
+                        continue
+                    }
                 }
                 $severity = $wsuskb.MsrcSeverity | Select-Object -First 1
                 $alert = $wsuskb.SecurityBulletins | Select-Object -First 1
@@ -505,9 +509,13 @@ function Get-KbUpdate {
                     $itemtitle = $item.Title
                     $hashkey = "$guid-$Simple"
                     if ($script:kbcollection.ContainsKey($hashkey)) {
-                        $guids = $guids | Where-Object Guid -notin $guid
-                        $script:kbcollection[$hashkey]
-                        continue
+                        if ($Force) {
+                            $script:kbcollection.Remove($hashkey)
+                        } else {
+                            $guids = $guids | Where-Object Guid -notin $guid
+                            $script:kbcollection[$hashkey]
+                            continue
+                        }
                     }
                 }
 
