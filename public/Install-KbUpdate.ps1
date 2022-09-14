@@ -274,8 +274,9 @@ function Install-KbUpdate {
                                 Title        = $update.Title
                                 ID           = $update.Identity.UpdateID
                                 Status       = $status
-                                FileName     = $filename
-                            } | Select-DefaultView -Property ComputerName, Title, Status, Id
+                                HotFixId     = ($update.KBArticleIDs | Select-Object -First 1)
+                                Update       = $update
+                            } | Select-DefaultView -Property ComputerName, Title, HotFixId, Id, Status
                         } catch {
                             Stop-PSFFunction -EnableException:$EnableException -Message "Failure on $env:ComputerName" -ErrorRecord $PSItem -Continue
                         }
@@ -352,8 +353,9 @@ function Install-KbUpdate {
                                 Title        = $update.Title
                                 ID           = $update.Identity.UpdateID
                                 Status       = $status
-                                FileName     = $filename
-                            } | Select-DefaultView -Property ComputerName, Title, Status, Id
+                                HotFixId     = ($update.KBArticleIDs | Select-Object -First 1)
+                                Update       = $update
+                            } | Select-DefaultView -Property ComputerName, Title, HotFixId, Id, Status
                         }
                     } catch {
                         Stop-PSFFunction -EnableException:$EnableException -Message "Failure on $env:ComputerName" -ErrorRecord $PSItem -Continue
