@@ -167,6 +167,7 @@ function Install-KbUpdate {
 
             if ($dowin -or $Method -eq "WindowsUpdate") {
                 try {
+                    Write-PSFMessage -Level Verbose -Message "Using the Windows Update method"
                     $sessiontype = [type]::GetTypeFromProgID("Microsoft.Update.Session")
                     $session = [activator]::CreateInstance($sessiontype)
                     $session.ClientApplicationID = "kbupdate installer"
@@ -187,7 +188,9 @@ function Install-KbUpdate {
                 # iterate the updates in searchresult
                 # it must be force iterated like this
                 if ($searchresult.Updates) {
+                    Write-PSFMessage -Level Verbose -Message "Processing updates"
                     foreach ($update in $searchresult.Updates) {
+                        Write-PSFMessage -Level Verbose -Message "Accepting EULA"
                         $null = $update.AcceptEula()
                         foreach ($bundle in $update.BundledUpdates) {
                             $files = New-Object -ComObject "Microsoft.Update.StringColl.1"
@@ -201,12 +204,16 @@ function Install-KbUpdate {
                                 }
                             }
                         }
-                        if (-not $update.IsDownloaded) { $downloadfile = $true }
+                        if (-not $update.IsDownloaded) {
+                            Write-PSFMessage -Level Verbose -Message "Update needs to be downloaded"
+                            $downloadfile = $true
+                        }
                         $updateinstall.Add($update) | Out-Null
                     }
 
                     if ($downloadfile) {
                         try {
+                            Write-PSFMessage -Level Verbose -Message "Creating update downlaoder"
                             $downloader = $session.CreateUpdateDownloader()
                             $downloader.Updates = $searchresult.Updates
                             $null = $downloader.Download()
@@ -221,12 +228,14 @@ function Install-KbUpdate {
                         if ($link -and $RepositoryPath) {
                             $filename = Split-Path -Path $link -Leaf
                             $fullpath = Join-Path -Path $RepositoryPath -ChildPath $filename
+                            Write-PSFMessage -Level Verbose -Message "Adding $fullpath"
                             $null = $files.Add($fullpath)
                         }
                     }
 
                     # load into Windows Update API
                     try {
+                        Write-PSFMessage -Level Verbose -Message "Copying files to cache"
                         $bundle.CopyToCache($files)
                     } catch {
                         Stop-PSFFunction -EnableException:$EnableException -Message "Failure on $env:ComputerName" -ErrorRecord $PSItem -Continue
@@ -234,12 +243,15 @@ function Install-KbUpdate {
                 }
 
                 try {
+                    Write-PSFMessage -Level Verbose -Message "Creating installer object"
                     $installer = $session.CreateUpdateInstaller()
                     if ($updateinstall) {
                         $installer.Updates = $updateinstall
                     } else {
                         $installer.Updates = $searchresult.Updates
                     }
+
+                    Write-PSFMessage -Level Verbose -Message "Installing updates!"
                     $installer.Install()
                 } catch {
                     Stop-PSFFunction -EnableException:$EnableException -Message "Failure on $env:ComputerName" -ErrorRecord $PSItem -Continue
