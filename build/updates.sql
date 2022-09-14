@@ -22,6 +22,17 @@ update kb set NetworkRequired = "No" where NetworkRequired = 0;
 update kb set ExclusiveInstall = "No" where ExclusiveInstall = 0;
 update kb set MSRCSeverity = null where MSRCSeverity = "n/a";
 
+update kb set Architecture = null where Architecture = "n/a";
+update kb set Architecture = "x64" where Architecture LIKE '%x64%';
+update kb set Architecture = "x64" where Architecture LIKE '%AMD64%';
+update kb set Architecture = "x64" where Architecture LIKE '%64%bit%';
+update kb set Architecture = "ARM64" where Architecture LIKE '%ARM64%';
+update kb set Architecture = "ARM32" where Architecture LIKE '%ARM%based%';
+update kb set Architecture = "ARM32" where Architecture LIKE '%ARM32%';
+update kb set Architecture = "x86" where Architecture LIKE '%x86%';
+update kb set Architecture = "x86" where Architecture LIKE '%32%bit%';
+update kb set Architecture = null where architecture NOT IN ('x64','x86','IA64','ARM64','ARM','ARM32');
+
 DELETE FROM Link
 WHERE EXISTS (
   SELECT 1 FROM Link p2
