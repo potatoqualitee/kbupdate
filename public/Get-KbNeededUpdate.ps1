@@ -118,7 +118,6 @@ function Get-KbNeededUpdate {
                                 }
                             }
                         }
-
                         [pscustomobject]@{
                             ComputerName      = $Computer
                             Title             = $wsuskb.Title
@@ -141,7 +140,7 @@ function Get-KbNeededUpdate {
                             Supersedes        = $null #TODO
                             SupersededBy      = $null #TODO
                             Link              = $links
-                            InputObject       = $wsu
+                            InputObject       = $wsuskb
                         }
                     }
                 }

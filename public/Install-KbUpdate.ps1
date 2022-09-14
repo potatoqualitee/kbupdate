@@ -174,9 +174,9 @@ function Install-KbUpdate {
                     $session = [activator]::CreateInstance($sessiontype)
                     $session.ClientApplicationID = "kbupdate installer"
 
-                    if ($InputObject.InputObject) {
-                        Write-PSFMessage -Level Verbose -Message "Got an input object"
-                        $searchresult = $InputObject.InputObject
+                    if ($InputObject.UpdateId) {
+                        Write-PSFMessage -Level Verbose -Message "Got an UpdateId"
+                        $searchresult = $session.CreateUpdateSearcher().Search("UpdateId = '$($InputObject.UpdateId)'")
                     } else {
                         Write-PSFMessage -Level Verbose -Message "Build needed updates"
                         $searchresult = $session.CreateUpdateSearcher().Search("Type='Software' and IsInstalled=0 and IsHidden=0")
@@ -188,7 +188,7 @@ function Install-KbUpdate {
                 # iterate the updates in searchresult
                 # it must be force iterated like this
                 if ($searchresult.Updates) {
-                    Write-PSFMessage -Level Verbose -Message "Processing updates"
+                    Write-PSFMessage -Level Verbose -Message "Processing $($searchresult.Updates.Count) updates"
                     foreach ($update in $searchresult.Updates) {
                         $updateinstall = New-Object -ComObject 'Microsoft.Update.UpdateColl'
                         Write-PSFMessage -Level Verbose -Message "Accepting EULA for $($update.Title)"
@@ -213,7 +213,9 @@ function Install-KbUpdate {
                             try {
                                 Write-PSFMessage -Level Verbose -Message "Creating update downloader"
                                 $downloader = $session.CreateUpdateDownloader()
+                                Write-PSFMessage -Level Verbose -Message "Adding Updates"
                                 $downloader.Updates = $searchresult.Updates
+                                Write-PSFMessage -Level Verbose -Message "Executing download"
                                 $null = $downloader.Download()
                             } catch {
                                 Stop-PSFFunction -EnableException:$EnableException -Message "Failure on $env:ComputerName" -ErrorRecord $PSItem -Continue
