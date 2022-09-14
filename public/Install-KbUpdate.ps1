@@ -521,13 +521,13 @@ function Install-KbUpdate {
 
                     # this takes care of things like SQL Server updates
                     $hotfix = @{
-                        Name       = 'Package'
+                        Name       = 'xPackage'
                         ModuleName = @{
                             ModuleName    = "xPSDesiredStateConfiguration"
                             ModuleVersion = "9.2.0"
                         }
                         Property   = @{
-                            Ensure     = 'xPresent'
+                            Ensure     = 'Present'
                             ProductId  = $Guid
                             Name       = $Title
                             Path       = $FilePath
