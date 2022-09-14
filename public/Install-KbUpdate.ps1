@@ -205,6 +205,7 @@ function Install-KbUpdate {
                                 }
                             }
                         }
+                        Write-PSFMessage -Level Verbose -Message "Checking to see if IsDownloaded ($($update.IsDownloaded)) is true"
                         if ($update.IsDownloaded) {
                             Write-PSFMessage -Level Verbose -Message "Updates for $($update.Title) do not need to be downloaded"
                         } else {
