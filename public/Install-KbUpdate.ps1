@@ -142,6 +142,8 @@ function Install-KbUpdate {
 
         foreach ($item in $ComputerName) {
             $computer = $item.ComputerName
+            $completed++
+
             if ($item.IsLocalHost -and -not (Test-ElevationRequirement -ComputerName $computer)) {
                 Stop-PSFFunction -EnableException:$EnableException -Message "You must be an administrator to run this command on the local host" -Continue
             }
@@ -171,7 +173,6 @@ function Install-KbUpdate {
                     $sessiontype = [type]::GetTypeFromProgID("Microsoft.Update.Session")
                     $session = [activator]::CreateInstance($sessiontype)
                     $session.ClientApplicationID = "kbupdate installer"
-                    $downloadfile = $false
                     $updateinstall = New-Object -ComObject 'Microsoft.Update.UpdateColl'
 
                     if ($InputObject.InputObject) {
@@ -190,7 +191,7 @@ function Install-KbUpdate {
                 if ($searchresult.Updates) {
                     Write-PSFMessage -Level Verbose -Message "Processing updates"
                     foreach ($update in $searchresult.Updates) {
-                        Write-PSFMessage -Level Verbose -Message "Accepting EULA"
+                        Write-PSFMessage -Level Verbose -Message "Accepting EULA for $update"
                         $null = $update.AcceptEula()
                         foreach ($bundle in $update.BundledUpdates) {
                             $files = New-Object -ComObject "Microsoft.Update.StringColl.1"
@@ -204,22 +205,20 @@ function Install-KbUpdate {
                                 }
                             }
                         }
-                        if (-not $update.IsDownloaded) {
+                        if ($update.IsDownloaded) {
+                            Write-PSFMessage -Level Verbose -Message "Updates do not need to be downloaded"
+                        } else {
                             Write-PSFMessage -Level Verbose -Message "Update needs to be downloaded"
-                            $downloadfile = $true
+                            try {
+                                Write-PSFMessage -Level Verbose -Message "Creating update downlaoder"
+                                $downloader = $session.CreateUpdateDownloader()
+                                $downloader.Updates = $searchresult.Updates
+                                $null = $downloader.Download()
+                            } catch {
+                                Stop-PSFFunction -EnableException:$EnableException -Message "Failure on $env:ComputerName" -ErrorRecord $PSItem -Continue
+                            }
                         }
                         $updateinstall.Add($update) | Out-Null
-                    }
-
-                    if ($downloadfile) {
-                        try {
-                            Write-PSFMessage -Level Verbose -Message "Creating update downlaoder"
-                            $downloader = $session.CreateUpdateDownloader()
-                            $downloader.Updates = $searchresult.Updates
-                            $null = $downloader.Download()
-                        } catch {
-                            Stop-PSFFunction -EnableException:$EnableException -Message "Failure on $env:ComputerName" -ErrorRecord $PSItem -Continue
-                        }
                     }
                 } else {
                     $files = New-Object -ComObject "Microsoft.Update.StringColl.1"
@@ -246,12 +245,16 @@ function Install-KbUpdate {
                     Write-PSFMessage -Level Verbose -Message "Creating installer object"
                     $installer = $session.CreateUpdateInstaller()
                     if ($updateinstall) {
+                        Write-PSFMessage -Level Verbose -Message "Adding updates via updateinstall"
                         $installer.Updates = $updateinstall
                     } else {
+                        Write-PSFMessage -Level Verbose -Message "Adding updates via .Updates"
                         $installer.Updates = $searchresult.Updates
                     }
 
                     Write-PSFMessage -Level Verbose -Message "Installing updates!"
+
+                    Write-ProgressHelper -TotalSteps $ComputerName.Count -StepNumber $completed -Activity "Installing $($installer.Updates) on $computer" -Message "Downloading information for $itemtitle"
                     $installer.Install()
                 } catch {
                     Stop-PSFFunction -EnableException:$EnableException -Message "Failure on $env:ComputerName" -ErrorRecord $PSItem -Continue
