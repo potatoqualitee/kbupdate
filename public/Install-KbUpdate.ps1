@@ -268,7 +268,7 @@ function Install-KbUpdate {
                 }
 
                 $hasxhotfix = Invoke-PSFCommand -ScriptBlock {
-                    Get-Module -ListAvailable xWindowsUpdate
+                    Get-Module -ListAvailable xWindowsUpdate -ErrorAction Ignore | Where-Object Version -eq 3.0.0
                 }
 
                 if (-not $hasxhotfix) {
@@ -280,14 +280,43 @@ function Install-KbUpdate {
                             $env:ProgramFiles
                         }
                         if ($item.IsLocalhost) {
-                            $null = Copy-Item -Path "$script:ModuleRoot\library\xWindowsUpdate" -Destination "$programfiles\WindowsPowerShell\Modules\xWindowsUpdate" -Recurse -Force
+                            Write-PSFMessage -Level Verbose -Message "Copying xWindowsUpdate to $computer (local to $programfiles\WindowsPowerShell\Modules\xWindowsUpdate)"
+                            $null = Copy-Item -Path "$script:ModuleRoot\library\xWindowsUpdate" -Destination "$programfiles\WindowsPowerShell\Modules" -Recurse -Force
                         } else {
-                            $null = Copy-Item -Path "$script:ModuleRoot\library\xWindowsUpdate" -Destination "$programfiles\WindowsPowerShell\Modules\xWindowsUpdate" -ToSession $remotesession -Recurse -Force
+                            Write-PSFMessage -Level Verbose -Message "Copying xWindowsUpdate to $computer (remote to $programfiles\WindowsPowerShell\Modules\xWindowsUpdate)"
+                            $null = Copy-Item -Path "$script:ModuleRoot\library\xWindowsUpdate" -Destination "$programfiles\WindowsPowerShell\Modules" -ToSession $remotesession -Recurse -Force
                         }
 
                         $ProgressPreference = $oldpref
                     } catch {
                         Stop-PSFFunction -EnableException:$EnableException -Message "Couldn't auto-install xHotfix on $computer. Please Install-Module xWindowsUpdate on $computer to continue." -Continue
+                    }
+                }
+
+                $hasxdsc = Invoke-PSFCommand -ScriptBlock {
+                    Get-Module -ListAvailable xPSDesiredStateConfiguration -ErrorAction Ignore | Where-Object Version -eq 9.2.0
+                }
+
+                if (-not $hasxdsc) {
+                    try {
+                        Write-PSFMessage -Level Verbose -Message "Adding xPSDesiredStateConfiguration to $computer"
+                        # Copy xWindowsUpdate to Program Files. The module is pretty much required to be in the PS Modules directory.
+                        $oldpref = $ProgressPreference
+                        $ProgressPreference = "SilentlyContinue"
+                        $programfiles = Invoke-PSFCommand -ScriptBlock {
+                            $env:ProgramFiles
+                        }
+                        if ($item.IsLocalhost) {
+                            Write-PSFMessage -Level Verbose -Message "Copying xPSDesiredStateConfiguration to $computer (local to $programfiles\WindowsPowerShell\Modules\xPSDesiredStateConfiguration)"
+                            $null = Copy-Item -Path "$script:ModuleRoot\library\xPSDesiredStateConfiguration" -Destination "$programfiles\WindowsPowerShell\Modules" -Recurse -Force
+                        } else {
+                            Write-PSFMessage -Level Verbose -Message "Copying xPSDesiredStateConfiguration to $computer (remote)"
+                            $null = Copy-Item -Path "$script:ModuleRoot\library\xPSDesiredStateConfiguration" -Destination "$programfiles\WindowsPowerShell\Modules" -ToSession $remotesession -Recurse -Force
+                        }
+
+                        $ProgressPreference = $oldpref
+                    } catch {
+                        Stop-PSFFunction -EnableException:$EnableException -Message "Couldn't auto-install newer DSC resources on $computer. Please Install-Module xPSDesiredStateConfiguration version 9.2.0 on $computer to continue." -Continue
                     }
                 }
 
@@ -492,8 +521,11 @@ function Install-KbUpdate {
 
                     # this takes care of things like SQL Server updates
                     $hotfix = @{
-                        Name       = 'Package'
-                        ModuleName = 'PSDesiredStateConfiguration'
+                        Name       = 'xPackage'
+                        ModuleName = @{
+                            ModuleName    = "xPSDesiredStateConfiguration"
+                            ModuleVersion = "9.2.0"
+                        }
                         Property   = @{
                             Ensure     = 'Present'
                             ProductId  = $Guid
@@ -507,7 +539,10 @@ function Install-KbUpdate {
                     # this takes care of WSU files
                     $hotfix = @{
                         Name       = 'xHotFix'
-                        ModuleName = 'xWindowsUpdate'
+                        ModuleName = @{
+                            ModuleName    = "xWindowsUpdate"
+                            ModuleVersion = "3.0.0"
+                        }
                         Property   = @{
                             Ensure = 'Present'
                             Id     = $HotfixId
@@ -521,12 +556,14 @@ function Install-KbUpdate {
 
                 if ($PSCmdlet.ShouldProcess($computer, "Installing file from $FilePath")) {
                     try {
-                        Invoke-PSFCommand -ScriptBlock {
+                        $null = Invoke-PSFCommand -ScriptBlock {
                             param (
                                 $Hotfix,
                                 $VerbosePreference,
                                 $ManualFileName
                             )
+                            Import-Module xPSDesiredStateConfiguration -RequiredVersion 9.2.0 -Force
+                            Import-Module xWindowsUpdate -RequiredVersion 3.0.0 -Force
                             $PSDefaultParameterValues.Remove("Invoke-WebRequest:ErrorAction")
                             $PSDefaultParameterValues['*:ErrorAction'] = 'SilentlyContinue'
                             $ErrorActionPreference = "Stop"

@@ -178,7 +178,9 @@ function Uninstall-KbUpdate {
                 $hotfix = "KB$hotfix"
             }
 
-            foreach ($computer in $PSBoundParameters.ComputerName) {
+            foreach ($computer in $ComputerName) {
+                Write-PSFMessage -Level Verbose -Message "Uninstalling $hotfix on $computer"
+
                 $exists = Get-KbInstalledUpdate -Pattern $hotfix -ComputerName $computer -IncludeHidden
                 if (-not $exists) {
                     Stop-PSFFunction -EnableException:$EnableException -Message "$hotfix is not installed on $computer" -Continue

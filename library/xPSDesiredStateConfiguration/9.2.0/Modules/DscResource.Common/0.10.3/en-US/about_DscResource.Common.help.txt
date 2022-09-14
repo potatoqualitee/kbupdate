@@ -1,0 +1,26 @@
+TOPIC
+    about_DscResource.Common
+
+SHORT DESCRIPTION
+    Common functions used in DSC tesources.
+
+LONG DESCRIPTION
+    This module contains common functions that are used in DSC resources.
+
+EXAMPLES
+    PS C:\> Get-Command -Module DscResource.Common
+
+NOTE:
+    Thank you to the DSC Community contributors who contributed to this module by
+    writing code, sharing opinions, and provided feedback.
+
+TROUBLESHOOTING NOTE:
+    Go to the Github repository for read about issues, submit a new issue, and read
+    about new releases. https://github.com/dsccommunity/DscResource.Common
+
+SEE ALSO
+  - https://github.com/dsccommunity/DscResource.Common
+
+KEYWORDS
+      DSC, Localization
+

@@ -1,0 +1,18 @@
+[Description("Provides a mechanism to configure and manage Windows services.") : Amended,AMENDMENT, LOCALE("MS_409")]
+class DSC_xServiceResource : OMI_BaseResource
+{
+  [key, Description("Indicates the service name. Note that sometimes this is different from the display name. You can get a list of the services and their current state with the Get-Service cmdlet.") : Amended] string Name;
+  [Description("Ensures that the service is present or absent. Defaults to Present.") : Amended] string Ensure;
+  [Description("The path to the service executable file.") : Amended] string Path;
+  [Description("Indicates the startup type for the service. If StartupType is 'Disabled' and Service is not installed the resource will complete as being DSC compliant.") : Amended] string StartupType;
+  [Description("Indicates the state you want to ensure for the service. Defaults to 'Running'.") : Amended] string State;
+  [Description("The built-in account the service should start under. Cannot be specified at the same time as Credential or GroupManagedServiceAccount. The user account specified by this property must have access to the service executable path defined by Path in order to start the service.") : Amended] string BuiltInAccount;
+  [Description("The Group Managed Service Account the service should start under. Cannot be specified at the same time as Credential or BuiltinAccount. The user account specified by this property must have access to the service executable path defined by Path in order to start the service. When specified in a DOMAIN\\User$ form, remember to also input the trailing dollar sign.") : Amended] string GroupManagedServiceAccount;
+  [Description("The credential of the user account the service should start under. Cannot be specified at the same time as BuiltInAccount or GroupManagedServiceAccount. The user specified by this credential will automatically be granted the Log on as a Service right. The user account specified by this property must have access to the service executable path defined by Path in order to start the service.") : Amended] string Credential;
+  [Description("Indicates whether or not the service should be able to communicate with a window on the desktop. Must be false for services not running as LocalSystem. The default value is False.") : Amended] boolean DesktopInteract;
+  [Description("The display name of the service.") : Amended] string DisplayName;
+  [Description("The description of the service.") : Amended] string Description;
+  [Description("An array of strings indicating the names of the dependencies of the service.") : Amended] string Dependencies[];
+  [Description("The time to wait for the service to start in milliseconds. Defaults to 30000 (30 seconds).") : Amended] uint32 StartupTimeout;
+  [Description("The time to wait for the service to stop in milliseconds. Defaults to 30000 (30 seconds).") : Amended] uint32 TerminateTimeout;
+};

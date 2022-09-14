@@ -1,0 +1,257 @@
+.NAME
+    xArchive
+
+.DESCRIPTION
+    Provides a mechanism to expand an archive (.zip) file to a specific path or
+    remove an expanded archive (.zip) file from a specific path on a target node.
+
+    ## Requirements
+
+    - The System.IO.Compression type assembly must be available on the machine.
+    - The System.IO.Compression.FileSystem type assembly must be available on the
+      machine.
+
+.PARAMETER Path
+    Key - String
+    The path to the archive file that should be expanded to or removed from the specified destination.
+
+.PARAMETER Destination
+    Key - String
+    The path where the specified archive file should be expanded to or removed from.
+
+.PARAMETER Ensure
+    Write - String
+    Allowed values: Present, Absent
+    Specifies whether or not the expanded content of the archive file at the specified path should exist at the specified destination. To update the specified destination to have the expanded content of the archive file at the specified path, specify this property as Present. To remove the expanded content of the archive file at the specified path from the specified destination, specify this property as Absent. The default value is Present.
+
+.PARAMETER Validate
+    Write - Boolean
+    Specifies whether or not to validate that a file at the destination with the same name as a file in the archive actually matches that corresponding file in the archive by the specified checksum method. If the file does not match and Ensure is specified as Present and Force is not specified, the resource will throw an error that the file at the destination cannot be overwritten. If the file does not match and Ensure is specified as Present and Force is specified, the file at the destination will be overwritten. If the file does not match and Ensure is specified as Absent, the file at the destination will not be removed. The default value is false.
+
+.PARAMETER Checksum
+    Write - String
+    Allowed values: SHA-1, SHA-256, SHA-512, CreatedDate, ModifiedDate
+    The Checksum method to use to validate whether or not a file at the destination with the same name as a file in the archive actually matches that corresponding file in the archive. An invalid argument exception will be thrown if Checksum is specified while Validate is specified as false. ModifiedDate will check that the LastWriteTime property of the file at the destination matches the LastWriteTime property of the file in the archive. CreatedDate will check that the CreationTime property of the file at the destination matches the CreationTime property of the file in the archive. SHA-1, SHA-256, and SHA-512 will check that the hash of the file at the destination by the specified SHA method matches the hash of the file in the archive by the specified SHA method. The default value is ModifiedDate.
+
+.PARAMETER Credential
+    Write - Instance
+    The credential of a user account with permissions to access the specified archive path and destination if needed.
+
+.PARAMETER Force
+    Write - Boolean
+    Specifies whether or not any existing files or directories at the destination with the same name as a file or directory in the archive should be overwritten to match the file or directory in the archive. When this property is false, an error will be thrown if an item at the destination needs to be overwritten. The default value is false.
+
+.EXAMPLE 1
+
+
+#Requires -Module xPSDesiredStateConfiguration
+
+<#
+    .DESCRIPTION
+        Configuration that expands the archive using SHA-256 file validation
+        located at 'C:\ExampleArchivePath\Archive.zip' to the destination path
+        'C:\ExampleDestinationPath\Destination'.
+
+        Since Validate is specified as $true and the Checksum parameter is
+        specified as SHA-256, the resource will check if the SHA-256 hash of the
+        file in the archive matches the SHA-256 hash of the corresponding file
+        at the destination and replace any files that do not match.
+
+        Since Force is specified as $true, the resource will overwrite any
+        mismatching files at the destination. If Force is specified as $false,
+        the resource will throw an error instead of overwrite any files at the
+        destination.
+#>
+Configuration xArchive_ExpandArchiveChecksumAndForce_Config
+{
+    Import-DscResource -ModuleName xPSDesiredStateConfiguration
+
+    Node localhost
+    {
+        xArchive Archive1
+        {
+            Path        = 'C:\ExampleArchivePath\Archive.zip'
+            Destination = 'C:\ExampleDestinationPath\Destination'
+            Validate    = $true
+            Checksum    = 'SHA-256'
+            Force       = $true
+            Ensure      = 'Present'
+        }
+    }
+}
+
+.EXAMPLE 2
+
+
+#Requires -Module xPSDesiredStateConfiguration
+
+<#
+    .DESCRIPTION
+        Expands the archive using default file validation located at
+        'C:\ExampleArchivePath\Archive.zip' to the destination path
+        'C:\ExampleDestinationPath\Destination'.
+
+        Since Validate is specified as $true and the Checksum parameter is not
+        provided, the resource will check if the last write time of the archive
+        file matches the last write time of the corresponding file at the
+        destination and replace any files that do not match.
+
+        Since Force is specified as $true, the resource will overwrite any
+        mismatching files at the destination. If Force is specified as $false,
+        the resource will throw an error instead of overwrite any files at the
+        destination.
+#>
+Configuration xArchive_ExpandArchiveDefaultValidationAndForce_Config
+{
+    Import-DscResource -ModuleName xPSDesiredStateConfiguration
+
+    Node localhost
+    {
+        xArchive Archive2
+        {
+            Path        = 'C:\ExampleArchivePath\Archive.zip'
+            Destination = 'C:\ExampleDestinationPath\Destination'
+            Validate    = $true
+            Force       = $true
+            Ensure      = 'Present'
+        }
+    }
+}
+
+.EXAMPLE 3
+
+
+#Requires -Module xPSDesiredStateConfiguration
+
+<#
+    .DESCRIPTION
+        Expands the archive without file validation located at
+        'C:\ExampleArchivePath\Archive.zip' to the destination path
+        'C:\ExampleDestinationPath\Destination'.
+
+        The resource will only check if the expanded archive files exist at the
+        destination. No validation is performed on any existing files at the
+        destination to ensure that they match the files in the archive.
+#>
+Configuration xArchive_ExpandArchiveNoValidation_Config
+{
+    Import-DscResource -ModuleName xPSDesiredStateConfiguration
+
+    Node localhost
+    {
+        xArchive Archive3
+        {
+            Path        = 'C:\ExampleArchivePath\Archive.zip'
+            Destination = 'C:\ExampleDestinationPath\Destination'
+            Ensure      = 'Present'
+        }
+    }
+}
+
+.EXAMPLE 4
+
+
+#Requires -Module xPSDesiredStateConfiguration
+
+<#
+    .DESCRIPTION
+        This configuration expands the archive under a credential without file
+        validation located at 'C:\ExampleArchivePath\Archive.zip' to
+        the destination path 'C:\ExampleDestinationPath\Destination'.
+
+        The added specification of a Credential here allows you to provide the
+        credential of a user to provide the resource access to the archive and
+        destination paths.
+
+        The resource will only check if the expanded archive files exist at the
+        destination. No validation is performed on any existing files at the
+        destination to ensure that they match the files in the archive.
+#>
+Configuration xArchive_ExpandArchiveNoValidationCredential_Config
+{
+    param
+    (
+        [Parameter(Mandatory = $true)]
+        [System.Management.Automation.PSCredential]
+        [System.Management.Automation.Credential()]
+        $Credential
+    )
+
+    Import-DscResource -ModuleName xPSDesiredStateConfiguration
+
+    Node localhost
+    {
+        xArchive Archive4
+        {
+            Path        = 'C:\ExampleArchivePath\Archive.zip'
+            Destination = 'C:\ExampleDestinationPath\Destination'
+            Credential  = $Credential
+            Ensure      = 'Present'
+        }
+    }
+}
+
+.EXAMPLE 5
+
+
+#Requires -Module xPSDesiredStateConfiguration
+
+<#
+    .DESCRIPTION
+        This configuration removes an archive with SHA-256 file validation located at
+        'C:\ExampleArchivePath\Archive.zip' from the destination path
+        'C:\ExampleDestinationPath\Destination'.
+
+        Since Validate is specified as $true and the Checksum parameter is
+        specified as SHA-256, the resource will check if the SHA-256 hash of the
+        file in the archive matches the SHA-256 hash of the corresponding file
+        at the destination and will not remove any files that do not match.
+#>
+Configuration xArchive_RemoveArchiveChecksum_Config
+{
+    Import-DscResource -ModuleName xPSDesiredStateConfiguration
+
+    Node localhost
+    {
+        xArchive Archive5
+        {
+            Path        = 'C:\ExampleArchivePath\Archive.zip'
+            Destination = 'C:\ExampleDestinationPath\Destination'
+            Validate    = $true
+            Checksum    = 'SHA-256'
+            Ensure      = 'Absent'
+        }
+    }
+}
+
+.EXAMPLE 6
+
+
+#Requires -Module xPSDesiredStateConfiguration
+
+<#
+    .DESCRIPTION
+        This configuration removes an archive without file validation located at
+        'C:\ExampleArchivePath\Archive.zip' from the destination path
+        'C:\ExampleDestinationPath\Destination'.
+
+        The resource will only check if the expanded archive files exist at the
+        destination.
+        No validation is performed on any existing files at the destination to
+        ensure that they match the files in the archive before removing them.
+#>
+Configuration xArchive_RemoveArchiveNoValidation_Config
+{
+    Import-DscResource -ModuleName xPSDesiredStateConfiguration
+
+    Node localhost
+    {
+        xArchive Archive6
+        {
+            Path        = 'C:\ExampleArchivePath\Archive.zip'
+            Destination = 'C:\ExampleDestinationPath\Destination'
+            Ensure      = 'Absent'
+        }
+    }
+}
+

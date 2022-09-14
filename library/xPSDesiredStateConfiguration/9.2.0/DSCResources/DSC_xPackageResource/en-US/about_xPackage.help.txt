@@ -1,0 +1,448 @@
+.NAME
+    xPackage
+
+.DESCRIPTION
+    This resource installs or uninstalls a package on the host.
+
+.PARAMETER Name
+    Key - String
+    The name of the package to be added or removed.
+
+.PARAMETER ProductId
+    Key - String
+    The identifying number used to uniquely identify this package.
+
+.PARAMETER Path
+    Required - String
+    The path, URL or UNC path to the package.
+
+.PARAMETER Ensure
+    Write - String
+    Allowed values: Present, Absent
+    Indicates whether to Ensure that the package is 'Present' or 'Absent'. Defaults to 'Present'.
+
+.PARAMETER Arguments
+    Write - String
+    The arguments to be passed to the package during addition or removal. When installing MSI packages, the '/quiet' and '/norestart' arguments are automatically applied.
+
+.PARAMETER Credential
+    Write - Instance
+    The credentials to be used for mounting the UNC path (if applicable).
+
+.PARAMETER ReturnCode
+    Write - UInt32Array
+    The list of possible valid return codes for this install or removal.
+
+.PARAMETER LogPath
+    Write - String
+    The path to log the output of the MSI or EXE.
+
+.PARAMETER FileHash
+    Write - String
+    The expected hash value of the file found in the Path location.
+
+.PARAMETER HashAlgorithm
+    Write - String
+    Allowed values: SHA1, SHA256, SHA384, SHA512, MD5, RIPEMD160
+    The algorithm used to generate the FileHash value. Defaults to 'SHA256'.
+
+.PARAMETER SignerSubject
+    Write - String
+    The subject that must match the signer certificate of the digital signature. Wildcards are allowed.
+
+.PARAMETER SignerThumbprint
+    Write - String
+    The certificate thumbprint which must match the signer certificate of the digital signature.
+
+.PARAMETER ServerCertificateValidationCallback
+    Write - String
+    PowerShell code used to validate SSL certificates of HTTPS url assigned to Path.
+
+.PARAMETER InstalledCheckRegHive
+    Write - String
+    Allowed values: LocalMachine, CurrentUser
+    The hive in which to create the registry key. Defaults to 'LocalMachine'.
+
+.PARAMETER InstalledCheckRegKey
+    Write - String
+    The registry key to validate the package is installed.
+
+.PARAMETER InstalledCheckRegValueName
+    Write - String
+    The registry value name to validate the package is installed.
+
+.PARAMETER InstalledCheckRegValueData
+    Write - String
+    The registry value to validate the package is installed.
+
+.PARAMETER CreateCheckRegValue
+    Write - Boolean
+    Specifies if a registry value should be created when the packages is installed.
+
+.PARAMETER IgnoreReboot
+    Write - Boolean
+    Ignore a pending reboot if requested by package installation. The default value is $false and DSC will try to reboot the system.
+
+.PARAMETER RunAsCredential
+    Write - Instance
+    The credentials under which to run the installation.
+
+.PARAMETER PackageDescription
+    Read - String
+    The description of the identified package.
+
+.PARAMETER Publisher
+    Read - String
+    The publisher for the identified package.
+
+.PARAMETER InstalledOn
+    Read - String
+    The date that the identified package was last serviced or its install date, whichever is later.
+
+.PARAMETER Size
+    Read - UInt32
+    The size of the identified package.
+
+.PARAMETER Version
+    Read - String
+    The version number of the identified package.
+
+.PARAMETER Installed
+    Read - Boolean
+    Whether the identified package is installed.
+
+.EXAMPLE 1
+
+
+#Requires -Module xPSDesiredStateConfiguration
+
+<#
+    .DESCRIPTION
+        Configuration that installs an .exe using credentials, and uses another
+        set of credentials to access the installer. Also uses custom registry
+        data to discover the package.
+
+    .PARAMETER PackageName
+        The name of the package to install.
+
+    .PARAMETER Path
+        The path to the executable to install.
+
+    .PARAMETER Arguments
+        The command line arguments passed on the installation command line.
+        When installing MSI packages, the `/quiet` and `/norestart` arguments
+        are automatically applied.
+
+    .PARAMETER ProductId
+        The product identification number of the package (usually a GUID).
+        This parameter accepts an empty System.String.
+
+    .PARAMETER InstalledCheckRegKey
+        That path in the registry where the value should be created.
+
+    .PARAMETER InstalledCheckRegValueName
+        The name of the registry value to create.
+
+    .PARAMETER InstalledCheckRegValueData
+        The data that should be set to the registry value.
+
+    .PARAMETER Credential
+        The credential to access the executable in the parameter Path.
+
+    .PARAMETER RunAsCredential
+        The credentials used to install the package on the target node.
+
+    .NOTES
+        The reg key and value is created by xPackage.
+
+    .EXAMPLE
+        $configurationParameters = @{
+            PackageName = 'Package Name'
+            Path = '\\software\installer.exe'
+            InstalledCheckRegKey = 'SOFTWARE\Microsoft\DevDiv\winexpress\Servicing\12.0\coremsi'
+            InstalledCheckRegValueName = 'Install'
+            InstalledCheckRegValueData = '1'
+            CreateCheckRegValue = $true
+            Credential = (Get-Credential)
+            RunAsCredential = (Get-Credential)
+            Arguments = '/q'
+            ProductId = ''
+        }
+        xPackage_InstallExeUsingCredentialsAndRegistry_Config @configurationParameters
+
+        Compiles a configuration that installs a package named 'Package Name'
+        located in the path '\\software\installer.exe', using the arguments '/q',
+        The executable is accessed using the credentials in parameter Credentials,
+        and installed using the credential in RunAsCredential parameter.
+        Also uses custom registry data to discover the package.
+#>
+Configuration xPackage_InstallExeUsingCredentialsAndRegistry_Config
+{
+    param
+    (
+        [Parameter(Mandatory = $true)]
+        [ValidateNotNullOrEmpty()]
+        [System.String]
+        $PackageName,
+
+        [Parameter(Mandatory = $true)]
+        [ValidateNotNullOrEmpty()]
+        [System.String]
+        $Path,
+
+        [Parameter(Mandatory = $true)]
+        [ValidateNotNull()]
+        [System.String]
+        $ProductId,
+
+        [Parameter(Mandatory = $true)]
+        [ValidateNotNullOrEmpty()]
+        [System.String]
+        $InstalledCheckRegKey,
+
+        [Parameter(Mandatory = $true)]
+        [ValidateNotNullOrEmpty()]
+        [System.String]
+        $InstalledCheckRegValueName,
+
+        [Parameter(Mandatory = $true)]
+        [ValidateNotNullOrEmpty()]
+        [System.String]
+        $InstalledCheckRegValueData,
+
+        [Parameter(Mandatory = $true)]
+        [ValidateNotNullOrEmpty()]
+        [System.Management.Automation.PSCredential]
+        $Credential,
+
+        [Parameter(Mandatory = $true)]
+        [ValidateNotNullOrEmpty()]
+        [System.Management.Automation.PSCredential]
+        $RunAsCredential,
+
+        [Parameter(Mandatory = $true)]
+        [ValidateNotNull()]
+        [System.String]
+        $Arguments
+    )
+
+    Import-DscResource -ModuleName xPSDesiredStateConfiguration
+
+    Node localhost
+    {
+        xPackage InstallExe
+        {
+            Ensure                     = 'Present'
+            Name                       = $PackageName
+            Path                       = $Path
+            Arguments                  = $Arguments
+            RunAsCredential            = $RunAsCredential
+            Credential                 = $Credential
+            ProductId                  = $ProductId
+            CreateCheckRegValue        = $true
+            InstalledCheckRegKey       = $InstalledCheckRegKey
+            InstalledCheckRegValueName = $InstalledCheckRegValueName
+            InstalledCheckRegValueData = $InstalledCheckRegValueData
+        }
+    }
+}
+
+.EXAMPLE 2
+
+
+#Requires -Module xPSDesiredStateConfiguration
+
+<#
+    .DESCRIPTION
+        Configuration that installs an .exe using credentials, and uses another
+        set of credentials to access the installer.
+
+    .PARAMETER PackageName
+        The name of the package to install.
+
+    .PARAMETER Path
+        The path to the executable to install.
+
+    .PARAMETER ProductId
+        The product identification number of the package (usually a GUID).
+        This parameter accepts an empty System.String.
+
+    .PARAMETER Credential
+        The credential to access the executable in the parameter Path.
+
+    .PARAMETER RunAsCredential
+        The credentials used to install the package on the target node.
+
+    .EXAMPLE
+        xPackage_InstallExeUsingCredentials_Config -PackageName 'Package Name' -Path '\\software\installer.exe' -ProductId '' -Credential (Get-Credential) -RunAsCredential (Get-Credential)
+
+        Compiles a configuration that installs a package named 'Package Name'
+        located in the path '\\software\installer.exe' that is access using
+        the credentials in parameter Credentials, and installed using the
+        credential in RunAsCredential parameter.
+#>
+Configuration xPackage_InstallExeUsingCredentials_Config
+{
+    param
+    (
+        [Parameter(Mandatory = $true)]
+        [ValidateNotNullOrEmpty()]
+        [System.String]
+        $PackageName,
+
+        [Parameter(Mandatory = $true)]
+        [ValidateNotNullOrEmpty()]
+        [System.String]
+        $Path,
+
+        [Parameter(Mandatory = $true)]
+        [ValidateNotNullOrEmpty()]
+        [System.String]
+        $ProductId,
+
+        [Parameter(Mandatory = $true)]
+        [ValidateNotNullOrEmpty()]
+        [System.Management.Automation.PSCredential]
+        $Credential,
+
+        [Parameter(Mandatory = $true)]
+        [ValidateNotNullOrEmpty()]
+        [System.Management.Automation.PSCredential]
+        $RunAsCredential
+    )
+
+
+    Import-DscResource -ModuleName xPSDesiredStateConfiguration
+
+    Node localhost
+    {
+        xPackage InstallExe
+        {
+            Ensure          = 'Present'
+            Name            = $PackageName
+            Path            = $Path
+            RunAsCredential = $RunAsCredential
+            Credential      = $Credential
+            ProductId       = $ProductId
+        }
+    }
+}
+
+.EXAMPLE 3
+
+
+#Requires -Module xPSDesiredStateConfiguration
+
+<#
+    .DESCRIPTION
+        Configuration that installs an .msi that matches via the Name.
+
+    .PARAMETER PackageName
+        The name of the package to install.
+
+    .PARAMETER Path
+        The path to the executable to install.
+
+    .PARAMETER IgnoreReboot
+        Ignore a pending reboot if requested by package installation.
+
+    .EXAMPLE
+        xPackage_InstallMsi_Config -PackageName 'Package Name' -Path '\\software\installer.msi'
+
+        Compiles a configuration that installs a package named 'Package Name'
+        located in the path '\\software\installer.msi'. Ignore a pending reboot
+        if `IgnoreReboot` switch is provided.
+#>
+Configuration xPackage_InstallMsi_Config
+{
+    param
+    (
+        [parameter(Mandatory = $true)]
+        [ValidateNotNullOrEmpty()]
+        [System.String]
+        $PackageName,
+
+        [parameter(Mandatory = $true)]
+        [ValidateNotNullOrEmpty()]
+        [System.String]
+        $Path,
+
+        [Switch]
+        $IgnoreReboot
+    )
+
+    Import-DscResource -ModuleName xPSDesiredStateConfiguration
+
+    Node localhost
+    {
+        xPackage InstallMsi
+        {
+            Ensure       = 'Present'
+            Name         = $PackageName
+            Path         = $Path
+            ProductId    = ''
+            IgnoreReboot = $IgnoreReboot
+        }
+    }
+}
+
+.EXAMPLE 4
+
+
+#Requires -Module xPSDesiredStateConfiguration
+
+<#
+    .DESCRIPTION
+        Configuration that installs an .msi and matches based on the product id.
+
+    .PARAMETER PackageName
+        The name of the package to install.
+
+    .PARAMETER Path
+        The path to the executable to install.
+
+    .PARAMETER ProductId
+        The product identification number of the package (usually a GUID).
+        This parameter accepts an empty System.String.
+
+    .EXAMPLE
+        xPackage_InstallMsi_Config -PackageName 'Package Name' -Path '\\software\installer.msi' -ProductId '{F06FB2D7-C22C-4987-9545-7C3B15BBBD60}'
+
+        Compiles a configuration that installs a package named 'Package Name'
+        located in the path '\\software\installer.msi', witht he product
+        identification number '{F06FB2D7-C22C-4987-9545-7C3B15BBBD60}'.
+#>
+Configuration xPackage_InstallMsiUsingProductId_Config
+{
+    param
+    (
+        [Parameter(Mandatory = $true)]
+        [ValidateNotNullOrEmpty()]
+        [System.String]
+        $PackageName,
+
+        [Parameter(Mandatory = $true)]
+        [ValidateNotNullOrEmpty()]
+        [System.String]
+        $Path,
+
+        [Parameter(Mandatory = $true)]
+        [ValidateNotNullOrEmpty()]
+        [System.String]
+        $ProductId
+    )
+
+    Import-DscResource -ModuleName xPSDesiredStateConfiguration
+
+    Node localhost
+    {
+        xPackage InstallMsi
+        {
+            Ensure    = "Present"
+            Name      = $PackageName
+            Path      = $Path
+            ProductId = $ProductId
+        }
+    }
+}
+

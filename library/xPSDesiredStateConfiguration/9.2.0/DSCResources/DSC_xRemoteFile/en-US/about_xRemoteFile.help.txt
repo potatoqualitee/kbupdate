@@ -1,0 +1,332 @@
+.NAME
+    xRemoteFile
+
+.DESCRIPTION
+    This resource downloads a remote file to the local machine.
+
+.PARAMETER DestinationPath
+    Key - String
+    Path under which downloaded or copied file should be accessible after operation.
+
+.PARAMETER Uri
+    Required - String
+    URI of the file which should be downloaded. It must be a HTTP, HTTPS or FILE resource.
+
+.PARAMETER UserAgent
+    Write - String
+    User agent for the web request.
+
+.PARAMETER Headers
+    Write - InstanceArray
+    Headers of the web request.
+
+.PARAMETER Credential
+    Write - Instance
+    Specifies credential of a user which has permissions to send the request.
+
+.PARAMETER MatchSource
+    Write - Boolean
+    Determines whether the remote file should be re-downloaded if file in the DestinationPath was modified locally. The default value is true.
+
+.PARAMETER ChecksumType
+    Write - String
+    Allowed values: None, SHA1, SHA256, SHA384, SHA512, MACTripleDES, MD5, RIPEMD160
+    Specifies the algorithm used to calculate the checksum of the file.
+
+.PARAMETER Checksum
+    Write - String
+    Specifies the expected checksum value of downloaded file.
+
+.PARAMETER TimeoutSec
+    Write - UInt32
+    Specifies how long the request can be pending before it times out.
+
+.PARAMETER Proxy
+    Write - String
+    Uses a proxy server for the request, rather than connecting directly to the Internet resource. Should be the URI of a network proxy server (e.g 'http://10.20.30.1').
+
+.PARAMETER ProxyCredential
+    Write - Instance
+    Specifies a user account that has permission to use the proxy server that is specified by the Proxy parameter.
+
+.PARAMETER Ensure
+    Read - String
+    Allowed values: Present, Absent
+    Returns whether the destination path exists on the machine.
+
+.EXAMPLE 1
+
+
+#Requires -Module xPSDesiredStateConfiguration
+
+<#
+    .DESCRIPTION
+        Configuration that downloads a file.
+
+    .PARAMETER DestinationPath
+        The path where the remote file should be downloaded
+
+    .PARAMETER Uri
+        The URI of the file which should be downloaded. It must be a HTTP, HTTPS
+        or FILE resource.
+
+    .PARAMETER UserAgent
+        The user agent string for the web request.
+
+    .PARAMETER Headers
+        The headers of the web request.
+
+    .EXAMPLE
+        xRemoteFile_DownloadFile_Config -DestinationPath "$env:SystemDrive\fileName.jpg" -Uri 'http://www.contoso.com/image.jpg' -UserAgent [Microsoft.PowerShell.Commands.PSUserAgent]::InternetExplorer -Headers @{'Accept-Language' = 'en-US'}
+
+        Compiles a configuration that downloads the file 'http://www.contoso.com/image.jpg'
+        to the local file "$env:SystemDrive\fileName.jpg".
+
+    .EXAMPLE
+        $configurationParameters = @{
+            DestinationPath = "$env:SystemDrive\fileName.jpg"
+            Uri = 'http://www.contoso.com/image.jpg'
+            UserAgent = [Microsoft.PowerShell.Commands.PSUserAgent]::InternetExplorer
+            Headers = @{
+                'Accept-Language' = 'en-US'
+            }
+        }
+        Start-AzureRmAutomationDscCompilationJob -ResourceGroupName '<resource-group>' -AutomationAccountName '<automation-account>' -ConfigurationName 'xRemoteFile_DownloadFileConfig' -Parameters $configurationParameters
+
+        Compiles a configuration in Azure Automation that downloads the file
+        'http://www.contoso.com/image.jpg' to the local file
+        "$env:SystemDrive\fileName.jpg".
+
+        Replace the <resource-group> and <automation-account> with correct values.
+#>
+configuration xRemoteFile_DownloadFile_Config
+{
+    param
+    (
+        [Parameter(Mandatory = $true)]
+        [ValidateNotNullOrEmpty()]
+        [System.String]
+        $DestinationPath,
+
+        [Parameter(Mandatory = $true)]
+        [ValidateNotNullOrEmpty()]
+        [System.String]
+        $Uri,
+
+        [Parameter()]
+        [System.String]
+        $UserAgent,
+
+        [Parameter()]
+        [System.Collections.Hashtable]
+        $Headers
+    )
+
+    Import-DscResource -ModuleName xPSDesiredStateConfiguration
+
+    Node localhost
+    {
+        xRemoteFile DownloadFile
+        {
+            DestinationPath = $DestinationPath
+            Uri             = $Uri
+            UserAgent       = $UserAgent
+            Headers         = $Headers
+        }
+    }
+}
+
+.EXAMPLE 2
+
+
+#Requires -Module xPSDesiredStateConfiguration
+
+<#
+    .DESCRIPTION
+        Configuration that downloads a file using proxy.
+
+    .PARAMETER DestinationPath
+        The path where the remote file should be downloaded
+
+    .PARAMETER Uri
+        The URI of the file which should be downloaded. It must be a HTTP, HTTPS
+        or FILE resource.
+
+    .PARAMETER UserAgent
+        The user agent string for the web request.
+
+    .PARAMETER Headers
+        The headers of the web request.
+
+    .PARAMETER Proxy
+        The proxy server for the request, rather than connecting directly to the
+        Internet resource. Should be the URI of a network proxy server (e.g
+        'http://10.20.30.1').
+
+    .EXAMPLE
+        xRemoteFile_DownloadFileUsingProxy_Config -DestinationPath "$env:SystemDrive\fileName.jpg" -Uri 'http://www.contoso.com/image.jpg' -UserAgent [Microsoft.PowerShell.Commands.PSUserAgent]::InternetExplorer -Headers @{'Accept-Language' = 'en-US'} -Proxy 'http://10.22.93.1'
+
+        Compiles a configuration that downloads the file 'http://www.contoso.com/image.jpg',
+        using proxy 'http://10.22.93.1', to the local file "$env:SystemDrive\fileName.jpg".
+
+    .EXAMPLE
+        $configurationParameters = @{
+            DestinationPath = "$env:SystemDrive\fileName.jpg"
+            Uri = 'http://www.contoso.com/image.jpg'
+            UserAgent = [Microsoft.PowerShell.Commands.PSUserAgent]::InternetExplorer
+            Headers = @{
+                'Accept-Language' = 'en-US'
+            }
+            Proxy = 'http://10.22.93.1'
+        }
+        Start-AzureRmAutomationDscCompilationJob -ResourceGroupName '<resource-group>' -AutomationAccountName '<automation-account>' -ConfigurationName 'xRemoteFile_DownloadFileUsingProxyConfig' -Parameters $configurationParameters
+
+        Compiles a configuration in Azure Automation that downloads the file
+        'http://www.contoso.com/image.jpg', using proxy 'http://10.22.93.1', to
+        the local file "$env:SystemDrive\fileName.jpg".
+
+        Replace the <resource-group> and <automation-account> with correct values.
+#>
+configuration xRemoteFile_DownloadFileUsingProxy_Config
+{
+    param
+    (
+        [Parameter(Mandatory = $true)]
+        [ValidateNotNullOrEmpty()]
+        [System.String]
+        $DestinationPath,
+
+        [Parameter(Mandatory = $true)]
+        [ValidateNotNullOrEmpty()]
+        [System.String]
+        $Uri,
+
+        [Parameter()]
+        [System.String]
+        $UserAgent,
+
+        [Parameter()]
+        [System.Collections.Hashtable]
+        $Headers,
+
+        [Parameter(Mandatory = $true)]
+        [System.String]
+        $Proxy
+    )
+
+    Import-DscResource -ModuleName xPSDesiredStateConfiguration
+
+    Node localhost
+    {
+        xRemoteFile DownloadFileUsingProxy
+        {
+            DestinationPath = $DestinationPath
+            Uri             = $Uri
+            UserAgent       = $UserAgent
+            Headers         = $Headers
+            Proxy           = $Proxy
+        }
+    }
+}
+
+.EXAMPLE 3
+
+
+#Requires -Module xPSDesiredStateConfiguration
+
+<#
+    .DESCRIPTION
+        Configuration that downloads a file.
+
+    .PARAMETER DestinationPath
+        The path where the remote file should be downloaded
+
+    .PARAMETER Uri
+        The URI of the file which should be downloaded. It must be a HTTP, HTTPS
+        or FILE resource.
+
+    .PARAMETER UserAgent
+        The user agent string for the web request.
+
+    .PARAMETER Headers
+        The headers of the web request.
+
+    .PARAMETER Checksum
+        Specifies the expected checksum value of downloaded file.
+
+    .PARAMETER ChecksumType
+        The algorithm used to calculate the checksum of the file.
+
+    .EXAMPLE
+        xRemoteFile_DownloadFileWithChecksum_Config -DestinationPath "$env:SystemDrive\fileName.jpg" -Uri 'http://www.contoso.com/image.jpg' -UserAgent [Microsoft.PowerShell.Commands.PSUserAgent]::InternetExplorer -Headers @{'Accept-Language' = 'en-US'} -ChecksumType MD5 -Checksum '31C1D431BBEB65E66113A8EBB06630DC'
+
+        Compiles a configuration that downloads the file 'http://www.contoso.com/image.jpg'
+        to the local file "$env:SystemDrive\fileName.jpg" and verifies the file against specified checksum.
+
+    .EXAMPLE
+        $configurationParameters = @{
+            DestinationPath = "$env:SystemDrive\fileName.jpg"
+            Uri = 'http://www.contoso.com/image.jpg'
+            UserAgent = [Microsoft.PowerShell.Commands.PSUserAgent]::InternetExplorer
+            Headers = @{
+                'Accept-Language' = 'en-US'
+            }
+            ChecksumType = 'MD5'
+            Checksum = '31C1D431BBEB65E66113A8EBB06630DC'
+        }
+        Start-AzureRmAutomationDscCompilationJob -ResourceGroupName '<resource-group>' -AutomationAccountName '<automation-account>' -ConfigurationName 'xRemoteFile_DownloadFileWithChecksumConfig' -Parameters $configurationParameters
+
+        Compiles a configuration in Azure Automation that downloads the file
+        'http://www.contoso.com/image.jpg' to the local file
+        "$env:SystemDrive\fileName.jpg" and verifies the file against specified checksum..
+
+        Replace the <resource-group> and <automation-account> with correct values.
+#>
+Configuration xRemoteFile_DownloadFileWithChecksum_Config
+{
+    param
+    (
+        [Parameter(Mandatory = $true)]
+        [ValidateNotNullOrEmpty()]
+        [System.String]
+        $DestinationPath,
+
+        [Parameter(Mandatory = $true)]
+        [ValidateNotNullOrEmpty()]
+        [System.String]
+        $Uri,
+
+        [Parameter()]
+        [System.String]
+        $UserAgent,
+
+        [Parameter()]
+        [System.Collections.Hashtable]
+        $Headers,
+
+        [Parameter()]
+        [System.String]
+        [ValidateSet('None', 'SHA1', 'SHA256', 'SHA384', 'SHA512', 'MACTripleDES', 'MD5', 'RIPEMD160')]
+        $ChecksumType = 'None',
+
+        [Parameter()]
+        [System.String]
+        $Checksum
+    )
+
+    Import-DscResource -ModuleName xPSDesiredStateConfiguration
+
+    Node localhost
+    {
+        xRemoteFile DownloadFileWithChecksum
+        {
+            DestinationPath = $DestinationPath
+            Uri             = $Uri
+            UserAgent       = $UserAgent
+            Headers         = $Headers
+            ChecksumType    = $ChecksumType
+            Checksum        = $checksum
+        }
+    }
+}
+

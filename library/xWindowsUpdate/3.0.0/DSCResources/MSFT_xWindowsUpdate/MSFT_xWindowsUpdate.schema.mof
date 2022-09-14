@@ -1,0 +1,11 @@
+[ClassVersion("1.0.0.0"), FriendlyName("xHotfix")]
+class MSFT_xWindowsUpdate : OMI_BaseResource
+{
+    // We can have multiple versions of an update for a single ID, the identifier
+    // is in the file, therefore the file path should be the key.
+    [Key, Description("Specifies the path that contains the file for the hotfix installation.")] String Path;
+    [Required, Description("Specifies the hotfix ID of the Windows update that uniquely identifies the hotfix.")] String Id;
+    [Write, Description("Specifies the location of the log that contains information from the install or uninstall. If not specified a temporary log name is created by the resource.")] String Log;
+    [Write, Description("Specifies whether the hotfix should be installed or uninstalled."), ValueMap{"Present","Absent"}, Values{"Present","Absent"}] String Ensure;
+    [write, Description("Specifies the credential to use to authenticate to a UNC share if the path is on a UNC share."),EmbeddedInstance("MSFT_Credential")] String Credential;
+};

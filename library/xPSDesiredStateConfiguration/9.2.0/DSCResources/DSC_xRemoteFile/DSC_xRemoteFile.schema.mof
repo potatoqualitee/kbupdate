@@ -1,0 +1,16 @@
+[ClassVersion("1.0.0.0"), FriendlyName("xRemoteFile")]
+class DSC_xRemoteFile : OMI_BaseResource
+{
+    [Key, Description("Path under which downloaded or copied file should be accessible after operation.")] String DestinationPath;
+    [Required, Description("URI of the file which should be downloaded. It must be a HTTP, HTTPS or FILE resource.")] String Uri;
+    [Write, Description("User agent for the web request.")] String UserAgent;
+    [Write, Description("Headers of the web request."), EmbeddedInstance("MSFT_KeyValuePair")] String Headers[];
+    [Write, Description("Specifies credential of a user which has permissions to send the request."), EmbeddedInstance("MSFT_Credential")] String Credential;
+    [Write, Description("Determines whether the remote file should be re-downloaded if file in the DestinationPath was modified locally. The default value is true.")] Boolean MatchSource;
+    [Write, Description("Specifies the algorithm used to calculate the checksum of the file."), ValueMap{"None","SHA1","SHA256","SHA384","SHA512","MACTripleDES","MD5","RIPEMD160"}, Values{"None","SHA1","SHA256","SHA384","SHA512","MACTripleDES","MD5","RIPEMD160"}] String ChecksumType;
+    [Write, Description("Specifies the expected checksum value of downloaded file.")] String Checksum;
+    [Write, Description("Specifies how long the request can be pending before it times out.")] Uint32 TimeoutSec;
+    [Write, Description("Uses a proxy server for the request, rather than connecting directly to the Internet resource. Should be the URI of a network proxy server (e.g 'http://10.20.30.1').")] String Proxy;
+    [Write, Description("Specifies a user account that has permission to use the proxy server that is specified by the Proxy parameter."), EmbeddedInstance("MSFT_Credential")] String ProxyCredential;
+    [Read, Description("Returns whether the destination path exists on the machine."), ValueMap{"Present", "Absent"}, Values{"Present", "Absent"}] String Ensure;
+};

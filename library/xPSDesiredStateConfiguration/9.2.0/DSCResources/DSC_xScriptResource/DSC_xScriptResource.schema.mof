@@ -1,0 +1,10 @@
+
+[ClassVersion("1.0.0"),FriendlyName("xScript")]
+class DSC_xScriptResource : OMI_BaseResource
+{
+  [Key, Description("A string that can be used to create a PowerShell script block that retrieves the current state of the resource. This script block runs when the Get-DscConfiguration cmdlet is called. This script block should return a hash table containing one key named Result with a string value.")] String GetScript;
+  [Key, Description("A string that can be used to create a PowerShell script block that sets the resource to the desired state. This script block runs conditionally when the Start-DscConfiguration cmdlet is called. The TestScript script block will run first. If the TestScript block returns False, this script block will run. If the TestScript block returns True, this script block will not run. This script block should not return.")] String SetScript;
+  [Key, Description("A string that can be used to create a PowerShell script block that validates whether or not the resource is in the desired state. This script block runs when the Start-DscConfiguration cmdlet is called or when the Test-DscConfiguration cmdlet is called. This script block should return a boolean with True meaning that the resource is in the desired state and False meaning that the resource is not in the desired state.")] String TestScript;
+  [Write, Description("The credential of the user account to run the script under if needed."), EmbeddedInstance("MSFT_Credential")] String Credential;
+  [Read, Description("The result from the GetScript script block.")] String Result;
+};

@@ -1,0 +1,15 @@
+
+[ClassVersion("1.0.0.0"), FriendlyName("xWindowsUpdateAgent")]
+class MSFT_xWindowsUpdateAgent : OMI_BaseResource
+{
+    [Key, Description("Specifies the resource is a single instance, the value must be 'Yes'"), ValueMap{"Yes"}, Values{"Yes"}] String IsSingleInstance;
+    [Write, Description("Specifies one or more categories of updates that should be included. Defaults to `'Security'`."), ValueMap{"Security","Important","Optional"}, Values{"Security","Important","Optional"}] String Category[];
+    [Write, Description("Specifies if the Windows update agent should notify about updates."), ValueMap{"Disabled","ScheduledInstallation"}, Values{"Disabled","ScheduledInstallation"}] String Notifications;
+    [Required, Description("Specifies which source service Windows update agent should use. Note that the option 'WSUS' is currently reserved for future use and not yet implemented."), ValueMap{"WindowsUpdate","MicrosoftUpdate","WSUS"}, Values{"WindowsUpdate","MicrosoftUpdate","WSUS"}] String Source;
+    [Write, Description("Specifies if the resource should trigger an update during consistency check including initial configuration..")] Boolean UpdateNow;
+    [Write, Description("Specifies the number of retries when some known transient errors are raised during calls to Windows Update. Defaults to 3. Known transient errors are 0x8024402c, 0x8024401c, 0x80244022, and 0x80244010.")] SInt32 RetryAttempts;
+    [Write, Description("Specifies the delay in seconds before each retry. Defaults to 0.")] SInt32 RetryDelay;
+    [Read, Description("Automatic Updates Notification Setting.")] String AutomaticUpdatesNotificationSetting;
+    [Read, Description("Count of updates not installed. Only returned if UpdateNow is specified.")] UInt32 TotalUpdatesNotInstalled;
+    [Read, Description("Indicates if Wua Requires a reboot. Only returned if UpdateNow is specified.")] Boolean RebootRequired;
+};

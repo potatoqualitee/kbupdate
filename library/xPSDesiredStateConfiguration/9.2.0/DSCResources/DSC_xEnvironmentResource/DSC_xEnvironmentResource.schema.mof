@@ -1,0 +1,9 @@
+[ClassVersion("1.0.0"), FriendlyName("xEnvironment")]
+class DSC_xEnvironmentResource : OMI_BaseResource
+{
+  [Key, Description("The name of the environment variable for which you want to ensure a specific state.")] String Name;
+  [Write, Description("The desired value for the environment variable. The default value is an empty string which either indicates that the variable should be removed entirely or that the value does not matter when testing its existence. Multiple entries can be entered and separated by semicolons.")] String Value;
+  [Write, Description("Specifies if the environment variable should exist."), ValueMap{"Present", "Absent"}, Values{"Present", "Absent"}] String Ensure;
+  [Write, Description("Indicates whether or not the environment variable is a path variable. If the variable being configured is a path variable, the value provided will be appended to or removed from the existing value, otherwise the existing value will be replaced by the new value. When configured as a Path variable, multiple entries separated by semicolons are ensured to be either present or absent without affecting other Path entries.")] Boolean Path;
+  [Write, Description("Indicates the target where the environment variable should be set."), ValueMap{"Process", "Machine"}, Values{"Process", "Machine"}] String Target[];
+};

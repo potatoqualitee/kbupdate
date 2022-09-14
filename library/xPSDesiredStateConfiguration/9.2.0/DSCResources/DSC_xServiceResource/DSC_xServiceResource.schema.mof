@@ -1,0 +1,19 @@
+
+[ClassVersion("1.0.0"),FriendlyName("xService")]
+class DSC_xServiceResource : OMI_BaseResource
+{
+  [Key, Description("Indicates the service name. Note that sometimes this is different from the display name. You can get a list of the services and their current state with the Get-Service cmdlet.")] String Name;
+  [Write, Description("Ensures that the service is present or absent. Defaults to Present."), ValueMap{"Present", "Absent"}, Values{"Present", "Absent"}] String Ensure;
+  [Write, Description("The path to the service executable file. Required when creating a service. The user account specified by BuiltInAccount or Credential must have access to this path in order to start the service.")] String Path;
+  [Write, Description("Indicates the startup type for the service. If StartupType is 'Disabled' and Service is not installed the resource will complete as being DSC compliant."), ValueMap{"Automatic", "Manual", "Disabled"}, Values{"Automatic", "Manual", "Disabled"}] String StartupType;
+  [Write, Description("Indicates the state you want to ensure for the service. Defaults to 'Running'."), ValueMap{"Running", "Stopped", "Ignore"}, Values{"Running", "Stopped", "Ignore"}] String State;
+  [Write, Description("The built-in account the service should start under. Cannot be specified at the same time as Credential or GroupManagedServiceAccount. The user account specified by this property must have access to the service executable path defined by Path in order to start the service."), ValueMap{"LocalSystem", "LocalService", "NetworkService"}, Values{"LocalSystem", "LocalService", "NetworkService"}] String BuiltInAccount;
+  [Write, Description("The Group Managed Service Account the service should start under. Cannot be specified at the same time as Credential or BuiltinAccount. The user account specified by this property must have access to the service executable path defined by Path in order to start the service. When specified in a DOMAIN\\User$ form, remember to also input the trailing dollar sign.")] String GroupManagedServiceAccount;
+  [Write, Description("The credential of the user account the service should start under. Cannot be specified at the same time as BuiltInAccount or GroupManagedServiceAccount. The user specified by this credential will automatically be granted the Log on as a Service right. The user account specified by this property must have access to the service executable path defined by Path in order to start the service."),EmbeddedInstance("MSFT_Credential")] String Credential;
+  [Write, Description("Indicates whether or not the service should be able to communicate with a window on the desktop. Must be false for services not running as LocalSystem. The default value is False.")] Boolean DesktopInteract;
+  [Write, Description("The display name of the service.")] String DisplayName;
+  [Write, Description("The description of the service.")] String Description;
+  [Write, Description("An array of strings indicating the names of the dependencies of the service.")] String Dependencies[];
+  [Write, Description("The time to wait for the service to start in milliseconds. Defaults to 30000 (30 seconds).")] uint32 StartupTimeout;
+  [Write, Description("The time to wait for the service to stop in milliseconds. Defaults to 30000 (30 seconds).")] uint32 TerminateTimeout;
+};

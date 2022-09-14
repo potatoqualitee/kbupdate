@@ -1,0 +1,13 @@
+[Description("Provides a mechanism to manage local users on a target node.") : Amended,AMENDMENT, LOCALE("MS_409")]
+class DSC_xUserResource : OMI_BaseResource
+{
+  [Key, Description("Indicates the account name for which you want to ensure a specific state.") : Amended] String UserName;
+  [Write, Description("Specified if the user account is present or absent."), ValueMap{"Present", "Absent"}, Values{"Present", "Absent"}] String Ensure;
+  [Write, Description("The full name of the user account.") : Amended] String FullName;
+  [Write, Description("Indicates the description you want to use for the user account.") : Amended] String Description;
+  [Write, Description("Indicates the password you want to use for this account."), (EmbeddedInstance("MSFT_Credential") : Amended] String Password;
+  [Write, Description("Indicates if the account is enabled. Set this property to $true to ensure that this account is disabled, and set it to $false to ensure that it is enabled. Defaults to $false.") : Amended] Boolean Disabled;
+  [Write, Description("Indicates if the password will expire. To ensure that the password for this account will never expire, set this property to $true, and set it to $false if the password will expire.") : Amended] Boolean PasswordNeverExpires;
+  [Write, Description("Indicates if the user must change the password at the next sign in. Set this property to $true if the user must change the password.") : Amended] Boolean PasswordChangeRequired;
+  [Write, Description("Indicates if the user can change the password. Set this property to $true to ensure that the user cannot change the password, and set it to $false to allow the user to change the password.") : Amended] Boolean PasswordChangeNotAllowed;
+};

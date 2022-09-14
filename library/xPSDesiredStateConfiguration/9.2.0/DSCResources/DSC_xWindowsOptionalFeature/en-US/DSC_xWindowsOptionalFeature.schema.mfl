@@ -1,0 +1,13 @@
+[Description("This resource is used to enable and disable Windows optional features.") : Amended,AMENDMENT, LOCALE("MS_409")]
+class DSC_xWindowsOptionalFeature : OMI_BaseResource
+{
+    [Key, Description(The name of the Windows optional feature to enable or disable.")  : Amended] String Name;
+    [Description("Specifies whether the feature should be enabled or disabled. To enable the feature, set this property to Present. To disable the feature, set the property to Absent. The default value is Present.") : Amended] String Ensure;
+    [Description("Specifies that all files associated with the feature should be removed if the feature is being disabled.") : Amended] Boolean RemoveFilesOnDisable;
+    [Description("Specifies whether or not DISM contacts Windows Update (WU) when searching for the source files to enable the feature. If $true, DISM will not contact WU.") : Amended] Boolean NoWindowsUpdateCheck;
+    [Description("The maximum output level to show in the log. Accepted values are: ErrorsOnly (only errors are logged), ErrorsAndWarning (errors and warnings are logged), and ErrorsAndWarningAndInformation (errors, warnings, and debug information are logged).") : Amended] String LogLevel;
+    [Description("The path to the log file to log this operation. There is no default value, but if not set, the log will appear at %WINDIR%\\Logs\\Dism\\dism.log.") : Amended] String LogPath;
+    [Description("The custom properties retrieved from the Windows optional feature as an array of strings.") : Amended] String CustomProperties[];
+    [Description("The description retrieved from the Windows optional feature.") : Amended] String Description;
+    [Description("The display name retrieved from the Windows optional feature.") : Amended] String DisplayName;
+};

@@ -1,0 +1,237 @@
+.NAME
+    xMsiPackage
+
+.DESCRIPTION
+    Provides a mechanism to install and uninstall .msi packages.
+
+.PARAMETER ProductId
+    Key - String
+    The identifying number used to find the package, usually a GUID.
+
+.PARAMETER Path
+    Required - String
+    The path to the MSI file that should be installed or uninstalled.
+
+.PARAMETER Ensure
+    Write - String
+    Allowed values: Present, Absent
+    Specifies whether or not the MSI file should be installed or uninstalled.
+
+.PARAMETER Arguments
+    Write - String
+    The arguments to be passed to the MSI package during installation or uninstallation.
+
+.PARAMETER Credential
+    Write - Instance
+    The credential of a user account to be used to mount a UNC path if needed.
+
+.PARAMETER LogPath
+    Write - String
+    The path to the log file to log the output from the MSI execution.
+
+.PARAMETER FileHash
+    Write - String
+    The expected hash value of the MSI file at the given path.
+
+.PARAMETER HashAlgorithm
+    Write - String
+    Allowed values: SHA1, SHA256, SHA384, SHA512, MD5, RIPEMD160
+    The algorithm used to generate the given hash value.
+
+.PARAMETER SignerSubject
+    Write - String
+    The subject that should match the signer certificate of the digital signature of the MSI file.
+
+.PARAMETER SignerThumbprint
+    Write - String
+    The certificate thumbprint that should match the signer certificate of the digital signature of the MSI file.
+
+.PARAMETER ServerCertificateValidationCallback
+    Write - String
+    PowerShell code that should be used to validate SSL certificates for paths using HTTPS.
+
+.PARAMETER IgnoreReboot
+    Write - Boolean
+    Ignore a pending reboot if requested by package installation.
+
+.PARAMETER RunAsCredential
+    Write - Instance
+    The credential of a user account under which to run the installation or uninstallation of the MSI package.
+
+.PARAMETER Name
+    Read - String
+    The display name of the MSI package.
+
+.PARAMETER InstallSource
+    Read - String
+    The path to the MSI package.
+
+.PARAMETER InstalledOn
+    Read - String
+    The date that the MSI package was installed on or serviced on, whichever is later.
+
+.PARAMETER Size
+    Read - UInt32
+    The size of the MSI package in MB.
+
+.PARAMETER Version
+    Read - String
+    The version number of the MSI package.
+
+.PARAMETER PackageDescription
+    Read - String
+    The description of the MSI package.
+
+.PARAMETER Publisher
+    Read - String
+    The publisher of the MSI package.
+
+.EXAMPLE 1
+
+
+#Requires -Module xPSDesiredStateConfiguration
+
+<#
+    .DESCRIPTION
+        Configuration that install an MSI file with the specified product
+        identification number.
+
+    .PARAMETER ProductId
+        The product identification number in the format
+        '{DEADBEEF-80C6-41E6-A1B9-8BDB8A05027F}'.
+
+    .PARAMETER Path
+        The URI path. Should start with an URI scheme, e.g. 'file://', 'http://',
+        'https://'.
+
+    .NOTES
+        When using the file scheme, the MSI file with the given product
+        identification number must already exist at the specified path.
+        When using the http or https scheme, the MSI file with the given product
+        identification number must already exist on the server.
+
+        The product ID and path value in this file are provided for example
+        purposes only and will need to be replaced with valid values.
+
+        You can run the following command to get a list of all available MSI's on
+        your system with the correct Path (LocalPackage) and product ID (IdentifyingNumber):
+
+        Get-WmiObject Win32_Product | Format-Table IdentifyingNumber, Name, LocalPackage
+
+    .EXAMPLE
+        xMsiPackage_InstallPackage_Config -ProductId '{DEADBEEF-80C6-41E6-A1B9-8BDB8A05027F}' -Path 'file://Examples/example.msi'
+
+        Compiles a configuration that installs the MSI package located at
+        the path 'file://Examples/example.msi' having the product identification
+        number as '{DEADBEEF-80C6-41E6-A1B9-8BDB8A05027F}'.
+
+    .EXAMPLE
+        xMsiPackage_InstallPackage_Config -ProductId '{DEADBEEF-80C6-41E6-A1B9-8BDB8A05027F}' -Path 'http://Examples/example.msi'
+
+        Compiles a configuration that installs the MSI package located at
+        the URL 'http://Examples/example.msi' having the product identification
+        number as '{DEADBEEF-80C6-41E6-A1B9-8BDB8A05027F}'.
+#>
+Configuration xMsiPackage_InstallPackage_Config
+{
+    param
+    (
+        [Parameter(Mandatory = $true)]
+        [System.String]
+        $ProductId,
+
+        [Parameter(Mandatory = $true)]
+        [System.String]
+        $Path
+    )
+
+    Import-DscResource -ModuleName xPSDesiredStateConfiguration
+
+    Node localhost
+    {
+        xMsiPackage MsiPackage1
+        {
+            ProductId = $ProductId
+            Path      = $Path
+            Ensure    = 'Present'
+        }
+    }
+}
+
+.EXAMPLE 2
+
+
+#Requires -Module xPSDesiredStateConfiguration
+
+<#
+    .DESCRIPTION
+        Uninstalls the MSI file with the product ID: '{DEADBEEF-80C6-41E6-A1B9-8BDB8A05027F}'
+        at the path: 'file://Examples/example.msi'.
+
+    .NOTES
+        The MSI file with the given product ID must already exist at the specified
+        path.
+
+        The product ID and path value in this file are provided for example
+        purposes only and will need to be replaced with valid values.
+
+        You can run the following command to get a list of all available MSI's
+        on your system with the correct Path (LocalPackage) and product ID
+        (IdentifyingNumber):
+
+        Get-WmiObject Win32_Product | Format-Table IdentifyingNumber, Name, LocalPackage
+#>
+Configuration xMsiPackage_UninstallPackageFromFile_Config
+{
+    Import-DscResource -ModuleName xPSDesiredStateConfiguration
+
+    Node localhost
+    {
+        xMsiPackage UninstallMsiPackageFromFile
+        {
+            ProductId = '{DEADBEEF-80C6-41E6-A1B9-8BDB8A05027F}'
+            Path      = 'file://Examples/example.msi'
+            Ensure    = 'Absent'
+        }
+    }
+}
+
+.EXAMPLE 3
+
+
+#Requires -Module xPSDesiredStateConfiguration
+
+<#
+    .DESCRIPTION
+        Uninstalls the MSI file with the product ID: '{DEADBEEF-80C6-41E6-A1B9-8BDB8A05027F}'
+        at the path: 'https://Examples/example.msi'.
+
+    .NOTES
+        The MSI file with the given product ID must already exist on
+        the server.
+
+        The product ID and path value in this file are provided for
+        example purposes only and will need to be replaced with valid values.
+
+        You can run the following command to get a list of all available MSI's
+        on your system with the correct Path (LocalPackage) and product ID
+        (IdentifyingNumber):
+
+        Get-WmiObject Win32_Product | Format-Table IdentifyingNumber, Name, LocalPackage
+
+#>
+Configuration xMsiPackage_UninstallPackageFromHttps_Config
+{
+    Import-DscResource -ModuleName xPSDesiredStateConfiguration
+
+    Node localhost
+    {
+        xMsiPackage UninstallMsiPackageFromHttps
+        {
+            ProductId = '{DEADBEEF-80C6-41E6-A1B9-8BDB8A05027F}'
+            Path      = 'https://Examples/example.msi'
+            Ensure    = 'Absent'
+        }
+    }
+}
+
