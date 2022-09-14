@@ -173,7 +173,6 @@ function Install-KbUpdate {
                     $sessiontype = [type]::GetTypeFromProgID("Microsoft.Update.Session")
                     $session = [activator]::CreateInstance($sessiontype)
                     $session.ClientApplicationID = "kbupdate installer"
-                    $updateinstall = New-Object -ComObject 'Microsoft.Update.UpdateColl'
 
                     if ($InputObject.InputObject) {
                         Write-PSFMessage -Level Verbose -Message "Got an input object"
@@ -191,6 +190,7 @@ function Install-KbUpdate {
                 if ($searchresult.Updates) {
                     Write-PSFMessage -Level Verbose -Message "Processing updates"
                     foreach ($update in $searchresult.Updates) {
+                        $updateinstall = New-Object -ComObject 'Microsoft.Update.UpdateColl'
                         Write-PSFMessage -Level Verbose -Message "Accepting EULA for $update"
                         $null = $update.AcceptEula()
                         foreach ($bundle in $update.BundledUpdates) {
@@ -219,9 +219,68 @@ function Install-KbUpdate {
                             }
                         }
                         $updateinstall.Add($update) | Out-Null
+
+                        try {
+                            Write-PSFMessage -Level Verbose -Message "Creating installer object"
+                            $installer = $session.CreateUpdateInstaller()
+                            if ($updateinstall) {
+                                Write-PSFMessage -Level Verbose -Message "Adding updates via updateinstall"
+                                $installer.Updates = $updateinstall
+                            } else {
+                                Write-PSFMessage -Level Verbose -Message "Adding updates via .Updates"
+                                $installer.Updates = $searchresult.Updates
+                            }
+
+                            Write-PSFMessage -Level Verbose -Message "Installing updates"
+
+                            Write-ProgressHelper -Activity "Installing updates on $computer" -Message "Downloading information for $itemtitle"
+                            $results = $installer.Install()
+
+                            if ($results.RebootRequired -and $HResult -eq 0) {
+                                $status = "Success - Reboot required"
+                            } else {
+                                switch ($results.ResultCode) {
+                                    1 {
+                                        $status = "In Progress"
+                                    }
+                                    2 {
+                                        $status = "Succeeded"
+                                    }
+                                    3 {
+                                        $status = "Succeeded with errors"
+                                    }
+                                    4 {
+                                        $status = "Failed"
+                                    }
+                                    5 {
+                                        $status = "Aborted"
+                                    }
+                                    default {
+                                        $status = "Failure"
+                                    }
+                                }
+                            }
+                            if ($update.BundledUpdates.DownloadContents.DownloadUrl) {
+                                $filename = Split-Path -Path $update.BundledUpdates.DownloadContents.DownloadUrl -Leaf
+                            } else {
+                                $filename = $null
+                            }
+
+                            [pscustomobject]@{
+                                ComputerName = $computer
+                                Title        = $update.Title
+                                ID           = $update.Identity.UpdateID
+                                Status       = $status
+                                FileName     = $filename
+                            } | Select-DefaultView -Property ComputerName, Title, Status, Id
+                        } catch {
+                            Stop-PSFFunction -EnableException:$EnableException -Message "Failure on $env:ComputerName" -ErrorRecord $PSItem -Continue
+                        }
                     }
                 } else {
                     $files = New-Object -ComObject "Microsoft.Update.StringColl.1"
+                    $updateinstall = New-Object -ComObject 'Microsoft.Update.UpdateColl'
+
                     Write-PSFMessage -Level Verbose -Message "Link"
                     foreach ($link in $searchresult.Link) {
                         if ($link -and $RepositoryPath) {
@@ -239,25 +298,63 @@ function Install-KbUpdate {
                     } catch {
                         Stop-PSFFunction -EnableException:$EnableException -Message "Failure on $env:ComputerName" -ErrorRecord $PSItem -Continue
                     }
-                }
 
-                try {
-                    Write-PSFMessage -Level Verbose -Message "Creating installer object"
-                    $installer = $session.CreateUpdateInstaller()
-                    if ($updateinstall) {
-                        Write-PSFMessage -Level Verbose -Message "Adding updates via updateinstall"
-                        $installer.Updates = $updateinstall
-                    } else {
-                        Write-PSFMessage -Level Verbose -Message "Adding updates via .Updates"
-                        $installer.Updates = $searchresult.Updates
+                    try {
+                        Write-PSFMessage -Level Verbose -Message "Creating installer object"
+                        $installer = $session.CreateUpdateInstaller()
+                        if ($updateinstall) {
+                            Write-PSFMessage -Level Verbose -Message "Adding updates via updateinstall"
+                            $installer.Updates = $updateinstall
+                        } else {
+                            Write-PSFMessage -Level Verbose -Message "Adding updates via .Updates"
+                            $installer.Updates = $searchresult.Updates
+                        }
+
+                        Write-PSFMessage -Level Verbose -Message "Installing updates"
+
+                        Write-ProgressHelper -Activity "Installing updates on $computer" -Message "Downloading information for $itemtitle"
+                        $results = $installer.Install()
+
+                        if ($results.RebootRequired -and $HResult -eq 0) {
+                            $status = "Success - Reboot required"
+                        } else {
+                            switch ($results.ResultCode) {
+                                1 {
+                                    $status = "In Progress"
+                                }
+                                2 {
+                                    $status = "Succeeded"
+                                }
+                                3 {
+                                    $status = "Succeeded with errors"
+                                }
+                                4 {
+                                    $status = "Failed"
+                                }
+                                5 {
+                                    $status = "Aborted"
+                                }
+                                default {
+                                    $status = "Failure"
+                                }
+                            }
+                            if ($update.BundledUpdates.DownloadContents.DownloadUrl) {
+                                $filename = Split-Path -Path $update.BundledUpdates.DownloadContents.DownloadUrl -Leaf
+                            } else {
+                                $filename = $null
+                            }
+
+                            [pscustomobject]@{
+                                ComputerName = $computer
+                                Title        = $update.Title
+                                ID           = $update.Identity.UpdateID
+                                Status       = $status
+                                FileName     = $filename
+                            } | Select-DefaultView -Property ComputerName, Title, Status, Id
+                        }
+                    } catch {
+                        Stop-PSFFunction -EnableException:$EnableException -Message "Failure on $env:ComputerName" -ErrorRecord $PSItem -Continue
                     }
-
-                    Write-PSFMessage -Level Verbose -Message "Installing updates"
-
-                    Write-ProgressHelper -Activity "Installing updates on $computer" -Message "Downloading information for $itemtitle"
-                    $null = $installer.Install()
-                } catch {
-                    Stop-PSFFunction -EnableException:$EnableException -Message "Failure on $env:ComputerName" -ErrorRecord $PSItem -Continue
                 }
             } else {
                 # Method is DSC
