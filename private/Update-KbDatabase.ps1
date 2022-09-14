@@ -162,6 +162,22 @@ function Update-KbDatabase {
                                 $arch = "x86"
                             }
 
+                            if ($arch -eq "n/a") {
+                                $arch = $null
+                            }
+                            if ($link -match "x64" -or $link -match "AMD64") {
+                                $arch = "x64"
+                            }
+                            if ($link -match "x86") {
+                                $arch = "x86"
+                            }
+                            if ($link -match "ARM64") {
+                                $arch = "ARM64"
+                            }
+                            if ($link -match "ARM-based") {
+                                $arch = "ARM32"
+                            }
+
                             $detaildialog = Invoke-TlsWebRequest -Uri "https://www.catalog.update.microsoft.com/ScopedViewInline.aspx?updateid=$updateid"
                             $description = Get-Info -Text $detaildialog -Pattern '<span id="ScopedViewHandler_desc">'
                             $lastmodified = Get-Info -Text $detaildialog -Pattern '<span id="ScopedViewHandler_date">'
@@ -431,7 +447,7 @@ function Update-KbDatabase {
             $null = Install-Module kbupdate-library -ErrorAction Stop -Scope CurrentUser
             $null = Import-Module kbupdate-library -ErrorAction Stop
         }
-        $modpath = Split-Path (Get-Module kbupdate-library).Path
+        $modpath = Split-Path (Get-Module kbupdate-library).Path | Select-Object -Last 1
         $kblib = Join-PSFPath -Path $modpath -Child library
         $db = Join-PSFPath -Path $kblib -Child kb.sqlite
 

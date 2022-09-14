@@ -103,11 +103,15 @@ function Get-KbNeededUpdate {
                 }
                 $searcher = $wua.CreateUpdateSearcher()
                 Write-Verbose -Message "Searching for needed updates"
-                $wsuskbs = $searcher.Search("IsAssigned=1 and IsHidden=0 and IsInstalled=0")
+                $wsuskbs = $searcher.Search("Type='Software' and IsHidden=0")
                 Write-Verbose -Message "Found $($wsuskbs.Count) updates"
 
                 foreach ($wsu in $wsuskbs) {
                     foreach ($wsuskb in $wsu.Updates) {
+                        #isinstalled didnt work as expected for me in the searcher
+                        if ($wsuskb.IsInstalled) {
+                            continue
+                        }
                         # iterate the updates in searchresult
                         # it must be force iterated like this
                         $links = @()
@@ -118,7 +122,6 @@ function Get-KbNeededUpdate {
                                 }
                             }
                         }
-
                         [pscustomobject]@{
                             ComputerName      = $Computer
                             Title             = $wsuskb.Title
@@ -141,7 +144,7 @@ function Get-KbNeededUpdate {
                             Supersedes        = $null #TODO
                             SupersededBy      = $null #TODO
                             Link              = $links
-                            InputObject       = $wsu
+                            InputObject       = $wsuskb
                         }
                     }
                 }
