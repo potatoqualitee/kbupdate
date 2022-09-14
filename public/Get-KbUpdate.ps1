@@ -673,7 +673,18 @@ function Get-KbUpdate {
 
 
                         if ($lastmodified) {
-                            $lastmod = Get-Date $lastmodified -Format "yyyy-MM-dd"
+                            $lastmodified = $lastmodified.Replace(" ", "").Replace(".","/")
+                            if ("$(Get-Culture)" -ne "en-US") {
+                                try {
+                                    $datetime = [DateTime]::ParseExact("$lastmodified 12:00:00 AM", "M/d/yyyy h:mm:ss tt",[System.Globalization.DateTimeFormatInfo]::InvariantInfo, "None")
+                                    $lastmod = Get-Date $datetime -Format "yyyy-MM-dd"
+                                } catch {
+                                    $lastmod = $null
+                                }
+                            } else {
+                                $lastmod = Get-Date $lastmodified -Format "yyyy-MM-dd"
+                            }
+
                         } else {
                             $lastmod = $null
                         }
