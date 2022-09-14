@@ -191,7 +191,7 @@ function Install-KbUpdate {
                     Write-PSFMessage -Level Verbose -Message "Processing updates"
                     foreach ($update in $searchresult.Updates) {
                         $updateinstall = New-Object -ComObject 'Microsoft.Update.UpdateColl'
-                        Write-PSFMessage -Level Verbose -Message "Accepting EULA for $update"
+                        Write-PSFMessage -Level Verbose -Message "Accepting EULA for $($update.Title)"
                         $null = $update.AcceptEula()
                         foreach ($bundle in $update.BundledUpdates) {
                             $files = New-Object -ComObject "Microsoft.Update.StringColl.1"
@@ -206,9 +206,9 @@ function Install-KbUpdate {
                             }
                         }
                         if ($update.IsDownloaded) {
-                            Write-PSFMessage -Level Verbose -Message "Updates do not need to be downloaded"
+                            Write-PSFMessage -Level Verbose -Message "Updates for $($update.Title) do not need to be downloaded"
                         } else {
-                            Write-PSFMessage -Level Verbose -Message "Update needs to be downloaded"
+                            Write-PSFMessage -Level Verbose -Message "Update for $($update.Title) needs to be downloaded"
                             try {
                                 Write-PSFMessage -Level Verbose -Message "Creating update downloader"
                                 $downloader = $session.CreateUpdateDownloader()
@@ -221,7 +221,7 @@ function Install-KbUpdate {
                         $updateinstall.Add($update) | Out-Null
 
                         try {
-                            Write-PSFMessage -Level Verbose -Message "Creating installer object"
+                            Write-PSFMessage -Level Verbose -Message "Creating installer object for $($update.Title)"
                             $installer = $session.CreateUpdateInstaller()
                             if ($updateinstall) {
                                 Write-PSFMessage -Level Verbose -Message "Adding updates via updateinstall"
@@ -233,7 +233,7 @@ function Install-KbUpdate {
 
                             Write-PSFMessage -Level Verbose -Message "Installing updates"
 
-                            Write-ProgressHelper -Activity "Installing updates on $computer" -Message "Downloading information for $itemtitle"
+                            Write-ProgressHelper -Activity "Installing $($update.Title) on $computer" -Message "Downloading information for $($update.Title)"
                             $results = $installer.Install()
 
                             if ($results.RebootRequired -and $HResult -eq 0) {
