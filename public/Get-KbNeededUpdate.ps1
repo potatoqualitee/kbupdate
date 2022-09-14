@@ -108,6 +108,10 @@ function Get-KbNeededUpdate {
 
                 foreach ($wsu in $wsuskbs) {
                     foreach ($wsuskb in $wsu.Updates) {
+                        #isinstalled didnt work as expected for me in the searcher
+                        if ($wsuskb.IsInstalled) {
+                            continue
+                        }
                         # iterate the updates in searchresult
                         # it must be force iterated like this
                         $links = @()
