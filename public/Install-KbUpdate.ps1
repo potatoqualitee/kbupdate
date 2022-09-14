@@ -210,7 +210,7 @@ function Install-KbUpdate {
                         } else {
                             Write-PSFMessage -Level Verbose -Message "Update needs to be downloaded"
                             try {
-                                Write-PSFMessage -Level Verbose -Message "Creating update downlaoder"
+                                Write-PSFMessage -Level Verbose -Message "Creating update downloader"
                                 $downloader = $session.CreateUpdateDownloader()
                                 $downloader.Updates = $searchresult.Updates
                                 $null = $downloader.Download()
@@ -254,7 +254,7 @@ function Install-KbUpdate {
 
                     Write-PSFMessage -Level Verbose -Message "Installing updates!"
 
-                    Write-ProgressHelper -TotalSteps $ComputerName.Count -StepNumber $completed -Activity "Installing $($installer.Updates) on $computer" -Message "Downloading information for $itemtitle"
+                    Write-ProgressHelper -Activity "Installing $($installer.Updates) on $computer" -Message "Downloading information for $itemtitle"
                     $installer.Install()
                 } catch {
                     Stop-PSFFunction -EnableException:$EnableException -Message "Failure on $env:ComputerName" -ErrorRecord $PSItem -Continue
