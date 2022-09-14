@@ -252,10 +252,10 @@ function Install-KbUpdate {
                         $installer.Updates = $searchresult.Updates
                     }
 
-                    Write-PSFMessage -Level Verbose -Message "Installing updates!"
+                    Write-PSFMessage -Level Verbose -Message "Installing updates"
 
-                    Write-ProgressHelper -Activity "Installing $($installer.Updates) on $computer" -Message "Downloading information for $itemtitle"
-                    $installer.Install()
+                    Write-ProgressHelper -Activity "Installing updates on $computer" -Message "Downloading information for $itemtitle"
+                    $null = $installer.Install()
                 } catch {
                     Stop-PSFFunction -EnableException:$EnableException -Message "Failure on $env:ComputerName" -ErrorRecord $PSItem -Continue
                 }
