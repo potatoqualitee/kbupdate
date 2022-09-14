@@ -149,11 +149,23 @@ function Install-KbUpdate {
             if (-not $item.IsLocalHost -and $Method -eq "WindowsUpdate") {
                 Stop-PSFFunction -EnableException:$EnableException -Message "The Windows Update method is only supported on localhost due to Windows security restrictions" -Continue
             }
+
+            if ((Get-Service wuauserv | Where-Object StartType -ne Disabled) -and $Method -eq "WindowsUpdate") {
+                Stop-PSFFunction -EnableException:$EnableException -Message "The Windows Update method cannot be used when the Windows Update service is stopped on $computer" -Continue
+            }
+
             # null out a couple things to be safe
             $remotefileexists = $programhome = $remotesession = $null
             Write-PSFMessage -Level Verbose -Message "Processing $computer"
+            if ($item.IsLocalhost -and $Method -ne "DSC") {
+                if ((Get-Service wuauserv | Where-Object StartType -ne Disabled)) {
+                    $dowin = $true
+                } else {
+                    $dowin = $false
+                }
+            }
 
-            if (($item.IsLocalhost -and $Method -ne "DSC") -or $Method -eq "WindowsUpdate") {
+            if ($dowin -or $Method -eq "WindowsUpdate") {
                 try {
                     $sessiontype = [type]::GetTypeFromProgID("Microsoft.Update.Session")
                     $session = [activator]::CreateInstance($sessiontype)
