@@ -35,7 +35,7 @@ function Install-KbUpdate {
         If the file is an exe and no Title is specified, we will have to get it from Get-KbUpdate
 
     .PARAMETER Method
-        Not yet implemented but will be used to specify DSC or Windows Update
+        Used to specify DSC or WindowsUpdate. By default, WindowsUpdate is used on localhost and DSC is used on remote servers.
 
     .PARAMETER ArgumentList
         This is an advanced parameter for those of you who need special argumentlists for your platform-specific update.
@@ -51,7 +51,7 @@ function Install-KbUpdate {
         Using this switch turns this "nice by default" feature off and enables you to catch exceptions with your own try/catch.
 
     .NOTES
-        Author: Jess Pomfret (@jpomfret), Chrissy LeMaire (@cl)
+        Author: Chrissy LeMaire (@cl), Jess Pomfret (@jpomfret)
         Copyright: (c) licensed under MIT
         License: MIT https://opensource.org/licenses/MIT
 
@@ -179,7 +179,7 @@ function Install-KbUpdate {
                         $searchresult = $InputObject.InputObject
                     } else {
                         Write-PSFMessage -Level Verbose -Message "Build needed updates"
-                        $searchresult = $session.CreateUpdateSearcher().Search("Type='Software'")
+                        $searchresult = $session.CreateUpdateSearcher().Search("Type='Software' and IsInstalled=0 and IsHidden=0")
                     }
                 } catch {
                     Stop-PSFFunction -EnableException:$EnableException -Message "Failed to create update searcher" -ErrorRecord $_ -Continue
