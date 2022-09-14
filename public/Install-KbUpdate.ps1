@@ -556,7 +556,7 @@ function Install-KbUpdate {
 
                 if ($PSCmdlet.ShouldProcess($computer, "Installing file from $FilePath")) {
                     try {
-                        Invoke-PSFCommand -ScriptBlock {
+                        $null = Invoke-PSFCommand -ScriptBlock {
                             param (
                                 $Hotfix,
                                 $VerbosePreference,
