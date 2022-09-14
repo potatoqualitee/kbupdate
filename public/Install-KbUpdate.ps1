@@ -234,7 +234,7 @@ function Install-KbUpdate {
 
                             Write-PSFMessage -Level Verbose -Message "Installing updates"
 
-                            Write-ProgressHelper -Activity "Installing $($update.Title) on $computer" -Message "Downloading information for $($update.Title)"
+                            Write-ProgressHelper -Activity "Installing updates on $computer" -Message "Installing $($update.Title)" -ExcludePercent
                             $results = $installer.Install()
 
                             if ($results.RebootRequired -and $HResult -eq 0) {
@@ -313,7 +313,7 @@ function Install-KbUpdate {
 
                         Write-PSFMessage -Level Verbose -Message "Installing updates"
 
-                        Write-ProgressHelper -Activity "Installing updates on $computer" -Message "Downloading information for $itemtitle"
+                        Write-ProgressHelper -Activity "Installing updates on $computer" -Message "Installing $($update.Title)" -ExcludePercent
                         $results = $installer.Install()
 
                         if ($results.RebootRequired -and $HResult -eq 0) {
