@@ -103,7 +103,7 @@ function Get-KbNeededUpdate {
                 }
                 $searcher = $wua.CreateUpdateSearcher()
                 Write-Verbose -Message "Searching for needed updates"
-                $wsuskbs = $searcher.Search("Type='Software' and IsInstalled=0 and IsHidden=0")
+                $wsuskbs = $searcher.Search("Type='Software' and IsHidden=0")
                 Write-Verbose -Message "Found $($wsuskbs.Count) updates"
 
                 foreach ($wsu in $wsuskbs) {
