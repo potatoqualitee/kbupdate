@@ -260,7 +260,7 @@ function Get-KbUpdate {
                         $item.Architecture = "ARM32"
                     }
                     if ($item.LastModified) {
-                        $item.LastModified = Get-Date $item.LastModified -Format "yyyy-MM-dd"
+                        $item.LastModified = Repair-Date $item.LastModified
                     }
                     foreach ($super in $item.Supersedes) {
                         $null = $super | Add-Member -MemberType ScriptMethod -Name ToString -Value { $this.Description } -Force
@@ -348,7 +348,7 @@ function Get-KbUpdate {
                 }
 
                 if ($wsuskb.ArrivalDate) {
-                    $lastmod = Get-Date $wsuskb.ArrivalDate -Format "yyyy-MM-dd"
+                    $lastmod = Repair-Date $wsuskb.ArrivalDate
                 }
 
                 $null = $script:kbcollection.Add($hashkey, (
@@ -532,7 +532,7 @@ function Get-KbUpdate {
 
 
                 if ($guids.Count -gt 2 -and $Multithread) {
-                    $downloaddialogs = $guids | Invoke-Parallel -ImportVariables -ImportFunctions -ScriptBlock $scriptblock -ErrorAction Stop -RunspaceTimeout 60
+                    $downloaddialogs = $guids | Invoke-Parallel -ImportVariables -ImportFunctions -ScriptBlock $scriptblock -ErrorAction Stop -RunspaceTimeout 60 -Activity "Parsing catalog.update.microsoft.com"
                 } else {
                     $completed = 0
                     $downloaddialogs = $guids | ForEach-Object -Process $scriptblock
@@ -679,23 +679,7 @@ function Get-KbUpdate {
                         # may fix later
                         $ishotfix = $null
 
-
-                        if ($lastmodified) {
-                            $lastmodified = $lastmodified.Replace(" ", "").Replace(".","/")
-                            if ("$(Get-Culture)" -ne "en-US") {
-                                try {
-                                    $datetime = [DateTime]::ParseExact("$lastmodified 12:00:00 AM", "M/d/yyyy h:mm:ss tt",[System.Globalization.DateTimeFormatInfo]::InvariantInfo, "None")
-                                    $lastmod = Get-Date $datetime -Format "yyyy-MM-dd"
-                                } catch {
-                                    $lastmod = $null
-                                }
-                            } else {
-                                $lastmod = Get-Date $lastmodified -Format "yyyy-MM-dd"
-                            }
-
-                        } else {
-                            $lastmod = $null
-                        }
+                        $lastmod = Repair-Date $lastmodified
 
                         if (-not $script:kbcollection[$hashkey]) {
                             $null = $script:kbcollection.Add($hashkey, (
