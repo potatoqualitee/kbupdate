@@ -1,5 +1,29 @@
 
 function Start-DscUpdate {
+    [CmdletBinding()]
+    param (
+        [psobject[]]$ComputerName = $env:ComputerName,
+        [PSCredential]$Credential,
+        [PSCredential]$PSDscRunAsCredential,
+        [Parameter(ValueFromPipelineByPropertyName)]
+        [Alias("Name", "KBUpdate", "Id")]
+        [string]$HotfixId,
+        [Alias("Path")]
+        [string]$FilePath,
+        [string]$RepositoryPath,
+        [ValidateSet("WindowsUpdate", "DSC")]
+        [string]$Method,
+        [Parameter(ValueFromPipelineByPropertyName)]
+        [Alias("UpdateId")]
+        [string]$Guid,
+        [Parameter(ValueFromPipelineByPropertyName)]
+        [string]$Title,
+        [string]$ArgumentList,
+        [Parameter(ValueFromPipeline)]
+        [pscustomobject[]]$InputObject,
+        [switch]$EnableException
+    )
+
     # null out a couple things to be safe
     $remotefileexists = $programhome = $remotesession = $null
     # Method is DSC
