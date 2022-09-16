@@ -163,8 +163,8 @@ function Install-KbUpdate {
         }
 
         $jobs = @()
-        $global:completedsteps = $oldcount = $added = 0
-        $global:totalsteps = $ComputerName.Count * 2
+        $added = 0
+        $totalsteps = ($ComputerName.Count * 2) + 1 # The plus one is for pretty
 
         foreach ($computer in $ComputerName) {
             $null = $added++
@@ -174,7 +174,7 @@ function Install-KbUpdate {
             $null = $PSDefaultParameterValues["Start-Job:ArgumentList"] = $parms
             $null = $PSDefaultParameterValues["Start-Job:Name"] = $computer.ComputerName
 
-            Write-Progress -Activity "Installing updates" -Status "Starting job on $($computer.ComputerName)" -PercentComplete ($added / $global:totalsteps * 100)
+            Write-Progress -Activity "Installing updates" -Status "Added job for $($computer.ComputerName). Processing $added jobs..." -PercentComplete ($added / $totalsteps * 100)
 
             Write-PSFMessage -Level Verbose -Message "Processing $computer"
 
@@ -191,30 +191,18 @@ function Install-KbUpdate {
                 $job = Start-Job -ScriptBlock $dscblock
             }
             $jobs += $job
-
-            $null = Register-ObjectEvent -InputObject $job -EventName StateChanged -Action {
-                Write-Host ('Job #{0} ({1}) complete.' -f $sender.Id, $sender.Name)
-                $null = $global:completedsteps++
-                Write-Progress -Activity "Installing updates" -Status "Finished job on $($sender.Name)" -PercentComplete ($global:completedsteps / $global:totalsteps * 100)
-
-                if ($sender.State -eq 'Completed') {
-                    $global:jobInfo++ # $sender | Receive-Job -Keep
-                }
-
-            } -SourceIdentifier "kbupdate-$($job.Id)"
         }
 
-        do {
-            if ($oldcount -lt $global:completedsteps) {
-                Start-Sleep -Seconds 1
-                Write-Warning hello
-                $oldcount = $global:completedsteps
+        while ($kbjobs = Get-Job | Where-Object Name -in $jobs.Name) {
+            foreach ($job in ($kbjobs | Where-Object State -eq Completed)) {
+                $null = $added++
+                Write-PSFMessage -Level Verbose -Message "Finished installing updates on $($job.Name)"
+                Write-Progress -Activity "Installing updates" -Status "Finished installing updates on $($job.Name)" -PercentComplete ($added / $totalsteps * 100)
+                $job | Receive-Job
+                $null = $job | Remove-Job
             }
+            Start-Sleep -Seconds 1
         }
-        while ($jobs.State -notcontains 'Completed')
-
-        Receive-Job -Job $jobs
-        Get-EventSubscriber | Where-Object SourceIdentifier -match kbupdate | Unregister-Event -Force
         Write-Progress -Activity "Installing updates" -Completed
     }
 }

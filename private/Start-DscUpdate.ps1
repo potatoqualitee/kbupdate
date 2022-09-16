@@ -24,7 +24,7 @@ function Start-DscUpdate {
         [switch]$EnableException
     )
     if ($computername.ComputerName -eq "sqlcs") {
-        Start-Sleep 10
+        Start-Sleep 20
     } else {
         Start-Sleep 1
     }
