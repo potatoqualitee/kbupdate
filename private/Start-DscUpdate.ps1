@@ -112,11 +112,11 @@ function Start-DscUpdate {
         $filename = Split-Path -Path $InputObject.Link -Leaf
         Write-PSFMessage -Level Verbose -Message "Adding $filename"
         $FilePath = Join-Path -Path $RepositoryPath -ChildPath $filename
-        $PSBoundParameters.FilePath = Join-Path -Path $RepositoryPath -ChildPath $filename
-        Write-PSFMessage -Level Verbose -Message "Adding $($PSBoundParameters.FilePath)"
+        $FilePath = Join-Path -Path $RepositoryPath -ChildPath $filename
+        Write-PSFMessage -Level Verbose -Message "Adding $($FilePath)"
     }
 
-    if ($PSBoundParameters.FilePath) {
+    if ($FilePath) {
         $remotefileexists = $updatefile = Invoke-PSFCommand -ArgumentList $FilePath -ScriptBlock {
             Get-ChildItem -Path $args -ErrorAction SilentlyContinue
         }
@@ -136,7 +136,7 @@ function Start-DscUpdate {
         if (-not $updatefile) {
             Write-PSFMessage -Level Verbose -Message "Update file not found, download it for them"
             # try to automatically download it for them
-            if (-not $PSBoundParameters.InputObject) {
+            if (-not $InputObject) {
                 $InputObject = Get-KbUpdate -Architecture x64 -Latest -Pattern $HotfixId | Where-Object Link
             }
 
@@ -169,7 +169,7 @@ function Start-DscUpdate {
             }
         }
 
-        if (-not $PSBoundParameters.FilePath) {
+        if (-not $FilePath) {
             $FilePath = "$programhome\Downloads\$(Split-Path -Leaf $updateFile)"
         }
 
@@ -181,7 +181,7 @@ function Start-DscUpdate {
 
         # copy over to destination server unless
         # it's local or it's on a network share
-        if (-not "$($PSBoundParameters.FilePath)".StartsWith("\\") -and -not $ComputerName.IsLocalhost) {
+        if (-not "$($FilePath)".StartsWith("\\") -and -not $ComputerName.IsLocalhost) {
             Write-PSFMessage -Level Verbose -Message "Update is not located on a file server and not local, copying over the remote server"
             try {
                 $exists = Invoke-PSFCommand -ComputerName $computer -ArgumentList $remotefile -ScriptBlock {
@@ -210,7 +210,7 @@ function Start-DscUpdate {
     }
 
     # if user doesnt add kb, try to find it for them from the provided filename
-    if (-not $PSBoundParameters.HotfixId) {
+    if (-not $HotfixId) {
         $HotfixId = $FilePath.ToUpper() -split "\-" | Where-Object { $psitem.Startswith("KB") }
     }
 
@@ -221,7 +221,7 @@ function Start-DscUpdate {
         } else {
             $updatefile = Get-ChildItem -Path $FilePath
         }
-        if (-not $PSBoundParameters.Title) {
+        if (-not $Title) {
             Write-PSFMessage -Level Verbose -Message "Trying to get Title from $($updatefile.FullName)"
             $Title = $updatefile.VersionInfo.ProductName
         }
@@ -230,7 +230,7 @@ function Start-DscUpdate {
     }
 
     if ("$FilePath".EndsWith("exe")) {
-        if (-not $PSBoundParameters.ArgumentList -and $FilePath -match "sql") {
+        if (-not $ArgumentList -and $FilePath -match "sql") {
             $ArgumentList = "/action=patch /AllInstances /quiet /IAcceptSQLServerLicenseTerms"
         } else {
             # Setting a default argumentlist that hopefully works for most things?
@@ -239,8 +239,8 @@ function Start-DscUpdate {
 
         if (-not $Guid) {
             if ($InputObject) {
-                $Guid = $PSBoundParameters.InputObject.Guid
-                $Title = $PSBoundParameters.InputObject.Title
+                $Guid = $InputObject.Guid
+                $Title = $InputObject.Title
             } else {
                 if ($true) {
                     try {
@@ -409,7 +409,7 @@ function Start-DscUpdate {
                         }
                     }
                 }
-            } -ArgumentList $hotfix, $VerbosePreference, $PSBoundParameters.FileName -ErrorAction Stop
+            } -ArgumentList $hotfix, $VerbosePreference, $FileName -ErrorAction Stop
 
             if ($deleteremotefile) {
                 Write-PSFMessage -Level Verbose -Message "Deleting $deleteremotefile"
