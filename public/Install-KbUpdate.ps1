@@ -228,6 +228,7 @@ function Install-KbUpdate {
                     $kbjob.Information | Write-Information
                 }
             }
+            $null = Remove-Variable -Name kbjob
             foreach ($kbjob in ($kbjobs | Where-Object State -ne 'Running')) {
                 Write-PSFMessage -Level Verbose -Message "Finished installing updates on $($kbjob.Name)"
                 $null = $added++
