@@ -108,7 +108,7 @@ function Install-KbUpdate {
         [string]$FilePath,
         [string]$RepositoryPath,
         [ValidateSet("WindowsUpdate", "DSC")]
-        [string]$Method,
+        [string]$Method = "DSC",
         [Parameter(ValueFromPipelineByPropertyName)]
         [Alias("UpdateId")]
         [string]$Guid,
