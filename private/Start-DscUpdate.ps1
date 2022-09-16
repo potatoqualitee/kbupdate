@@ -23,6 +23,24 @@ function Start-DscUpdate {
         [pscustomobject[]]$InputObject,
         [switch]$EnableException
     )
+    if ($computername.ComputerName -eq "sqlcs") {
+        Start-Sleep 10
+    } else {
+        Start-Sleep 1
+    }
+
+    [pscustomobject]@{
+        ComputerName   = $ComputerName
+        HotfixId       = $HotfixId
+        FilePath       = $FilePath
+        RepositoryPath = $RepositoryPath
+        Method         = $Method
+        Guid           = $Guid
+        Title          = $Title
+        ArgumentList   = $ArgumentList
+        InputObject    = $InputObject
+    }
+    return
 
     # null out a couple things to be safe
     $remotefileexists = $programhome = $remotesession = $null
@@ -446,7 +464,7 @@ function Start-DscUpdate {
                 ID           = $id
                 Status       = $Status
                 FileName     = $updatefile.Name
-            } | Select-DefaultView -Property ComputerName, Title, Status, FileName, Id
+            }
         } catch {
             if ("$PSItem" -match "Serialized XML is nested too deeply") {
                 Write-PSFMessage -Level Verbose -Message "Serialized XML is nested too deeply. Forcing output."
@@ -473,7 +491,7 @@ function Start-DscUpdate {
                     ID           = $id
                     Status       = $Status
                     FileName     = $updatefile.Name
-                } | Select-DefaultView -Property ComputerName, Title, Status, FileName, Id
+                }
             } else {
                 Stop-PSFFunction -Message "Failure on $computer" -ErrorRecord $_ -EnableException:$EnableException
             }

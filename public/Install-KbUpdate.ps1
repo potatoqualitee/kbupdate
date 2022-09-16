@@ -116,6 +116,11 @@ function Install-KbUpdate {
         [pscustomobject[]]$InputObject,
         [switch]$EnableException
     )
+    begin {
+        # create code blocks fopr jobs
+        $dscblock = [scriptblock]::Create($((Get-Command Start-WindowsUpdate).Definition))
+        $wublock = [scriptblock]::Create($((Get-Command Start-DscUpdate).Definition))
+    }
     process {
         if (-not $PSBoundParameters.HotfixId -and -not $PSBoundParameters.FilePath -and -not $PSBoundParameters.InputObject) {
             Stop-PSFFunction -EnableException:$EnableException -Message "You must specify either HotfixId or FilePath or pipe in the results from Get-KbUpdate"
@@ -155,25 +160,61 @@ function Install-KbUpdate {
             if ((Get-Service wuauserv | Where-Object StartType -ne Disabled) -and $Method -eq "WindowsUpdate") {
                 Stop-PSFFunction -EnableException:$EnableException -Message "The Windows Update method cannot be used when the Windows Update service is stopped on $computer" -Continue
             }
-
         }
 
-        foreach ($item in $ComputerName) {
-            $computer = $item.ComputerName
+        $jobs = @()
+        $global:completedsteps = $oldcount = $added = 0
+        $global:totalsteps = $ComputerName.Count * 2
+
+        foreach ($computer in $ComputerName) {
+            $null = $added++
+            $parms = $PSBoundParameters
+            $null = $parms.Remove("ComputerName")
+            $null = $parms.Add("ComputerName", $computer)
+            $null = $PSDefaultParameterValues["Start-Job:ArgumentList"] = $parms
+            $null = $PSDefaultParameterValues["Start-Job:Name"] = $computer.ComputerName
+
+            Write-Progress -Activity "Installing updates" -Status "Starting job on $($computer.ComputerName)" -PercentComplete ($added / $global:totalsteps * 100)
+
             Write-PSFMessage -Level Verbose -Message "Processing $computer"
-            if ($item.IsLocalhost -and $Method -ne "DSC") {
-                if ((Get-Service wuauserv | Where-Object StartType -ne Disabled)) {
-                    $dowin = $true
-                } else {
-                    $dowin = $false
-                }
-            }
 
-            if ($dowin -or $Method -eq "WindowsUpdate") {
-                Start-WindowsUpdate
+            if ($computer.IsLocalhost -and $Method -ne "DSC") {
+                if ($Method -eq "WindowsUpdate") {
+                    $job = Start-Job -ScriptBlock $wublock
+                }
+                if ((Get-Service wuauserv | Where-Object StartType -ne Disabled)) {
+                    $job = Start-Job -ScriptBlock $wublock
+                } else {
+                    $job = Start-Job -ScriptBlock $dscblock
+                }
             } else {
-                Start-DscUpdate
+                $job = Start-Job -ScriptBlock $dscblock
+            }
+            $jobs += $job
+
+            $null = Register-ObjectEvent -InputObject $job -EventName StateChanged -Action {
+                Write-Host ('Job #{0} ({1}) complete.' -f $sender.Id, $sender.Name)
+                $null = $global:completedsteps++
+                Write-Progress -Activity "Installing updates" -Status "Finished job on $($sender.Name)" -PercentComplete ($global:completedsteps / $global:totalsteps * 100)
+
+                if ($sender.State -eq 'Completed') {
+                    $global:jobInfo++ # $sender | Receive-Job -Keep
+                }
+
+            } -SourceIdentifier "kbupdate-$($job.Id)"
+        }
+
+        do {
+            if ($oldcount -lt $global:completedsteps) {
+                Start-Sleep -Seconds 1
+                Write-Warning hello
+                $oldcount = $global:completedsteps
             }
         }
+        while ($jobs.State -notcontains 'Completed')
+
+        Receive-Job -Job $jobs
+        Get-EventSubscriber | Where-Object SourceIdentifier -match kbupdate | Unregister-Event -Force
+        Write-Progress -Activity "Installing updates" -Completed
     }
 }

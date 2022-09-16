@@ -24,6 +24,19 @@ function Start-WindowsUpdate {
         [switch]$EnableException
     )
     try {
+        Start-Sleep 5
+        [pscustomobject]@{
+            ComputerName   = $ComputerName
+            HotfixId       = $HotfixId
+            FilePath       = $FilePath
+            RepositoryPath = $RepositoryPath
+            Method         = $Method
+            Guid           = $Guid
+            Title          = $Title
+            ArgumentList   = $ArgumentList
+            InputObject    = $InputObject
+        }
+        return
         Write-PSFMessage -Level Verbose -Message "Using the Windows Update method"
         $sessiontype = [type]::GetTypeFromProgID("Microsoft.Update.Session")
         $session = [activator]::CreateInstance($sessiontype)
@@ -90,8 +103,6 @@ function Start-WindowsUpdate {
                 }
 
                 Write-PSFMessage -Level Verbose -Message "Installing updates"
-
-                Write-ProgressHelper -Activity "Installing updates on $computer" -Message "Installing $($update.Title)" -ExcludePercent
                 $results = $installer.Install()
 
                 if ($results.RebootRequired -and $HResult -eq 0) {
@@ -131,7 +142,7 @@ function Start-WindowsUpdate {
                     Status       = $status
                     HotFixId     = ($update.KBArticleIDs | Select-Object -First 1)
                     Update       = $update
-                } | Select-DefaultView -Property ComputerName, Title, HotFixId, Id, Status
+                }
             } catch {
                 Stop-PSFFunction -EnableException:$EnableException -Message "Failure on $env:ComputerName" -ErrorRecord $PSItem -Continue
             }
@@ -170,8 +181,6 @@ function Start-WindowsUpdate {
             }
 
             Write-PSFMessage -Level Verbose -Message "Installing updates"
-
-            Write-ProgressHelper -Activity "Installing updates on $computer" -Message "Installing $($update.Title)" -ExcludePercent
             $results = $installer.Install()
 
             if ($results.RebootRequired -and $HResult -eq 0) {
@@ -210,7 +219,7 @@ function Start-WindowsUpdate {
                     Status       = $status
                     HotFixId     = ($update.KBArticleIDs | Select-Object -First 1)
                     Update       = $update
-                } | Select-DefaultView -Property ComputerName, Title, HotFixId, Id, Status
+                }
             }
         } catch {
             Stop-PSFFunction -EnableException:$EnableException -Message "Failure on $env:ComputerName" -ErrorRecord $PSItem -Continue
