@@ -1,46 +1,12 @@
 
 function Start-DscUpdate {
     [CmdletBinding()]
-    param (
-        [psobject[]]$ComputerName = $env:ComputerName,
-        [PSCredential]$Credential,
-        [PSCredential]$PSDscRunAsCredential,
-        [Parameter(ValueFromPipelineByPropertyName)]
-        [Alias("Name", "KBUpdate", "Id")]
-        [string]$HotfixId,
-        [Alias("Path")]
-        [string]$FilePath,
-        [string]$RepositoryPath,
-        [ValidateSet("WindowsUpdate", "DSC")]
-        [string]$Method,
-        [Parameter(ValueFromPipelineByPropertyName)]
-        [Alias("UpdateId")]
-        [string]$Guid,
-        [Parameter(ValueFromPipelineByPropertyName)]
-        [string]$Title,
-        [string]$ArgumentList,
-        [Parameter(ValueFromPipeline)]
-        [pscustomobject[]]$InputObject,
-        [switch]$EnableException
-    )
-    if ($computername.ComputerName -eq "sqlcs") {
-        Start-Sleep 20
-    } else {
-        Start-Sleep 1
-    }
+    param ($hashtable)
 
-    [pscustomobject]@{
-        ComputerName   = $ComputerName
-        HotfixId       = $HotfixId
-        FilePath       = $FilePath
-        RepositoryPath = $RepositoryPath
-        Method         = $Method
-        Guid           = $Guid
-        Title          = $Title
-        ArgumentList   = $ArgumentList
-        InputObject    = $InputObject
+    foreach ($key in $hashtable.keys) {
+        Set-Variable -Name $key -Value $hashtable[$key]
     }
-    return
+    $computer = $ComputerName.ComputerName
 
     # null out a couple things to be safe
     $remotefileexists = $programhome = $remotesession = $null
@@ -68,7 +34,7 @@ function Start-DscUpdate {
         }
 
         if (-not $remotesession) {
-            Stop-PSFFunction -EnableException:$EnableException -Message "Session for $computer can't be found or no runspaces are available. Please file an issue on the GitHub repo at https://github.com/potatoqualitee/kbupdate/issues" -Continue
+            Stop-PSFFunction -EnableException:$true -Message "Session for $computer can't be found or no runspaces are available. Please file an issue on the GitHub repo at https://github.com/potatoqualitee/kbupdate/issues" -Continue
         }
     }
 
@@ -103,7 +69,7 @@ function Start-DscUpdate {
 
             $ProgressPreference = $oldpref
         } catch {
-            Stop-PSFFunction -EnableException:$EnableException -Message "Couldn't auto-install xHotfix on $computer. Please Install-Module xWindowsUpdate on $computer to continue." -Continue
+            Stop-PSFFunction -EnableException:$true -Message "Couldn't auto-install xHotfix on $computer. Please Install-Module xWindowsUpdate on $computer to continue." -Continue
         }
     }
 
@@ -130,7 +96,7 @@ function Start-DscUpdate {
 
             $ProgressPreference = $oldpref
         } catch {
-            Stop-PSFFunction -EnableException:$EnableException -Message "Couldn't auto-install newer DSC resources on $computer. Please Install-Module xPSDesiredStateConfiguration version 9.2.0 on $computer to continue." -Continue
+            Stop-PSFFunction -EnableException:$true -Message "Couldn't auto-install newer DSC resources on $computer. Please Install-Module xPSDesiredStateConfiguration version 9.2.0 on $computer to continue." -Continue
         }
     }
 
@@ -174,7 +140,7 @@ function Start-DscUpdate {
                     $file = Split-Path $InputObject.Link -Leaf | Select-Object -Last 1
                 }
             } else {
-                Stop-PSFFunction -EnableException:$EnableException -Message "Could not find file on $computer and couldn't find it online. Try piping in exactly what you'd like from Get-KbUpdate." -Continue
+                Stop-PSFFunction -EnableException:$true -Message "Could not find file on $computer and couldn't find it online. Try piping in exactly what you'd like from Get-KbUpdate." -Continue
             }
 
             if ((Test-Path -Path "$home\Downloads\$file")) {
@@ -229,7 +195,7 @@ function Start-DscUpdate {
                     $null = Invoke-PSFCommand -ComputerName $computer -ArgumentList $remotefile -ScriptBlock {
                         Remove-Item $args -Force -ErrorAction SilentlyContinue
                     }
-                    Stop-PSFFunction -EnableException:$EnableException -Message "Could not copy $updatefile to $remotefile" -ErrorRecord $PSItem -Continue
+                    Stop-PSFFunction -EnableException:$true -Message "Could not copy $updatefile to $remotefile" -ErrorRecord $PSItem -Continue
                 }
             }
         }
@@ -493,7 +459,7 @@ function Start-DscUpdate {
                     FileName     = $updatefile.Name
                 }
             } else {
-                Stop-PSFFunction -Message "Failure on $computer" -ErrorRecord $_ -EnableException:$EnableException
+                Stop-PSFFunction -Message "Failure on $computer" -ErrorRecord $_ -EnableException:$true
             }
         }
     }

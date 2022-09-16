@@ -118,10 +118,13 @@ function Install-KbUpdate {
     )
     begin {
         # create code blocks fopr jobs
-        $dscblock = [scriptblock]::Create($((Get-Command Start-WindowsUpdate).Definition))
-        $wublock = [scriptblock]::Create($((Get-Command Start-DscUpdate).Definition))
+        $wublock = [scriptblock]::Create($((Get-Command Start-WindowsUpdate).Definition))
+        $dscblock = [scriptblock]::Create($((Get-Command Start-DscUpdate).Definition))
+        # cleanup
+        $null = Get-Job -ChildJobState Completed | Where-Object Name -in $ComputerName.ComputerName | Remove-Job -Force
     }
     process {
+
         if (-not $PSBoundParameters.HotfixId -and -not $PSBoundParameters.FilePath -and -not $PSBoundParameters.InputObject) {
             Stop-PSFFunction -EnableException:$EnableException -Message "You must specify either HotfixId or FilePath or pipe in the results from Get-KbUpdate"
             return
@@ -168,15 +171,23 @@ function Install-KbUpdate {
 
         foreach ($computer in $ComputerName) {
             $null = $added++
-            $parms = $PSBoundParameters
-            $null = $parms.Remove("ComputerName")
-            $null = $parms.Add("ComputerName", $computer)
+            $parms = @{
+                ComputerName   = $computer
+                FilePath       = $FilePath
+                HotfixId       = $HotfixId
+                RepositoryPath = $RepositoryPath
+                Guid           = $Guid
+                Title          = $Title
+                ArgumentList   = $ArgumentList
+                InputObject    = $InputObject
+            }
+
             $null = $PSDefaultParameterValues["Start-Job:ArgumentList"] = $parms
             $null = $PSDefaultParameterValues["Start-Job:Name"] = $computer.ComputerName
 
             Write-Progress -Activity "Installing updates" -Status "Added job for $($computer.ComputerName). Processing $added jobs..." -PercentComplete ($added / $totalsteps * 100)
 
-            Write-PSFMessage -Level Verbose -Message "Processing $computer"
+            Write-PSFMessage -Level Verbose -Message "Processing $($parms.ComputerName)"
 
             if ($computer.IsLocalhost -and $Method -ne "DSC") {
                 if ($Method -eq "WindowsUpdate") {
@@ -194,12 +205,20 @@ function Install-KbUpdate {
         }
 
         while ($kbjobs = Get-Job | Where-Object Name -in $jobs.Name) {
-            foreach ($job in ($kbjobs | Where-Object State -eq Completed)) {
+            foreach ($kbjob in ($kbjobs | Where-Object State -ne 'Running')) {
+                Write-PSFMessage -Level Verbose -Message "Finished installing updates on $($kbjob.Name)"
                 $null = $added++
-                Write-PSFMessage -Level Verbose -Message "Finished installing updates on $($job.Name)"
-                Write-Progress -Activity "Installing updates" -Status "Finished installing updates on $($job.Name)" -PercentComplete ($added / $totalsteps * 100)
-                $job | Receive-Job
-                $null = $job | Remove-Job
+                $done = $kbjobs | Where-Object Name -ne $kbjob.Name
+                $progressparms = @{
+                    Activity        = "Installing updates"
+                    Status          = "Still installing updates on $($done.Name -join ', ')"
+                    PercentComplete = ($added / $totalsteps * 100)
+                }
+
+                Write-Progress @progressparms
+
+                $kbjob | Receive-Job
+                $kbjob | Remove-Job
             }
             Start-Sleep -Seconds 1
         }
