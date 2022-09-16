@@ -229,7 +229,7 @@ function Start-DscUpdate {
         $FilePath = $remotefile
     }
 
-    if ($FilePath.EndsWith("exe")) {
+    if ("$FilePath".EndsWith("exe")) {
         if (-not $PSBoundParameters.ArgumentList -and $FilePath -match "sql") {
             $ArgumentList = "/action=patch /AllInstances /quiet /IAcceptSQLServerLicenseTerms"
         } else {
