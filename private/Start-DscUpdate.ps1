@@ -12,7 +12,7 @@ function Start-DscUpdate {
     } else {
         $PSDefaultParameterValues["*:EnableException"] = $false
     }
-
+    $script:ModuleRoot = Split-Path -Path ((Get-Module -ListAvailable -Name kbupdate | Sort-Object Version -Descending).Path | Select-Object -First 1)
     $computer = $ComputerName.ComputerName
 
     # null out a couple things to be safe
