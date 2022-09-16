@@ -2,7 +2,8 @@
 function Start-WindowsUpdate {
     [CmdletBinding()]
     param (
-        [psobject[]]$ComputerName = $env:ComputerName,
+        [Parameter(Mandatory)]
+        [psobject]$ComputerName,
         [PSCredential]$Credential,
         [PSCredential]$PSDscRunAsCredential,
         [Parameter(ValueFromPipelineByPropertyName)]
@@ -24,19 +25,6 @@ function Start-WindowsUpdate {
         [switch]$EnableException
     )
     try {
-        Start-Sleep 5
-        [pscustomobject]@{
-            ComputerName   = $ComputerName
-            HotfixId       = $HotfixId
-            FilePath       = $FilePath
-            RepositoryPath = $RepositoryPath
-            Method         = $Method
-            Guid           = $Guid
-            Title          = $Title
-            ArgumentList   = $ArgumentList
-            InputObject    = $InputObject
-        }
-        return
         Write-PSFMessage -Level Verbose -Message "Using the Windows Update method"
         $sessiontype = [type]::GetTypeFromProgID("Microsoft.Update.Session")
         $session = [activator]::CreateInstance($sessiontype)
