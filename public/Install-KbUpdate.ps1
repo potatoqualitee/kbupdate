@@ -206,6 +206,27 @@ function Install-KbUpdate {
         }
 
         while ($kbjobs = Get-Job | Where-Object Name -in $jobs.Name) {
+
+            $jorbs = $kbjobs | Receive-Job
+            if ($jorbs.Output) {
+                $jorbs.Output | Write-Output
+            }
+            if ($jorbs.Error) {
+                $jorbs.Error | Write-Error
+            }
+            if ($jorbs.Warning) {
+                $jorbs.Warning | Write-Warning
+            }
+            if ($jorbs.Verbose) {
+                $jorbs.Verbose | Write-Verbose
+            }
+            if ($jorbs.Debug) {
+                $jorbs.Debug | Write-Debug
+            }
+            if ($jorbs.Information) {
+                $jorbs.Information | Write-Information
+            }
+
             foreach ($kbjob in ($kbjobs | Where-Object State -ne 'Running')) {
                 Write-PSFMessage -Level Verbose -Message "Finished installing updates on $($kbjob.Name)"
                 $null = $added++
@@ -217,8 +238,7 @@ function Install-KbUpdate {
                 }
 
                 Write-Progress @progressparms
-
-                $kbjob | Receive-Job
+                $jorbs | Where-Object Name -eq $kbjob.name
                 $kbjob | Remove-Job
             }
             Start-Sleep -Seconds 1
