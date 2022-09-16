@@ -151,29 +151,27 @@ function Install-KbUpdate {
             Write-PSFMessage -Level Verbose -Message "Added $ComputerName"
         }
 
-        foreach ($item in $ComputerName) {
-            $computer = $item.ComputerName
-            $completed++
-
-            if ($item.IsLocalHost -and -not (Test-ElevationRequirement -ComputerName $computer)) {
-                Stop-PSFFunction -EnableException:$EnableException -Message "You must be an administrator to run this command on the local host" -Continue
-            }
-
-            if (-not $item.IsLocalHost -and $Method -eq "WindowsUpdate") {
-                Stop-PSFFunction -EnableException:$EnableException -Message "The Windows Update method is only supported on localhost due to Windows security restrictions" -Continue
-            }
-
-            if ((Get-Service wuauserv | Where-Object StartType -ne Disabled) -and $Method -eq "WindowsUpdate") {
-                Stop-PSFFunction -EnableException:$EnableException -Message "The Windows Update method cannot be used when the Windows Update service is stopped on $computer" -Continue
-            }
-        }
-
         $jobs = @()
         $added = 0
         $totalsteps = ($ComputerName.Count * 2) + 1 # The plus one is for pretty
 
         foreach ($computer in $ComputerName) {
+            $hostname = $computer.ComputerName
+            $null = $completed++
             $null = $added++
+
+            if ($computer.IsLocalHost -and -not (Test-ElevationRequirement -ComputerName $hostname)) {
+                Stop-PSFFunction -EnableException:$EnableException -Message "You must be an administrator to run this command on the local host" -Continue
+            }
+
+            if (-not $computer.IsLocalHost -and $Method -eq "WindowsUpdate") {
+                Stop-PSFFunction -EnableException:$EnableException -Message "The Windows Update method is only supported on localhost due to Windows security restrictions" -Continue
+            }
+
+            if ((Get-Service wuauserv | Where-Object StartType -eq Disabled) -and $Method -eq "WindowsUpdate") {
+                Stop-PSFFunction -EnableException:$EnableException -Message "The Windows Update method cannot be used when the Windows Update service is stopped on $computer" -Continue
+            }
+
             $parms = @{
                 ComputerName   = $computer
                 FilePath       = $FilePath
@@ -194,15 +192,7 @@ function Install-KbUpdate {
             Write-PSFMessage -Level Verbose -Message "Processing $($parms.ComputerName)"
 
             if ($computer.IsLocalhost -and $Method -ne "DSC") {
-                if ($Method -eq "WindowsUpdate") {
-                    if ($ComputerName.Count -eq 1 -or $NoMultithreading) {
-                        Start-WindowsUpdate @parms
-                    } else {
-                        $job = Start-Job -ScriptBlock $wublock
-                    }
-
-                }
-                if ((Get-Service wuauserv | Where-Object StartType -ne Disabled)) {
+                if ((Get-Service wuauserv | Where-Object StartType -ne Disabled) -or $Method -eq "WindowsUpdate") {
                     if ($ComputerName.Count -eq 1 -or $NoMultithreading) {
                         Start-WindowsUpdate @parms
                     } else {
