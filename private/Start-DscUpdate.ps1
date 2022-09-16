@@ -354,7 +354,8 @@ function Start-DscUpdate {
                 $PSDefaultParameterValues.Remove("Invoke-WebRequest:ErrorAction")
                 $PSDefaultParameterValues['*:ErrorAction'] = 'SilentlyContinue'
                 $ErrorActionPreference = "Stop"
-
+                $oldpref = $ProgressPreference
+                $ProgressPreference = "SilentlyContinue"
                 if (-not (Get-Command Invoke-DscResource)) {
                     throw "Invoke-DscResource not found on $env:ComputerName"
                 }
@@ -364,6 +365,7 @@ function Start-DscUpdate {
                     if (-not (Invoke-DscResource @hotfix -Method Test)) {
                         Invoke-DscResource @hotfix -Method Set -ErrorAction Stop
                     }
+                    $ProgressPreference = $oldpref
                 } catch {
                     $message = "$_"
 

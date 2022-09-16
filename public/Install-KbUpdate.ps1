@@ -206,27 +206,29 @@ function Install-KbUpdate {
         }
 
         while ($kbjobs = Get-Job | Where-Object Name -in $jobs.Name) {
+            foreach ($item in $kbjobs) {
+                try {
+                    $kbjob = $item | Receive-Job -ErrorAction Stop
+                } catch {
+                    Stop-PSFFunction -Message "Failure on $($item.Name)" -ErrorRecord $PSItem -EnableException:$EnableException -Continue
+                }
 
-            $jorbs = $kbjobs | Receive-Job
-            if ($jorbs.Output) {
-                $jorbs.Output | Write-Output
+                if ($kbjob.Output) {
+                    $kbjob.Output | Write-Output
+                }
+                if ($kbjob.Warning) {
+                    $kbjob.Warning | Write-Warning
+                }
+                if ($kbjob.Verbose) {
+                    $kbjob.Verbose | Write-Verbose
+                }
+                if ($kbjob.Debug) {
+                    $kbjob.Debug | Write-Debug
+                }
+                if ($kbjob.Information) {
+                    $kbjob.Information | Write-Information
+                }
             }
-            if ($jorbs.Error) {
-                $jorbs.Error | Write-Error
-            }
-            if ($jorbs.Warning) {
-                $jorbs.Warning | Write-Warning
-            }
-            if ($jorbs.Verbose) {
-                $jorbs.Verbose | Write-Verbose
-            }
-            if ($jorbs.Debug) {
-                $jorbs.Debug | Write-Debug
-            }
-            if ($jorbs.Information) {
-                $jorbs.Information | Write-Information
-            }
-
             foreach ($kbjob in ($kbjobs | Where-Object State -ne 'Running')) {
                 Write-PSFMessage -Level Verbose -Message "Finished installing updates on $($kbjob.Name)"
                 $null = $added++
