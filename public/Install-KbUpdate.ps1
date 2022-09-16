@@ -189,7 +189,7 @@ function Install-KbUpdate {
             $null = $PSDefaultParameterValues["Start-Job:ArgumentList"] = $parms
             $null = $PSDefaultParameterValues["Start-Job:Name"] = $computer.ComputerName
 
-            Write-Progress -Activity "Installing updates" -Status "Added job for $($computer.ComputerName). Processing $added jobs..." -PercentComplete ($added / $totalsteps * 100)
+            Write-Progress -Activity "Installing updates" -Status "Added $($computer.ComputerName) to queue. Processing $added computers..." -PercentComplete ($added / $totalsteps * 100)
 
             Write-PSFMessage -Level Verbose -Message "Processing $($parms.ComputerName)"
 
