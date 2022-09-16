@@ -124,7 +124,6 @@ function Install-KbUpdate {
         $null = Get-Job -ChildJobState Completed | Where-Object Name -in $ComputerName.ComputerName | Remove-Job -Force
     }
     process {
-
         if (-not $PSBoundParameters.HotfixId -and -not $PSBoundParameters.FilePath -and -not $PSBoundParameters.InputObject) {
             Stop-PSFFunction -EnableException:$EnableException -Message "You must specify either HotfixId or FilePath or pipe in the results from Get-KbUpdate"
             return
@@ -208,7 +207,7 @@ function Install-KbUpdate {
         while ($kbjobs = Get-Job | Where-Object Name -in $jobs.Name) {
             foreach ($item in $kbjobs) {
                 try {
-                    $kbjob = $item | Receive-Job -ErrorAction Stop
+                    $item | Receive-Job -ErrorAction Stop -OutVariable kbjob
                 } catch {
                     Stop-PSFFunction -Message "Failure on $($item.Name)" -ErrorRecord $PSItem -EnableException:$EnableException -Continue
                 }
