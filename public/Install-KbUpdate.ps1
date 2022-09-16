@@ -45,6 +45,9 @@ function Install-KbUpdate {
     .PARAMETER InputObject
         Allows infos to be piped in from Get-KbUpdate
 
+    .PARAMETER NoMultithreading
+        Don't use jobs to install updates
+
     .PARAMETER EnableException
         By default, when something goes wrong we try to catch it, interpret it and give you a friendly warning message.
         This avoids overwhelming you with "sea of red" exceptions, but is inconvenient because it basically disables advanced scripting.
@@ -114,7 +117,8 @@ function Install-KbUpdate {
         [string]$ArgumentList,
         [Parameter(ValueFromPipeline)]
         [pscustomobject[]]$InputObject,
-        [switch]$EnableException
+        [switch]$EnableException,
+        [switch]$NoMultithreading
     )
     begin {
         # create code blocks fopr jobs
@@ -191,59 +195,78 @@ function Install-KbUpdate {
 
             if ($computer.IsLocalhost -and $Method -ne "DSC") {
                 if ($Method -eq "WindowsUpdate") {
-                    $job = Start-Job -ScriptBlock $wublock
+                    if ($ComputerName.Count -eq 1 -or $NoMultithreading) {
+                        Start-WindowsUpdate @parms
+                    } else {
+                        $job = Start-Job -ScriptBlock $wublock
+                    }
+
                 }
                 if ((Get-Service wuauserv | Where-Object StartType -ne Disabled)) {
-                    $job = Start-Job -ScriptBlock $wublock
+                    if ($ComputerName.Count -eq 1 -or $NoMultithreading) {
+                        Start-WindowsUpdate @parms
+                    } else {
+                        $job = Start-Job -ScriptBlock $wublock
+                    }
+                } else {
+                    if ($ComputerName.Count -eq 1 -or $NoMultithreading) {
+                        Start-DscUpdate @parms
+                    } else {
+                        $job = Start-Job -ScriptBlock $dscblock
+                    }
+                }
+            } else {
+                if ($ComputerName.Count -eq 1 -or $NoMultithreading) {
+                    Start-DscUpdate @parms
                 } else {
                     $job = Start-Job -ScriptBlock $dscblock
                 }
-            } else {
-                $job = Start-Job -ScriptBlock $dscblock
             }
             $jobs += $job
         }
 
-        while ($kbjobs = Get-Job | Where-Object Name -in $jobs.Name) {
-            foreach ($item in $kbjobs) {
-                try {
-                    $item | Receive-Job -ErrorAction Stop -OutVariable kbjob
-                } catch {
-                    Stop-PSFFunction -Message "Failure on $($item.Name)" -ErrorRecord $PSItem -EnableException:$EnableException -Continue
-                }
+        if ($jobs.Name) {
+            while ($kbjobs = Get-Job | Where-Object Name -in $jobs.Name) {
+                foreach ($item in $kbjobs) {
+                    try {
+                        $item | Receive-Job -ErrorAction Stop -OutVariable kbjob
+                    } catch {
+                        Stop-PSFFunction -Message "Failure on $($item.Name)" -ErrorRecord $PSItem -EnableException:$EnableException -Continue
+                    }
 
-                if ($kbjob.Output) {
-                    $kbjob.Output | Write-Output
+                    if ($kbjob.Output) {
+                        $kbjob.Output | Write-Output
+                    }
+                    if ($kbjob.Warning) {
+                        $kbjob.Warning | Write-Warning
+                    }
+                    if ($kbjob.Verbose) {
+                        $kbjob.Verbose | Write-Verbose
+                    }
+                    if ($kbjob.Debug) {
+                        $kbjob.Debug | Write-Debug
+                    }
+                    if ($kbjob.Information) {
+                        $kbjob.Information | Write-Information
+                    }
                 }
-                if ($kbjob.Warning) {
-                    $kbjob.Warning | Write-Warning
-                }
-                if ($kbjob.Verbose) {
-                    $kbjob.Verbose | Write-Verbose
-                }
-                if ($kbjob.Debug) {
-                    $kbjob.Debug | Write-Debug
-                }
-                if ($kbjob.Information) {
-                    $kbjob.Information | Write-Information
-                }
-            }
-            $null = Remove-Variable -Name kbjob
-            foreach ($kbjob in ($kbjobs | Where-Object State -ne 'Running')) {
-                Write-PSFMessage -Level Verbose -Message "Finished installing updates on $($kbjob.Name)"
-                $null = $added++
-                $done = $kbjobs | Where-Object Name -ne $kbjob.Name
-                $progressparms = @{
-                    Activity        = "Installing updates"
-                    Status          = "Still installing updates on $($done.Name -join ', ')"
-                    PercentComplete = ($added / $totalsteps * 100)
-                }
+                $null = Remove-Variable -Name kbjob
+                foreach ($kbjob in ($kbjobs | Where-Object State -ne 'Running')) {
+                    Write-PSFMessage -Level Verbose -Message "Finished installing updates on $($kbjob.Name)"
+                    $null = $added++
+                    $done = $kbjobs | Where-Object Name -ne $kbjob.Name
+                    $progressparms = @{
+                        Activity        = "Installing updates"
+                        Status          = "Still installing updates on $($done.Name -join ', ')"
+                        PercentComplete = ($added / $totalsteps * 100)
+                    }
 
-                Write-Progress @progressparms
-                $jorbs | Where-Object Name -eq $kbjob.name
-                $kbjob | Remove-Job
+                    Write-Progress @progressparms
+                    $jorbs | Where-Object Name -eq $kbjob.name
+                    $kbjob | Remove-Job
+                }
+                Start-Sleep -Seconds 1
             }
-            Start-Sleep -Seconds 1
         }
         Write-Progress -Activity "Installing updates" -Completed
     }

@@ -22,7 +22,7 @@ function Start-WindowsUpdate {
         [string]$ArgumentList,
         [Parameter(ValueFromPipeline)]
         [pscustomobject[]]$InputObject,
-        [switch]$EnableException
+        [switch]$DoException
     )
     try {
         Write-PSFMessage -Level Verbose -Message "Using the Windows Update method"
@@ -30,9 +30,14 @@ function Start-WindowsUpdate {
         $session = [activator]::CreateInstance($sessiontype)
         $session.ClientApplicationID = "kbupdate installer"
 
-        if ($InputObject.UpdateId) {
-            Write-PSFMessage -Level Verbose -Message "Got an UpdateId"
-            $searchresult = $session.CreateUpdateSearcher().Search("UpdateId = '$($InputObject.UpdateId)'")
+        if ($InputObject.UpdateId -or $Guid) {
+            Write-PSFMessage -Level Verbose -Message "Got an UpdateId or Guid"
+            if ($Guid) {
+                $search = "UpdateId = '$Guid'"
+            } else {
+                $search = "UpdateId = '$($InputObject.UpdateId)'"
+            }
+            $searchresult = $session.CreateUpdateSearcher().Search($search)
         } else {
             Write-PSFMessage -Level Verbose -Message "Build needed updates"
             $searchresult = $session.CreateUpdateSearcher().Search("Type='Software' and IsInstalled=0 and IsHidden=0")
