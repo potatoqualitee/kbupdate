@@ -180,6 +180,7 @@ function Install-KbUpdate {
                 Title          = $Title
                 ArgumentList   = $ArgumentList
                 InputObject    = $InputObject
+                DoException    = $EnableException
             }
 
             $null = $PSDefaultParameterValues["Start-Job:ArgumentList"] = $parms

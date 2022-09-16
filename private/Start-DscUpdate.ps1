@@ -6,6 +6,13 @@ function Start-DscUpdate {
     foreach ($key in $hashtable.keys) {
         Set-Variable -Name $key -Value $hashtable[$key]
     }
+
+    if ($DoException) {
+        $PSDefaultParameterValues["*:EnableException"] = $true
+    } else {
+        $PSDefaultParameterValues["*:EnableException"] = $false
+    }
+
     $computer = $ComputerName.ComputerName
 
     # null out a couple things to be safe
@@ -15,7 +22,7 @@ function Start-DscUpdate {
         $null = $PSDefaultParameterValues.Remove("Invoke-PSFCommand:ComputerName")
     }
 
-    if ($item.IsLocalHost) {
+    if ($ComputerName.IsLocalHost) {
         # a lot of the file copy work will be done in the $home dir
         $programhome = Invoke-PSFCommand -ScriptBlock { $home }
     } else {
@@ -59,7 +66,7 @@ function Start-DscUpdate {
             $programfiles = Invoke-PSFCommand -ScriptBlock {
                 $env:ProgramFiles
             }
-            if ($item.IsLocalhost) {
+            if ($ComputerName.IsLocalhost) {
                 Write-PSFMessage -Level Verbose -Message "Copying xWindowsUpdate to $computer (local to $programfiles\WindowsPowerShell\Modules\xWindowsUpdate)"
                 $null = Copy-Item -Path "$script:ModuleRoot\library\xWindowsUpdate" -Destination "$programfiles\WindowsPowerShell\Modules" -Recurse -Force
             } else {
@@ -86,7 +93,7 @@ function Start-DscUpdate {
             $programfiles = Invoke-PSFCommand -ScriptBlock {
                 $env:ProgramFiles
             }
-            if ($item.IsLocalhost) {
+            if ($ComputerName.IsLocalhost) {
                 Write-PSFMessage -Level Verbose -Message "Copying xPSDesiredStateConfiguration to $computer (local to $programfiles\WindowsPowerShell\Modules\xPSDesiredStateConfiguration)"
                 $null = Copy-Item -Path "$script:ModuleRoot\library\xPSDesiredStateConfiguration" -Destination "$programfiles\WindowsPowerShell\Modules" -Recurse -Force
             } else {
@@ -165,7 +172,7 @@ function Start-DscUpdate {
             $FilePath = "$programhome\Downloads\$(Split-Path -Leaf $updateFile)"
         }
 
-        if ($item.IsLocalhost) {
+        if ($ComputerName.IsLocalhost) {
             $remotefile = $updatefile
         } else {
             $remotefile = "$programhome\Downloads\$(Split-Path -Leaf $updateFile)"
@@ -173,7 +180,7 @@ function Start-DscUpdate {
 
         # copy over to destination server unless
         # it's local or it's on a network share
-        if (-not "$($PSBoundParameters.FilePath)".StartsWith("\\") -and -not $item.IsLocalhost) {
+        if (-not "$($PSBoundParameters.FilePath)".StartsWith("\\") -and -not $ComputerName.IsLocalhost) {
             Write-PSFMessage -Level Verbose -Message "Update is not located on a file server and not local, copying over the remote server"
             try {
                 $exists = Invoke-PSFCommand -ComputerName $computer -ArgumentList $remotefile -ScriptBlock {
@@ -207,7 +214,7 @@ function Start-DscUpdate {
     }
 
     # i probably need to fix some logic but until then, check a few things
-    if ($item.IsLocalHost) {
+    if ($ComputerName.IsLocalHost) {
         if ($updatefile) {
             $FilePath = $updatefile
         } else {
