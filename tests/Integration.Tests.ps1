@@ -122,7 +122,7 @@ Describe "Integration Tests" -Tag "IntegrationTests" {
         # microsoft's CDN appears to be having massive issues and sometimes this does not appear
         It "x64 should work when AMD64 is used (#52)" {
             $results = Get-KbUpdate 2864dff9-d197-48b8-82e3-f36ad242928d -Architecture x64 -Source Web
-            $results.Architecture | Should -BeIn "AMD64", "x64
+            $results.Architecture | Should -BeIn "AMD64", "x64"
         }
 
 
