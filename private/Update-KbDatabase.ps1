@@ -454,7 +454,7 @@ function Update-KbDatabase {
         $size = [int]((Get-ChildItem -Path $db).Length / 1MB)
         "The db is $size MB" | Write-Warning
 
-        Write-ProgressHelper -StepNumber 2 -Activity "Setting up prerequisites" -Message "Saving scanfile using Save-KbScanFile"
+        Write-ProgressHelper -StepNumber 2 -Activity "Setting up prerequisites" -Message "Saving scanfile using Save-KbScanFile and Microsoft.Update.ServiceManager"
 
         Write-PSFMessage -Level Verbose -Message "Saving scanfile"
         $scanfile = Save-KbScanFile
