@@ -1,7 +1,28 @@
 
 function Start-DscUpdate {
     [CmdletBinding()]
-    param ($hashtable)
+    param (
+        [PSFComputer]$ComputerName = $env:ComputerName,
+        [PSCredential]$Credential,
+        [PSCredential]$PSDscRunAsCredential,
+        [Parameter(ValueFromPipelineByPropertyName)]
+        [Alias("Name", "KBUpdate", "Id")]
+        [string]$HotfixId,
+        [Alias("Path")]
+        [string]$FilePath,
+        [string]$RepositoryPath,
+        [Parameter(ValueFromPipelineByPropertyName)]
+        [Alias("UpdateId")]
+        [string]$Guid,
+        [Parameter(ValueFromPipelineByPropertyName)]
+        [string]$Title,
+        [string]$ArgumentList,
+        [Parameter(ValueFromPipeline)]
+        [pscustomobject[]]$InputObject,
+        [switch]$AllNeeded,
+        [switch]$NoMultithreading,
+        [switch]$DoException
+    )
 
     foreach ($key in $hashtable.keys) {
         Set-Variable -Name $key -Value $hashtable[$key]
@@ -42,7 +63,7 @@ function Start-DscUpdate {
         }
 
         if (-not $remotesession) {
-            Stop-PSFFunction -EnableException:$true -Message "Session for $computer can't be found or no runspaces are available. Please file an issue on the GitHub repo at https://github.com/potatoqualitee/kbupdate/issues" -Continue
+            Stop-PSFFunction -Message "Session for $computer can't be found or no runspaces are available. Please file an issue on the GitHub repo at https://github.com/potatoqualitee/kbupdate/issues" -Continue
         }
     }
 
@@ -77,7 +98,7 @@ function Start-DscUpdate {
 
             $ProgressPreference = $oldpref
         } catch {
-            Stop-PSFFunction -EnableException:$true -Message "Couldn't auto-install xHotfix on $computer. Please Install-Module xWindowsUpdate on $computer to continue." -Continue
+            Stop-PSFFunction -Message "Couldn't auto-install xHotfix on $computer. Please Install-Module xWindowsUpdate on $computer to continue." -Continue
         }
     }
 
@@ -104,7 +125,7 @@ function Start-DscUpdate {
 
             $ProgressPreference = $oldpref
         } catch {
-            Stop-PSFFunction -EnableException:$true -Message "Couldn't auto-install newer DSC resources on $computer. Please Install-Module xPSDesiredStateConfiguration version 9.2.0 on $computer to continue." -Continue
+            Stop-PSFFunction -Message "Couldn't auto-install newer DSC resources on $computer. Please Install-Module xPSDesiredStateConfiguration version 9.2.0 on $computer to continue." -Continue
         }
     }
 
@@ -135,9 +156,29 @@ function Start-DscUpdate {
 
         if (-not $updatefile) {
             Write-PSFMessage -Level Verbose -Message "Update file not found, download it for them"
+            if ($HotfixId) {
+                $Pattern = $HotfixId
+            } elseif ($Guid) {
+                $Pattern = $Guid
+            } elseif ($InputObject.UpdateId) {
+                $Pattern = $InputObject.UpdateId
+            } elseif ($InputObject.Id) {
+                $Pattern = $InputObject.Id
+            } elseif ($InputObject.Id) {
+                $Pattern = $InputObject.Id
+            } elseif ($filename) {
+                $number = "$filename".Split('KB') | Select-Object -Last 1
+                $number = $number.Split(" ") | Select-Object -First 1
+                $Pattern = "KB$number".Trim().Replace(")", "")
+            } elseif ($FilePath) {
+                $number = "$(Split-Path $FilePath -Leaf)".Split('KB') | Select-Object -Last 1
+                $number = $number.Split(" ") | Select-Object -First 1
+                $Pattern = "KB$number".Trim().Replace(")", "")
+            }
+
             # try to automatically download it for them
-            if (-not $InputObject) {
-                $InputObject = Get-KbUpdate -Architecture x64 -Latest -Pattern $HotfixId | Where-Object Link
+            if (-not $InputObject -and $Pattern) {
+                $InputObject = Get-KbUpdate -ComputerName $computer -Pattern $Pattern | Where-Object { $PSItem.Link -and $PSItem.Title -match $Pattern }
             }
 
             # note to reader: if this picks the wrong one, please download the required file manually.
@@ -148,24 +189,24 @@ function Start-DscUpdate {
                     $file = Split-Path $InputObject.Link -Leaf | Select-Object -Last 1
                 }
             } else {
-                Stop-PSFFunction -EnableException:$true -Message "Could not find file on $computer and couldn't find it online. Try piping in exactly what you'd like from Get-KbUpdate." -Continue
+                Stop-PSFFunction -Message "Could not find file on $computer and couldn't find it online. Try piping in exactly what you'd like from Get-KbUpdate." -Continue
             }
 
             if ((Test-Path -Path "$home\Downloads\$file")) {
                 $updatefile = Get-ChildItem -Path "$home\Downloads\$file"
             } else {
-                if ($PSCmdlet.ShouldProcess($computer, "File not detected, downloading now to $home\Downloads and copying to remote computer")) {
-                    $warnatbottom = $true
+                Write-PSFMessage -Level Verbose -Message "File not detected on $computer, downloading now to $home\Downloads and copying to remote computer"
 
-                    # fix for SYSTEM which doesn't have a downloads directory by default
-                    Write-PSFMessage -Level Verbose -Message "Checking for home downloads directory"
-                    if (-not (Test-Path -Path "$home\Downloads")) {
-                        Write-PSFMessage -Level Warning -Message "Creating Downloads directory at $home\Downloads"
-                        $null = New-Item -ItemType Directory -Force -Path "$home\Downloads"
-                    }
+                $warnatbottom = $true
 
-                    $updatefile = $InputObject | Select-Object -First 1 | Save-KbUpdate -Path "$home\Downloads"
+                # fix for SYSTEM which doesn't have a downloads directory by default
+                Write-PSFMessage -Level Verbose -Message "Checking for home downloads directory"
+                if (-not (Test-Path -Path "$home\Downloads")) {
+                    Write-PSFMessage -Level Warning -Message "Creating Downloads directory at $home\Downloads"
+                    $null = New-Item -ItemType Directory -Force -Path "$home\Downloads"
                 }
+
+                $updatefile = $InputObject | Select-Object -First 1 | Save-KbUpdate -Path "$home\Downloads"
             }
         }
 
@@ -203,7 +244,7 @@ function Start-DscUpdate {
                     $null = Invoke-PSFCommand -ComputerName $computer -ArgumentList $remotefile -ScriptBlock {
                         Remove-Item $args -Force -ErrorAction SilentlyContinue
                     }
-                    Stop-PSFFunction -EnableException:$true -Message "Could not copy $updatefile to $remotefile" -ErrorRecord $PSItem -Continue
+                    Stop-PSFFunction -Message "Could not copy $updatefile to $remotefile" -ErrorRecord $PSItem -Continue
                 }
             }
         }
@@ -469,7 +510,7 @@ function Start-DscUpdate {
                     FileName     = $updatefile.Name
                 }
             } else {
-                Stop-PSFFunction -Message "Failure on $computer" -ErrorRecord $_ -EnableException:$true
+                Stop-PSFFunction -Message "Failure on $computer" -ErrorRecord $_
             }
         }
     }

@@ -104,7 +104,7 @@ function Get-KbNeededUpdate {
                 $searcher = $wua.CreateUpdateSearcher()
                 Write-Verbose -Message "Searching for needed updates"
                 $wsuskbs = $searcher.Search("Type='Software' and IsHidden=0")
-                Write-Verbose -Message "Found $($wsuskbs.Count) updates"
+                Write-Verbose -Message "Found $($wsuskbs.Updates.Count) updates"
 
                 foreach ($wsu in $wsuskbs) {
                     foreach ($wsuskb in $wsu.Updates) {
@@ -122,6 +122,7 @@ function Get-KbNeededUpdate {
                                 }
                             }
                         }
+
                         [pscustomobject]@{
                             ComputerName      = $Computer
                             Title             = $wsuskb.Title
@@ -230,9 +231,19 @@ function Get-KbNeededUpdate {
                 }
 
                 Write-ProgressHelper -TotalSteps $totalcount -StepNumber $completed -Activity "Getting updates" -Message "Processing $computer"
-                Invoke-PSFCommand -Computer $computer -Credential $Credential -ErrorAction Stop -ScriptBlock $scriptblock -ArgumentList $computer, $cabpath, $VerbosePreference |
-                    Select-Object -Property * -ExcludeProperty PSComputerName, RunspaceId |
-                    Select-DefaultView -Property ComputerName, Title, KBUpdate, UpdateId, Description, LastModified, RebootBehavior, RequestsUserInput, NetworkRequired, Link
+
+                foreach ($result in (Invoke-PSFCommand -Computer $computer -Credential $Credential -ErrorAction Stop -ScriptBlock $scriptblock -ArgumentList $computer, $cabpath, $VerbosePreference |
+                            Select-Object -Property * -ExcludeProperty PSComputerName, RunspaceId |
+                            Select-DefaultView -Property ComputerName, Title, KBUpdate, UpdateId, Description, LastModified, RebootBehavior, RequestsUserInput, NetworkRequired, Link)) {
+                    if (-not $result.Link) {
+                        Write-PSFMessage -Level Verbose "No link found for $($result.KBUpdate.Trim()). Looking it up."
+                        $link = (Get-KbUpdate -Pattern "$($result.KBUpdate.Trim())" -Simple -Computer $computer | Where-Object Title -match $result.KBUpdate).Link
+                        if ($link) {
+                            $result.Link = $link
+                        }
+                    }
+                    $result
+                }
             } catch {
                 Stop-PSFFunction -EnableException:$EnableException -Message "Failure on $computer" -ErrorRecord $PSItem -Continue
             }

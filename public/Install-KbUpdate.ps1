@@ -34,8 +34,8 @@ function Install-KbUpdate {
     .PARAMETER Title
         If the file is an exe and no Title is specified, we will have to get it from Get-KbUpdate
 
-    .PARAMETER Method
-        Used to specify DSC or WindowsUpdate. By default, WindowsUpdate is used on localhost and DSC is used on remote servers.
+    .PARAMETER AllNeeded
+        Installs all needed updates
 
     .PARAMETER ArgumentList
         This is an advanced parameter for those of you who need special argumentlists for your platform-specific update.
@@ -107,8 +107,6 @@ function Install-KbUpdate {
         [Alias("Path")]
         [string]$FilePath,
         [string]$RepositoryPath,
-        [ValidateSet("WindowsUpdate", "DSC")]
-        [string]$Method = "DSC",
         [Parameter(ValueFromPipelineByPropertyName)]
         [Alias("UpdateId")]
         [string]$Guid,
@@ -117,19 +115,20 @@ function Install-KbUpdate {
         [string]$ArgumentList,
         [Parameter(ValueFromPipeline)]
         [pscustomobject[]]$InputObject,
-        [switch]$EnableException,
-        [switch]$NoMultithreading
+        [switch]$AllNeeded,
+        [switch]$NoMultithreading,
+        [switch]$EnableException
     )
     begin {
-        # create code blocks fopr jobs
+        # create code blocks for jobs
         $wublock = [scriptblock]::Create($((Get-Command Start-WindowsUpdate).Definition))
         $dscblock = [scriptblock]::Create($((Get-Command Start-DscUpdate).Definition))
         # cleanup
         $null = Get-Job -ChildJobState Completed | Where-Object Name -in $ComputerName.ComputerName | Remove-Job -Force
     }
     process {
-        if (-not $PSBoundParameters.HotfixId -and -not $PSBoundParameters.FilePath -and -not $PSBoundParameters.InputObject) {
-            Stop-PSFFunction -EnableException:$EnableException -Message "You must specify either HotfixId or FilePath or pipe in the results from Get-KbUpdate"
+        if (-not $PSBoundParameters.HotfixId -and -not $PSBoundParameters.FilePath -and -not $PSBoundParameters.InputObject -and -not $AllNeeded) {
+            Stop-PSFFunction -EnableException:$EnableException -Message "You must specify either HotfixId or FilePath or AllNeeded or pipe in the results from Get-KbUpdate"
             return
         }
 
@@ -151,6 +150,10 @@ function Install-KbUpdate {
             Write-PSFMessage -Level Verbose -Message "Added $ComputerName"
         }
 
+        if ($AllNeeded) {
+            $InputObject = Get-KbNeededUpdate -ComputerName $ComputerName -EnableException:$EnableException
+        }
+
         $jobs = @()
         $added = 0
         $totalsteps = ($ComputerName.Count * 2) + 1 # The plus one is for pretty
@@ -159,17 +162,10 @@ function Install-KbUpdate {
             $hostname = $computer.ComputerName
             $null = $completed++
             $null = $added++
+            $method = $null
 
             if ($computer.IsLocalHost -and -not (Test-ElevationRequirement -ComputerName $hostname)) {
                 Stop-PSFFunction -EnableException:$EnableException -Message "You must be an administrator to run this command on the local host" -Continue
-            }
-
-            if (-not $computer.IsLocalHost -and $Method -eq "WindowsUpdate") {
-                Stop-PSFFunction -EnableException:$EnableException -Message "The Windows Update method is only supported on localhost due to Windows security restrictions" -Continue
-            }
-
-            if ((Get-Service wuauserv | Where-Object StartType -eq Disabled) -and $Method -eq "WindowsUpdate") {
-                Stop-PSFFunction -EnableException:$EnableException -Message "The Windows Update method cannot be used when the Windows Update service is stopped on $computer" -Continue
             }
 
             $parms = @{
@@ -180,7 +176,7 @@ function Install-KbUpdate {
                 Guid           = $Guid
                 Title          = $Title
                 ArgumentList   = $ArgumentList
-                InputObject    = $InputObject
+                InputObject    = @($InputObject)
                 DoException    = $EnableException
             }
 
@@ -191,29 +187,42 @@ function Install-KbUpdate {
 
             Write-PSFMessage -Level Verbose -Message "Processing $($parms.ComputerName)"
 
-            if ($computer.IsLocalhost -and $Method -ne "DSC") {
-                if ((Get-Service wuauserv | Where-Object StartType -ne Disabled) -or $Method -eq "WindowsUpdate") {
-                    if ($ComputerName.Count -eq 1 -or $NoMultithreading) {
-                        Start-WindowsUpdate @parms
-                    } else {
-                        $job = Start-Job -ScriptBlock $wublock
-                    }
+            if ($computer.IsLocalhost) {
+                if ((Get-Service wuauserv | Where-Object StartType -ne Disabled) -and $InputObject.InputObject) {
+
+                    Write-PSFMessage -Level Verbose -Message "Setting method to Windows Update $($parms.ComputerName)"
+                    $method = "WindowsUpdate"
+                }
+                if ($AllNeeded -and -not $PSBoundParameters.InputObject.InputObject) {
+                    Write-PSFMessage -Level Verbose -Message "Setting method to Windows Update $($parms.ComputerName) then getting all needed windows updates"
+                    $method = "WindowsUpdate"
+                    $InputObject = @(Get-KbNeededUpdate -ComputerName $computer)
+                }
+            } elseif ($AllNeeded -and -not $PSBoundParameters.InputObject.InputObject) {
+                Write-PSFMessage -Level Verbose -Message "Getting all needed Windows Updates on $($parms.ComputerName)"
+                $InputObject = Get-KbNeededUpdate -ComputerName $computer
+                if (-not $InputObject.ComputerName.Count) {
+
+                }
+            }
+
+            if ($method -eq "WindowsUpdate") {
+                Write-PSFMessage -Level Verbose -Message "Method is WindowsUpdate"
+                if ($ComputerName.Count -eq 1 -or $NoMultithreading) {
+                    Start-WindowsUpdate @parms
                 } else {
-                    if ($ComputerName.Count -eq 1 -or $NoMultithreading) {
-                        Start-DscUpdate @parms
-                    } else {
-                        $job = Start-Job -ScriptBlock $dscblock
-                    }
+                    $job = Start-Job -ScriptBlock $wublock
                 }
             } else {
+                Write-PSFMessage -Level Verbose -Message "Method is DSC"
                 if ($ComputerName.Count -eq 1 -or $NoMultithreading) {
                     Start-DscUpdate @parms
                 } else {
                     $job = Start-Job -ScriptBlock $dscblock
                 }
             }
-            $jobs += $job
         }
+        $jobs += $job
 
         if ($jobs.Name) {
             while ($kbjobs = Get-Job | Where-Object Name -in $jobs.Name) {
@@ -257,7 +266,7 @@ function Install-KbUpdate {
                 }
                 Start-Sleep -Seconds 1
             }
+            Write-Progress -Activity "Installing updates" -Completed
         }
-        Write-Progress -Activity "Installing updates" -Completed
     }
 }
