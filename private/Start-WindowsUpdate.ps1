@@ -23,6 +23,7 @@ function Start-WindowsUpdate {
         [Parameter(ValueFromPipeline)]
         [pscustomobject[]]$InputObject,
         [switch]$DoException,
+        [switch]$AllNeeded,
         [bool]$IsLocalHost
     )
     try {
