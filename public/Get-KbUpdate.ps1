@@ -172,6 +172,10 @@ function Get-KbUpdate {
             [CmdletBinding()]
             param($kb, $os, $arch, $lang, $exclude)
             process {
+                if (-not $kb) {
+                    continue
+                }
+                Write-PSFMessage -Level Verbose -Message "Processing $kb"
                 # Join to dupe and check dupe
                 $kb = $kb.ToLower()
                 $query = "select *, NULL AS SupersededBy, NULL AS Supersedes, NULL AS Link from kb where UpdateId in (select UpdateId from kb where UpdateId = '$kb' or Title like '%$kb%' or Id like '%$kb%' or Description like '%$kb%' or MSRCNumber like '%$kb%')"
@@ -502,7 +506,11 @@ function Get-KbUpdate {
             }
 
             try {
-                $guids = Get-GuidsFromWeb -kb $kb
+                if ($kb) {
+                    $guids = Get-GuidsFromWeb -kb $kb
+                } else {
+                    $guids = $null
+                }
 
                 foreach ($item in $guids) {
                     $guid = $item.Guid
@@ -797,12 +805,15 @@ function Get-KbUpdate {
                     $Architecture += $results.Architecture
                 }
             }
-            if ($results.OperatingSystem) {
-                if ($results.OperatingSystem -notin $OperatingSystem) {
-                    Write-PSFMessage -Level Verbose -Message "Adding $($results.OperatingSystem)"
-                    $OperatingSystem += $results.OperatingSystem
+            <#
+                # This just makes it too strict because 21H2 is also Windows Server 2022
+                if ($results.OperatingSystem) {
+                    if ($results.OperatingSystem -notin $OperatingSystem) {
+                        Write-PSFMessage -Level Verbose -Message "Adding $($results.OperatingSystem)"
+                        $OperatingSystem += $results.OperatingSystem
+                    }
                 }
-            }
+            #>
         }
 
         $boundparams = @{
@@ -815,8 +826,10 @@ function Get-KbUpdate {
             $boundparams.Language = $PSBoundParameters.Language
             $boundparams.OperatingSystem = $OperatingSystem
         }
-
         foreach ($kb in $Pattern) {
+            if (-not $kb.Trim()) {
+                continue
+            }
             $results = @()
             if ($Source -contains "Wsus") {
                 $results += Get-KbItemFromWsusApi -kb $kb -exact $exact -exclude $exclude
