@@ -150,10 +150,6 @@ function Install-KbUpdate {
             Write-PSFMessage -Level Verbose -Message "Added $ComputerName"
         }
 
-        if ($AllNeeded) {
-            $InputObject = Get-KbNeededUpdate -ComputerName $ComputerName -EnableException:$EnableException
-        }
-
         $jobs = @()
         $added = 0
         $totalsteps = ($ComputerName.Count * 2) + 1 # The plus one is for pretty
@@ -167,21 +163,22 @@ function Install-KbUpdate {
             if ($computer.IsLocalHost -and -not (Test-ElevationRequirement -ComputerName $hostname)) {
                 Stop-PSFFunction -EnableException:$EnableException -Message "You must be an administrator to run this command on the local host" -Continue
             }
-
             $parms = @{
-                ComputerName   = $computer
+                Computer       = $hostname
                 FilePath       = $FilePath
                 HotfixId       = $HotfixId
                 RepositoryPath = $RepositoryPath
                 Guid           = $Guid
                 Title          = $Title
                 ArgumentList   = $ArgumentList
-                InputObject    = @($InputObject)
+                InputObject    = $InputObject
                 DoException    = $EnableException
+                IsLocalHost    = $computer.IsLocalHost
+                AllNeeded      = $AllNeeded
             }
 
             $null = $PSDefaultParameterValues["Start-Job:ArgumentList"] = $parms
-            $null = $PSDefaultParameterValues["Start-Job:Name"] = $computer.ComputerName
+            $null = $PSDefaultParameterValues["Start-Job:Name"] = $hostname
 
             Write-Progress -Activity "Installing updates" -Status "Added $($computer.ComputerName) to queue. Processing $added computers..." -PercentComplete ($added / $totalsteps * 100)
 
@@ -228,7 +225,7 @@ function Install-KbUpdate {
             while ($kbjobs = Get-Job | Where-Object Name -in $jobs.Name) {
                 foreach ($item in $kbjobs) {
                     try {
-                        $item | Receive-Job -ErrorAction Stop -OutVariable kbjob
+                        $item | Receive-Job -ErrorAction Stop -OutVariable kbjob | Select-Object -Property * -ExcludeProperty RunspaceId
                     } catch {
                         Stop-PSFFunction -Message "Failure on $($item.Name)" -ErrorRecord $PSItem -EnableException:$EnableException -Continue
                     }

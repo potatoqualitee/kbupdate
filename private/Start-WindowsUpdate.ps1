@@ -3,7 +3,7 @@ function Start-WindowsUpdate {
     [CmdletBinding()]
     param (
         [Parameter(Mandatory)]
-        [psobject]$ComputerName,
+        [psobject]$Computer,
         [PSCredential]$Credential,
         [PSCredential]$PSDscRunAsCredential,
         [Parameter(ValueFromPipelineByPropertyName)]
@@ -22,9 +22,18 @@ function Start-WindowsUpdate {
         [string]$ArgumentList,
         [Parameter(ValueFromPipeline)]
         [pscustomobject[]]$InputObject,
-        [switch]$DoException
+        [switch]$DoException,
+        [bool]$IsLocalHost
     )
     try {
+        # No idea why this happens sometimes
+        if ($Computer -is [hashtable]) {
+            $hashtable = $Computer.PsObject.Copy()
+            $null = Remove-Variable -Name Computer
+            foreach ($key in $hashtable.keys) {
+                Set-Variable -Name $key -Value $hashtable[$key]
+            }
+        }
         Write-PSFMessage -Level Verbose -Message "Using the Windows Update method"
         $sessiontype = [type]::GetTypeFromProgID("Microsoft.Update.Session")
         $session = [activator]::CreateInstance($sessiontype)
@@ -126,7 +135,7 @@ function Start-WindowsUpdate {
             }
 
             [pscustomobject]@{
-                ComputerName = $computer
+                ComputerName = $Computer
                 Title        = $update.Title
                 ID           = $update.Identity.UpdateID
                 Status       = $status
