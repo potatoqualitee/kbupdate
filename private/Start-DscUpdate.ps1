@@ -60,19 +60,19 @@ function Start-DscUpdate {
         # null out a couple things to be safe
         $remotefileexists = $programhome = $remotesession = $null
         # Method is DSC
-        if ($PSDefaultParameterValues["Invoke-PSFCommand:ComputerName"]) {
-            $null = $PSDefaultParameterValues.Remove("Invoke-PSFCommand:ComputerName")
+        if ($PSDefaultParameterValues["Invoke-Command2:ComputerName"]) {
+            $null = $PSDefaultParameterValues.Remove("Invoke-Command2:ComputerName")
         }
 
         if ($IsLocalHost) {
             # a lot of the file copy work will be done in the $home dir
-            $programhome = Invoke-PSFCommand -ScriptBlock { $home }
+            $programhome = Invoke-Command2 -ScriptBlock { $home }
         } else {
-            Write-PSFMessage -Level Verbose -Message "Adding $hostname to PSDefaultParameterValues for Invoke-PSFCommand:ComputerName"
-            $PSDefaultParameterValues["Invoke-PSFCommand:ComputerName"] = $Computer
+            Write-PSFMessage -Level Verbose -Message "Adding $hostname to PSDefaultParameterValues for Invoke-Command2:ComputerName"
+            $PSDefaultParameterValues["Invoke-Command2:ComputerName"] = $Computer
 
             Write-PSFMessage -Level Verbose -Message "Initializing remote session to $hostname and also getting the remote home directory"
-            $programhome = Invoke-PSFCommand -ScriptBlock { $home }
+            $programhome = Invoke-Command2 -ScriptBlock { $home }
 
             if (-not $remotesession) {
                 $remotesession = Get-PSSession -ComputerName $Computer -Verbose | Where-Object { $PsItem.Availability -eq 'Available' -and ($PsItem.Name -match 'WinRM' -or $PsItem.Name -match 'Runspace') } | Select-Object -First 1
@@ -89,14 +89,14 @@ function Start-DscUpdate {
 
         # fix for SYSTEM which doesn't have a downloads directory by default
         Write-PSFMessage -Level Verbose -Message "Checking for home downloads directory"
-        Invoke-PSFCommand -ScriptBlock {
+        Invoke-Command2 -ScriptBlock {
             if (-not (Test-Path -Path "$home\Downloads")) {
                 Write-Warning "Creating Downloads directory at $home\Downloads"
                 $null = New-Item -ItemType Directory -Force -Path "$home\Downloads"
             }
         }
 
-        $hasxhotfix = Invoke-PSFCommand -ScriptBlock {
+        $hasxhotfix = Invoke-Command2 -ScriptBlock {
             Get-Module -ListAvailable xWindowsUpdate -ErrorAction Ignore | Where-Object Version -eq 3.0.0
         }
 
@@ -105,7 +105,7 @@ function Start-DscUpdate {
                 # Copy xWindowsUpdate to Program Files. The module is pretty much required to be in the PS Modules directory.
                 $oldpref = $ProgressPreference
                 $ProgressPreference = "SilentlyContinue"
-                $programfiles = Invoke-PSFCommand -ScriptBlock {
+                $programfiles = Invoke-Command2 -ScriptBlock {
                     $env:ProgramFiles
                 }
                 if ($IsLocalHost) {
@@ -122,7 +122,7 @@ function Start-DscUpdate {
             }
         }
 
-        $hasxdsc = Invoke-PSFCommand -ScriptBlock {
+        $hasxdsc = Invoke-Command2 -ScriptBlock {
             Get-Module -ListAvailable xPSDesiredStateConfiguration -ErrorAction Ignore | Where-Object Version -eq 9.2.0
         }
 
@@ -132,7 +132,7 @@ function Start-DscUpdate {
                 # Copy xWindowsUpdate to Program Files. The module is pretty much required to be in the PS Modules directory.
                 $oldpref = $ProgressPreference
                 $ProgressPreference = "SilentlyContinue"
-                $programfiles = Invoke-PSFCommand -ScriptBlock {
+                $programfiles = Invoke-Command2 -ScriptBlock {
                     $env:ProgramFiles
                 }
                 if ($IsLocalHost) {
@@ -160,7 +160,7 @@ function Start-DscUpdate {
             }
 
             if ($FilePath) {
-                $remotefileexists = $updatefile = Invoke-PSFCommand -ArgumentList $FilePath -ScriptBlock {
+                $remotefileexists = $updatefile = Invoke-Command2 -ArgumentList $FilePath -ScriptBlock {
                     Get-ChildItem -Path $args -ErrorAction SilentlyContinue
                 }
             }
@@ -247,7 +247,7 @@ function Start-DscUpdate {
                 if (-not "$($FilePath)".StartsWith("\\") -and -not $IsLocalHost) {
                     Write-PSFMessage -Level Verbose -Message "Update is not located on a file server and not local, copying over the remote server"
                     try {
-                        $exists = Invoke-PSFCommand -ComputerName $Computer -ArgumentList $remotefile -ScriptBlock {
+                        $exists = Invoke-Command2 -ComputerName $Computer -ArgumentList $remotefile -ScriptBlock {
                             Get-ChildItem -Path $args -ErrorAction SilentlyContinue
                         }
                         if (-not $exists) {
@@ -255,7 +255,7 @@ function Start-DscUpdate {
                             $deleteremotefile = $remotefile
                         }
                     } catch {
-                        $null = Invoke-PSFCommand -ComputerName $Computer -ArgumentList $remotefile -ScriptBlock {
+                        $null = Invoke-Command2 -ComputerName $Computer -ArgumentList $remotefile -ScriptBlock {
                             Remove-Item $args -Force -ErrorAction SilentlyContinue
                         }
                         try {
@@ -263,7 +263,7 @@ function Start-DscUpdate {
                             $null = Copy-Item -Path $updatefile -Destination $remotefile -ToSession $remotesession -ErrorAction Stop
                             $deleteremotefile = $remotefile
                         } catch {
-                            $null = Invoke-PSFCommand -ComputerName $Computer -ArgumentList $remotefile -ScriptBlock {
+                            $null = Invoke-Command2 -ComputerName $Computer -ArgumentList $remotefile -ScriptBlock {
                                 Remove-Item $args -Force -ErrorAction SilentlyContinue
                             }
                             Stop-PSFFunction -Message "Could not copy $updatefile to $remotefile" -ErrorRecord $PSItem -Continue
@@ -428,7 +428,7 @@ function Start-DscUpdate {
                 }
             }
             try {
-                $null = Invoke-PSFCommand -ScriptBlock {
+                $null = Invoke-Command2 -ScriptBlock {
                     param (
                         $Hotfix,
                         $VerbosePreference,
@@ -499,15 +499,15 @@ function Start-DscUpdate {
                                 throw "System can't find the file specified for some reason."
                             }
                             default {
-                                throw
+                                throw $message
                             }
                         }
                     }
-                } -ArgumentList $hotfix, $VerbosePreference, $FileName
+                } -ArgumentList $hotfix, $VerbosePreference, $FileName -EnableException:$true
 
                 if ($deleteremotefile) {
                     Write-PSFMessage -Level Verbose -Message "Deleting $deleteremotefile"
-                    $null = Invoke-PSFCommand -ComputerName $Computer -ArgumentList $deleteremotefile -ScriptBlock {
+                    $null = Invoke-Command2 -ComputerName $Computer -ArgumentList $deleteremotefile -ScriptBlock {
                         Get-ChildItem -ErrorAction SilentlyContinue $args | Remove-Item -Force -ErrorAction SilentlyContinue -Confirm:$false
                     }
                 }
@@ -543,7 +543,6 @@ function Start-DscUpdate {
                     FileName     = $updatefile.Name
                 }
             } catch {
-                write-warning yee
                 if ("$PSItem" -match "Serialized XML is nested too deeply") {
                     Write-PSFMessage -Level Verbose -Message "Serialized XML is nested too deeply. Forcing output."
                     $exists = Get-KbInstalledUpdate -ComputerName $Computer -HotfixId $hotfix.property.id

@@ -13,14 +13,17 @@ function Invoke-Command2 {
     if (-not (Get-Module PSFramework)) {
         Import-Module PSFramework 4>$null
     }
+    $computer = [PSFComputer]$ComputerName
+
+    Write-PSFMessage -Level Verbose -Message "Adding ErrorActon Stop to Invoke-Command and Invoke-PSFCommand"
+    $PSDefaultParameterValues['Invoke-Command:ErrorAction'] = "Stop"
+    $PSDefaultParameterValues['Invoke-PSFCommand:ErrorAction'] = "Stop"
 
     if ($EnableException) {
-        $PSDefaultParameterValues["*:EnableException"] = $true
+        $PSDefaultParameterValues['*:EnableException'] = $true
     } else {
-        $PSDefaultParameterValues["*:EnableException"] = $false
+        $PSDefaultParameterValues['*:EnableException'] = $false
     }
-
-    $computer = [PSFComputer]$ComputerName
     if (-not $computer.IsLocalhost) {
         Write-PSFMessage -Level Verbose -Message "Computer is not localhost, adding $ComputerName to PSDefaultParameterValues"
         $PSDefaultParameterValues['Invoke-Command:ComputerName'] = $ComputerName
@@ -30,16 +33,12 @@ function Invoke-Command2 {
         $PSDefaultParameterValues['Invoke-Command:Credential'] = $Credential
         $PSDefaultParameterValues['Invoke-PSFCommand:Credential'] = $Credential
     }
-    if (-not (Get-PSFConfigValue -Name PSRemoting.Sessions.Enable)) {
-        Write-PSFMessage -Level Verbose -Message "Sessions disabled, just using Invoke-Command"
-        try {
-            Invoke-Command -ScriptBlock $ScriptBlock -ArgumentList $ArgumentList -ErrorAction Stop
-        } catch {
-            Stop-PSFFunction -Message "Failed to invoke command on $ComputerName" -ErrorRecord $PSItem
-            return
-        }
-    } else {
-        try {
+
+    try {
+        if (-not (Get-PSFConfigValue -Name PSRemoting.Sessions.Enable)) {
+            Write-PSFMessage -Level Verbose -Message "Sessions disabled, just using Invoke-Command"
+            Invoke-Command -ScriptBlock $ScriptBlock -ArgumentList $ArgumentList
+        } else {
             Write-PSFMessage -Level Verbose -Message "Sessions enabled, using Invoke-PSFCommand"
             $null = Get-PSSession | Where-Object { $PSItem.Name -eq "kbupdate-$ComputerName" -and $PSItem.State -eq "Broken" } | Remove-PSSession
             $session = Get-PSSession | Where-Object Name -eq "kbupdate-$ComputerName"
@@ -77,9 +76,8 @@ function Invoke-Command2 {
             }
             Write-PSFMessage -Level Verbose -Message "Connecting to session using Invoke-PSFCommand"
             Invoke-PSFCommand -ComputerName $session -ScriptBlock $ScriptBlock -ArgumentList $ArgumentList
-        } catch {
-            Stop-PSFFunction -Message "Failed to invoke command against $ComputerName" -ErrorRecord $PSItem
-            return
         }
+    } catch {
+        Stop-PSFFunction -Message "Failure on $ComputerName" -ErrorRecord $PSItem
     }
 }

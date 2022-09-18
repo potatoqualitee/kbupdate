@@ -222,7 +222,6 @@ function Install-KbUpdate {
                     }
                 }
             } catch {
-                write-warning hello
                 Stop-PSFFunction -Message "Failure on $hostname" -ErrorRecord $PSItem -EnableException:$EnableException
             }
         }
