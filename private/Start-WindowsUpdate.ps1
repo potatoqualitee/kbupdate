@@ -35,6 +35,13 @@ function Start-WindowsUpdate {
                 Set-Variable -Name $key -Value $hashtable[$key]
             }
         }
+
+        if ($Computer.ComputerName) {
+            $hostname = $Computer.ComputerName
+        } else {
+            $hostname = $Computer
+        }
+
         Write-PSFMessage -Level Verbose -Message "Using the Windows Update method"
         $sessiontype = [type]::GetTypeFromProgID("Microsoft.Update.Session")
         $session = [activator]::CreateInstance($sessiontype)
@@ -136,7 +143,7 @@ function Start-WindowsUpdate {
             }
 
             [pscustomobject]@{
-                ComputerName = $Computer
+                ComputerName = $hostname
                 Title        = $update.Title
                 ID           = $update.Identity.UpdateID
                 Status       = $status
