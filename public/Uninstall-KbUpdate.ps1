@@ -69,13 +69,14 @@ function Uninstall-KbUpdate {
 
     [CmdletBinding(SupportsShouldProcess, ConfirmImpact = "High")]
     param (
-        [PSFComputer[]]$ComputerName = $env:ComputerName,
+        [Parameter(Mandatory, ValueFromPipelineByPropertyName)]
+        [PSFComputer[]]$ComputerName,
         [PSCredential]$Credential,
         [Alias("Name", "KBUpdate", "Id")]
         [Parameter(ValueFromPipelineByPropertyName)]
         [string]$HotfixId,
         [Parameter(ValueFromPipeline)]
-        [pscustomobject]$InputObject,
+        [pscustomobject[]]$InputObject,
         [string]$ArgumentList,
         [switch]$NoQuiet,
         [switch]$EnableException
@@ -89,7 +90,7 @@ function Uninstall-KbUpdate {
                 $Name,
                 $VerbosePreference
             )
-            Function Invoke-UninstallCommand ($Program, $ArgumentList) {
+            function Invoke-UninstallCommand ($Program, $ArgumentList) {
                 $pinfo = New-Object System.Diagnostics.ProcessStartInfo
                 $pinfo.FileName = $Program
                 $pinfo.RedirectStandardError = $true
@@ -106,10 +107,14 @@ function Uninstall-KbUpdate {
                     ExitCode = $p.ExitCode
                 }
             }
-
+            $firstarg = $ArgumentList -split " " | Select-Object -First 1
+            if ($firstarg -match ".exe") {
+                $ArgumentList = $ArgumentList.Replace($firstarg, "")
+                $Program = "$Program$firstarg"
+            }
             Write-Verbose -Message "Program = $Program"
             Write-Verbose -Message "ArgumentList = $ArgumentList"
-
+            $results = $null
             $results = Invoke-UninstallCommand -Program $Program -ArgumentList $ArgumentList
             $output = $results.stdout.Trim()
 
@@ -160,64 +165,93 @@ function Uninstall-KbUpdate {
                 Results      = $output
             }
         }
+
+        if (-not $InputObject) {
+            foreach ($hotfix in $HotfixId) {
+                if (-not $hotfix.ToUpper().StartsWith("KB") -and $PSBoundParameters.HotfixId) {
+                    $hotfix = "KB$hotfix"
+                }
+
+                foreach ($computer in $ComputerName) {
+                    Write-PSFMessage -Level Verbose -Message "Adding uninstall for $hotfix to queue on $computer"
+
+                    $exists = Get-KbInstalledUpdate -Pattern $hotfix -ComputerName $computer -IncludeHidden
+                    if (-not $exists) {
+                        Write-PSFMessage -Level Warning -Message "$hotfix is not installed on $computer"
+                    } else {
+                        if ($exists.Summary -match "restart") {
+                            Stop-PSFFunction -EnableException:$EnableException -Message "You must restart before you can uninstall $hotfix on $computer" -Continue
+                        } else {
+                            $InputObject += $exists
+                        }
+                    }
+                }
+            }
+        }
     }
     process {
-        if (-not $PSBoundParameters.HotfixId -and -not $PSBoundParameters.InputObject.HotfixId) {
-            # some just wont have hotfix i guess but you can pipe from the command and still get this error so fix the erorr
-            Stop-PSFFunction -EnableException:$EnableException -Message "You must specify either HotfixId or pipe in the results from Get-KbInstalledUpdate"
-            return
-        }
 
         if ($IsLinux -or $IsMacOs) {
-            Stop-PSFFunction -Message "This command using remoting and only supports Windows at this time" -EnableException:$EnableException
+            Stop-PSFFunction -Message "This command uses remoting and only supports Windows at this time" -EnableException:$EnableException
             return
         }
 
-        foreach ($hotfix in $HotfixId) {
-            if (-not $hotfix.ToUpper().StartsWith("KB") -and $PSBoundParameters.HotfixId) {
-                $hotfix = "KB$hotfix"
+        foreach ($update in $InputObject) {
+            $computer = $update.ComputerName
+            $packagename = $update.Name
+            if (-not $packagename) {
+                $packagename = $update.HotFixID
             }
 
-            foreach ($computer in $ComputerName) {
-                Write-PSFMessage -Level Verbose -Message "Uninstalling $hotfix on $computer"
+            if (-not $packagename) {
+                $packagename = $update.HotFixID
+            }
+            if (-not $packagename) {
+                $packagename = $update.InstallName
+            }
+            if (-not $computer) {
+                Stop-PSFFunction -Message "No computername associated with $packagename, moving on" -Continue -EnableException:$EnableException
+            }
 
-                $exists = Get-KbInstalledUpdate -Pattern $hotfix -ComputerName $computer -IncludeHidden
-                if (-not $exists) {
-                    Stop-PSFFunction -EnableException:$EnableException -Message "$hotfix is not installed on $computer" -Continue
-                } else {
-                    if ($exists.Summary -match "restart") {
-                        Stop-PSFFunction -EnableException:$EnableException -Message "You must restart before you can uninstall $hotfix on $computer" -Continue
-                    } else {
-                        $InputObject += $exists
-                    }
+            Write-PSFMessage -Level Verbose -Message "Processing $computer"
+
+            if (-not (Test-ElevationRequirement -ComputerName $computer)) {
+                Stop-PSFFunction -Message "To run this command locally, you must run as admin." -Continue -EnableException:$EnableException
+            }
+
+            $needuninstallstring = $true
+            if ($update.QuietUninstallString -and $update.ProviderName -eq "Programs") {
+                $path = $update.QuietUninstallString -match '^(".+") (/.+) (/.+)'
+                if ($matches) {
+                    $needuninstallstring = $false
+                    $program = $matches[1]
+                }
+                if (-not $path) {
+                    $program = Split-Path $update.QuietUninstallString
+                }
+                if (-not $PSBoundParameters.ArgumentList) {
+                    $ArgumentList = $update.QuietUninstallString.Replace($program, "")
+                }
+            } elseif ($update.UninstallString -and $update.ProviderName -eq "Programs") {
+                $path = $update.UninstallString -match '^(".+") (/.+) (/.+)'
+                if ($matches) {
+                    $needuninstallstring = $false
+                    $program = $matches[1]
+                }
+                if (-not $path) {
+                    $program = Split-Path $update.UninstallString
+                }
+                if (-not $PSBoundParameters.ArgumentList) {
+                    $ArgumentList = $update.UninstallString.Replace($program, "")
+                }
+
+                if ($ArgumentList -notmatch "/quiet" -and -not $NoQuiet -and -not $PSBoundParameters.ArgumentList -and $ArgumentList -ne "/S" -and $ArgumentList -ne "/Q") {
+                    $ArgumentList = "$ArgumentList /quiet"
                 }
             }
 
-            foreach ($update in $InputObject) {
-                $computer = $update.ComputerName
-                Write-PSFMessage -Level Verbose -Message "Processing $computer"
-
-                if (-not (Test-ElevationRequirement -ComputerName $computer)) {
-                    Stop-PSFFunction -Message "To run this command locally, you must run as admin." -Continue -EnableException:$EnableException
-                }
-
-                if ($update.UninstallString) {
-                    if ($update.ProviderName -eq "Programs") {
-                        $path = $update.UninstallString -match '^(".+") (/.+) (/.+)'
-                        $program = $matches[1]
-                        if (-not $path) {
-                            $program = Split-Path $update.UninstallString
-                        }
-                        if (-not $PSBoundParameters.ArgumentList) {
-                            $ArgumentList = $update.UninstallString.Replace($program, "")
-                        }
-                    }
-
-                    if ($ArgumentList -notmatch "/quiet" -and -not $NoQuiet -and -not $PSBoundParameters.ArgumentList) {
-                        $ArgumentList = "$ArgumentList /quiet"
-                    }
-                } else {
-                    <#
+            if ($needuninstallstring) {
+                <#
                     I have so many notes from so many different attempts to address this flawlessly
 
                     GET-PACKAGE
@@ -256,30 +290,34 @@ function Uninstall-KbUpdate {
                     this allowed me to find the InstallName
                     https://social.technet.microsoft.com/Forums/Lync/en-US/f6594e00-2400-4276-85a1-fb06485b53e6/issues-with-wusaexe-and-windows-10-enterprise?forum=win10itprogeneral
                     #>
-                    $installname = $update.InstallName
+                $installname = $update.InstallName
 
-                    if (-not $installname) {
-                        $installname = ($update.CBSPackageObject).PSChildName
-                    }
-
-                    if (-not $installname) {
-                        Stop-PSFFunction -EnableException:$EnableException -Message "Couldn't determine a way to uninstall $hotfix. It may be marked as a permanent install." -Continue
-                    }
-                    $program = "dism"
-                    $parms = @("/Online /Remove-Package /quiet /norestart")
-                    foreach ($install in $installname) {
-                        $parms += "/PackageName:$install"
-                    }
-                    $ArgumentList = $parms -join " "
+                if (-not $installname) {
+                    $installname = ($update.CBSPackageObject).PSChildName
                 }
 
-                # I tried to get this working using DSC but in end end, a Start-Process equivalent was it for the convenience of not having to specify a filename, tho that can be added as a backup
-                if ($PSCmdlet.ShouldProcess($computer, "Uninstalling Hotfix $hotfix by executing $program $ArgumentList")) {
-                    try {
-                        Invoke-PSFCommand -ComputerName $computer -Credential $Credential -ScriptBlock $programscriptblock -ArgumentList $Program, $ArgumentList, $hotfix, $update.Name, $VerbosePreference -ErrorAction Stop | Select-Object -Property * -ExcludeProperty PSComputerName, RunspaceId
-                    } catch {
-                        Stop-PSFFunction -Message "Failure on $computer" -ErrorRecord $_ -EnableException:$EnableException
-                    }
+                if (-not $installname) {
+                    Stop-PSFFunction -EnableException:$EnableException -Message "Couldn't determine a way to uninstall this applicatoin. It may be marked as a permanent install or part of another package that contains the unintaller." -Continue
+                }
+                $program = "dism"
+                $parms = @("/Online /Remove-Package /quiet /norestart")
+                foreach ($install in $installname) {
+                    $parms += "/PackageName:$install"
+                }
+                $ArgumentList = $parms -join " "
+            }
+
+            # I tried to get this working using DSC but in end end, a Start-Process equivalent was it for the convenience of not having to specify a filename, tho that can be added as a backup
+            if ($ArgumentList -match ".exe") {
+                $exec = "$program$ArgumentList"
+            } else {
+                $exec = "$program $ArgumentList"
+            }
+            if ($PSCmdlet.ShouldProcess($computer, "Uninstalling Hotfix $packagename by executing $exec")) {
+                try {
+                    Invoke-PSFCommand -ComputerName $computer -Credential $Credential -ScriptBlock $programscriptblock -ArgumentList $Program, $ArgumentList, $object.HotfixId, $packagename, $VerbosePreference -ErrorAction Stop | Select-Object -Property * -ExcludeProperty PSComputerName, RunspaceId
+                } catch {
+                    Stop-PSFFunction -Message "Failure on $computer while attempting to uninstall $packagename" -ErrorRecord $_ -EnableException:$EnableException
                 }
             }
         }

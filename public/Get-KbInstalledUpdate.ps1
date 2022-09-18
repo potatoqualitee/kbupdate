@@ -182,6 +182,7 @@ function Get-KbInstalledUpdate {
                     DisplayName          = $package.Meta.Attributes['DisplayName']
                     DisplayIcon          = $package.Meta.Attributes['DisplayIcon']
                     UninstallString      = $package.Meta.Attributes['UninstallString']
+                    QuietUninstallString = $package.Meta.Attributes['QuietUninstallString']
                     InstallLocation      = $package.Meta.Attributes['InstallLocation']
                     EstimatedSize        = $package.Meta.Attributes['EstimatedSize']
                     Publisher            = $package.Meta.Attributes['Publisher']
@@ -237,39 +238,40 @@ function Get-KbInstalledUpdate {
                 }
 
                 [pscustomobject]@{
-                    ComputerName        = $env:COMPUTERNAME
-                    Name                = $cim.HotfixId
-                    ProviderName        = $null
-                    Source              = $null
-                    Status              = $null
-                    HotfixId            = $hotfixid
-                    FullPath            = $null
-                    PackageFilename     = $null
-                    Summary             = $null
-                    InstalledBy         = $cim.InstalledBy
-                    InstalledOn         = $cim.InstalledOn
-                    InstallDate         = $cim.InstallDate
-                    InstallClient       = $installclient
-                    InstallName         = $installname
-                    InstallVersion      = $installversion
-                    InstallFile         = $allfiles
-                    InstallUser         = $installuser
-                    FixComments         = $cim.FixComments
-                    ServicePackInEffect = $cim.ServicePackInEffect
-                    Caption             = $cim.Caption
-                    DisplayName         = $null
-                    DisplayIcon         = $null
-                    UninstallString     = $null
-                    InstallLocation     = $null
-                    EstimatedSize       = $null
-                    Publisher           = $null
-                    VersionMajor        = $null
-                    VersionMinor        = $null
-                    TagId               = $null
-                    PackageObject       = $null
-                    RegistryObject      = $null
-                    CBSPackageObject    = $cbs
-                    CimObject           = $cim
+                    ComputerName         = $env:COMPUTERNAME
+                    Name                 = $cim.HotfixId
+                    ProviderName         = $null
+                    Source               = $null
+                    Status               = $null
+                    HotfixId             = $hotfixid
+                    FullPath             = $null
+                    PackageFilename      = $null
+                    Summary              = $null
+                    InstalledBy          = $cim.InstalledBy
+                    InstalledOn          = $cim.InstalledOn
+                    InstallDate          = $cim.InstallDate
+                    InstallClient        = $installclient
+                    InstallName          = $installname
+                    InstallVersion       = $installversion
+                    InstallFile          = $allfiles
+                    InstallUser          = $installuser
+                    FixComments          = $cim.FixComments
+                    ServicePackInEffect  = $cim.ServicePackInEffect
+                    Caption              = $cim.Caption
+                    DisplayName          = $null
+                    DisplayIcon          = $null
+                    UninstallString      = $null
+                    QuietUninstallString = $null
+                    InstallLocation      = $null
+                    EstimatedSize        = $null
+                    Publisher            = $null
+                    VersionMajor         = $null
+                    VersionMinor         = $null
+                    TagId                = $null
+                    PackageObject        = $null
+                    RegistryObject       = $null
+                    CBSPackageObject     = $cbs
+                    CimObject            = $cim
                 }
             }
 
@@ -292,39 +294,40 @@ function Get-KbInstalledUpdate {
 
                 foreach ($result in $missing) {
                     [pscustomobject]@{
-                        ComputerName        = $env:COMPUTERNAME
-                        Name                = $result
-                        ProviderName        = $null
-                        Source              = $null
-                        Status              = $null
-                        HotfixId            = $result
-                        FullPath            = $null
-                        PackageFilename     = $null
-                        Summary             = "Requires restart to finish installing"
-                        InstalledBy         = $null
-                        InstalledOn         = $null
-                        InstallDate         = $null
-                        InstallClient       = $null
-                        InstallName         = $null
-                        InstallVersion      = $null
-                        InstallFile         = $null
-                        InstallUser         = $null
-                        FixComments         = $null
-                        ServicePackInEffect = $null
-                        Caption             = $null
-                        DisplayName         = $null
-                        DisplayIcon         = $null
-                        UninstallString     = $null
-                        InstallLocation     = $null
-                        EstimatedSize       = $null
-                        Publisher           = $null
-                        VersionMajor        = $null
-                        VersionMinor        = $null
-                        TagId               = $null
-                        PackageObject       = $null
-                        RegistryObject      = $null
-                        CBSPackageObject    = $null
-                        CimObject           = $null
+                        ComputerName         = $env:COMPUTERNAME
+                        Name                 = $result
+                        ProviderName         = $null
+                        Source               = $null
+                        Status               = $null
+                        HotfixId             = $result
+                        FullPath             = $null
+                        PackageFilename      = $null
+                        Summary              = "Requires restart to finish installing"
+                        InstalledBy          = $null
+                        InstalledOn          = $null
+                        InstallDate          = $null
+                        InstallClient        = $null
+                        InstallName          = $null
+                        InstallVersion       = $null
+                        InstallFile          = $null
+                        InstallUser          = $null
+                        FixComments          = $null
+                        ServicePackInEffect  = $null
+                        Caption              = $null
+                        DisplayName          = $null
+                        DisplayIcon          = $null
+                        UninstallString      = $null
+                        QuietUninstallString = $null
+                        InstallLocation      = $null
+                        EstimatedSize        = $null
+                        Publisher            = $null
+                        VersionMajor         = $null
+                        VersionMinor         = $null
+                        TagId                = $null
+                        PackageObject        = $null
+                        RegistryObject       = $null
+                        CBSPackageObject     = $null
+                        CimObject            = $null
                     }
                 }
             }
