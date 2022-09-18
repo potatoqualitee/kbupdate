@@ -165,8 +165,9 @@ function Uninstall-KbUpdate {
                 Results      = $output
             }
         }
-
-        if (-not $InputObject) {
+    }
+    process {
+        if (-not $InputObject -and $HotfixId) {
             foreach ($hotfix in $HotfixId) {
                 if (-not $hotfix.ToUpper().StartsWith("KB") -and $PSBoundParameters.HotfixId) {
                     $hotfix = "KB$hotfix"
@@ -188,8 +189,6 @@ function Uninstall-KbUpdate {
                 }
             }
         }
-    }
-    process {
 
         if ($IsLinux -or $IsMacOs) {
             Stop-PSFFunction -Message "This command uses remoting and only supports Windows at this time" -EnableException:$EnableException
@@ -232,7 +231,7 @@ function Uninstall-KbUpdate {
                 if (-not $PSBoundParameters.ArgumentList) {
                     $ArgumentList = $update.QuietUninstallString.Replace($program, "")
                 }
-            } elseif ($update.UninstallString -and $update.ProviderName -eq "Programs") {
+            } elseif ($update.UninstallString -and $update.ProviderName -eq "Programs" -and $update.UninstallString -notmatch "SetupARP.exe") {
                 $path = $update.UninstallString -match '^(".+") (/.+) (/.+)'
                 if ($matches) {
                     $needuninstallstring = $false
@@ -244,8 +243,9 @@ function Uninstall-KbUpdate {
                 if (-not $PSBoundParameters.ArgumentList) {
                     $ArgumentList = $update.UninstallString.Replace($program, "")
                 }
-
-                if ($ArgumentList -notmatch "/quiet" -and -not $NoQuiet -and -not $PSBoundParameters.ArgumentList -and $ArgumentList -ne "/S" -and $ArgumentList -ne "/Q") {
+                if ($ArgumentList -match "msedge") {
+                    $ArgumentList = "$ArgumentList --force-uninstall"
+                } elseif ($ArgumentList -notmatch "/quiet" -and -not $NoQuiet -and -not $PSBoundParameters.ArgumentList -and $ArgumentList -ne "/S" -and $ArgumentList -ne "/Q") {
                     $ArgumentList = "$ArgumentList /quiet"
                 }
             }
@@ -297,7 +297,7 @@ function Uninstall-KbUpdate {
                 }
 
                 if (-not $installname) {
-                    Stop-PSFFunction -EnableException:$EnableException -Message "Couldn't determine a way to uninstall this applicatoin. It may be marked as a permanent install or part of another package that contains the unintaller." -Continue
+                    Stop-PSFFunction -EnableException:$EnableException -Message "Couldn't determine a way to uninstall $($update.Name). It may be marked as a permanent install or part of another package that contains the unintaller." -Continue
                 }
                 $program = "dism"
                 $parms = @("/Online /Remove-Package /quiet /norestart")
@@ -315,7 +315,7 @@ function Uninstall-KbUpdate {
             }
             if ($PSCmdlet.ShouldProcess($computer, "Uninstalling Hotfix $packagename by executing $exec")) {
                 try {
-                    Invoke-PSFCommand -ComputerName $computer -Credential $Credential -ScriptBlock $programscriptblock -ArgumentList $Program, $ArgumentList, $object.HotfixId, $packagename, $VerbosePreference -ErrorAction Stop | Select-Object -Property * -ExcludeProperty PSComputerName, RunspaceId
+                    Invoke-Command2 -ComputerName $computer -Credential $Credential -ScriptBlock $programscriptblock -ArgumentList $Program, $ArgumentList, $object.HotfixId, $packagename, $VerbosePreference -ErrorAction Stop | Select-Object -Property * -ExcludeProperty PSComputerName, RunspaceId
                 } catch {
                     Stop-PSFFunction -Message "Failure on $computer while attempting to uninstall $packagename" -ErrorRecord $_ -EnableException:$EnableException
                 }
