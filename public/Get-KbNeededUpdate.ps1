@@ -187,7 +187,7 @@ function Get-KbNeededUpdate {
                     Write-PSFMessage -Level Verbose -Message "Initializing remote session to $computer and getting the path to the temp directory"
 
                     $scanfile = Get-ChildItem -Path $ScanFilePath
-                    $temp = Invoke-PSFCommand -Computer $computer -Credential $Credential -ErrorAction Stop -ScriptBlock {
+                    $temp = Invoke-Command2 -Computer $computer -Credential $Credential -ErrorAction Stop -ScriptBlock {
                         [system.io.path]::GetTempPath()
                     }
                     $filename = Split-Path -Path $ScanFilePath -Leaf
@@ -195,7 +195,7 @@ function Get-KbNeededUpdate {
 
                     Write-PSFMessage -Level Verbose -Message "Checking to see if $cabpath already exists on $computer"
 
-                    $exists = Invoke-PSFCommand -Computer $computer -Credential $Credential -ArgumentList $cabpath -ErrorAction Stop -ScriptBlock {
+                    $exists = Invoke-Command2 -Computer $computer -Credential $Credential -ArgumentList $cabpath -ErrorAction Stop -ScriptBlock {
                         Get-ChildItem -Path $args -ErrorAction Ignore
                     }
 
@@ -232,7 +232,7 @@ function Get-KbNeededUpdate {
 
                 Write-ProgressHelper -TotalSteps $totalcount -StepNumber $completed -Activity "Getting updates" -Message "Processing $computer"
 
-                foreach ($result in (Invoke-PSFCommand -Computer $computer -Credential $Credential -ErrorAction Stop -ScriptBlock $scriptblock -ArgumentList $computer, $cabpath, $VerbosePreference |
+                foreach ($result in (Invoke-Command2 -Computer $computer -Credential $Credential -ErrorAction Stop -ScriptBlock $scriptblock -ArgumentList $computer, $cabpath, $VerbosePreference |
                             Select-Object -Property * -ExcludeProperty PSComputerName, RunspaceId |
                             Select-DefaultView -Property ComputerName, Title, KBUpdate, UpdateId, Description, LastModified, RebootBehavior, RequestsUserInput, NetworkRequired, Link)) {
                     if (-not $result.Link) {
