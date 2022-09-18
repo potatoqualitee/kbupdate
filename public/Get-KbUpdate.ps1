@@ -780,7 +780,7 @@ function Get-KbUpdate {
             $results = $script:compcollection[$computer]
             if (-not $results) {
                 try {
-                    $results = Invoke-Command2 -ComputerName $computer -Credential $Credential -ScriptBlock {
+                    $results = Invoke-PSFCommand -ComputerName $computer -Credential $Credential -ScriptBlock {
                         $proc = $env:PROCESSOR_ARCHITECTURE
                         if ($proc -eq "AMD64") {
                             $proc = "x64"

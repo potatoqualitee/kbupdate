@@ -106,7 +106,7 @@ function Invoke-WsusDbQuery {
     }
     process {
         try {
-            Invoke-Command2 -ComputerName $ComputerName -Credential $Credential -ScriptBlock $scriptblock -ArgumentList @{ Pattern = $Pattern; UpdateId = $UpdateId } -ErrorAction Stop
+            Invoke-PSFCommand -ComputerName $ComputerName -Credential $Credential -ScriptBlock $scriptblock -ArgumentList @{ Pattern = $Pattern; UpdateId = $UpdateId } -ErrorAction Stop
         } catch {
             Stop-PSFFunction -Message "Failure" -ErrorRecord $_ -EnableException:$EnableException
             return

@@ -315,7 +315,7 @@ function Uninstall-KbUpdate {
             }
             if ($PSCmdlet.ShouldProcess($computer, "Uninstalling Hotfix $packagename by executing $exec")) {
                 try {
-                    Invoke-Command2 -ComputerName $computer -Credential $Credential -ScriptBlock $programscriptblock -ArgumentList $Program, $ArgumentList, $object.HotfixId, $packagename, $VerbosePreference -ErrorAction Stop | Select-Object -Property * -ExcludeProperty PSComputerName, RunspaceId
+                    Invoke-PSFCommand -ComputerName $computer -Credential $Credential -ScriptBlock $programscriptblock -ArgumentList $Program, $ArgumentList, $object.HotfixId, $packagename, $VerbosePreference -ErrorAction Stop | Select-Object -Property * -ExcludeProperty PSComputerName, RunspaceId
                 } catch {
                     Stop-PSFFunction -Message "Failure on $computer while attempting to uninstall $packagename" -ErrorRecord $_ -EnableException:$EnableException
                 }

@@ -123,7 +123,7 @@ function Install-KbUpdate {
         # create code blocks for  jobs
         $cmd2 = $((Get-Command Invoke-Command2).Definition)
         $wublock = [scriptblock]::Create($((Get-Command Start-WindowsUpdate).Definition))
-        $dscblock = [scriptblock]::Create($((Get-Command Start-DscUpdate).Definition).Replace("# function Invoke-Command2", "function Invoke-Command2 { $cmd2 }"))
+        $dscblock = [scriptblock]::Create($((Get-Command Start-DscUpdate).Definition).Replace("# function Invoke-PSFCommand", "function Invoke-PSFCommand { $cmd2 }"))
         # cleanup
         $null = Get-Job -ChildJobState Completed | Where-Object Name -in $ComputerName.ComputerName | Remove-Job -Force
     }
@@ -165,17 +165,17 @@ function Install-KbUpdate {
                 Stop-PSFFunction -EnableException:$EnableException -Message "You must be an administrator to run this command on the local host" -Continue
             }
             $parms = @{
-                Computer       = $hostname
-                FilePath       = $FilePath
-                HotfixId       = $HotfixId
-                RepositoryPath = $RepositoryPath
-                Guid           = $Guid
-                Title          = $Title
-                ArgumentList   = $ArgumentList
-                InputObject    = $InputObject
-                DoException    = $EnableException
-                IsLocalHost    = $computer.IsLocalHost
-                AllNeeded      = $AllNeeded
+                Computer        = $hostname
+                FilePath        = $FilePath
+                HotfixId        = $HotfixId
+                RepositoryPath  = $RepositoryPath
+                Guid            = $Guid
+                Title           = $Title
+                ArgumentList    = $ArgumentList
+                InputObject     = $InputObject
+                EnableException = $EnableException
+                IsLocalHost     = $computer.IsLocalHost
+                AllNeeded       = $AllNeeded
             }
 
             $null = $PSDefaultParameterValues["Start-Job:ArgumentList"] = $parms
@@ -199,72 +199,82 @@ function Install-KbUpdate {
             } elseif ($AllNeeded -and -not $PSBoundParameters.InputObject.InputObject) {
                 Write-PSFMessage -Level Verbose -Message "Getting all needed Windows Updates on $($parms.ComputerName)"
                 $InputObject = Get-KbNeededUpdate -ComputerName $computer
-                if (-not $InputObject.ComputerName.Count) {
-
-                }
             }
 
-            if ($method -eq "WindowsUpdate") {
-                Write-PSFMessage -Level Verbose -Message "Method is WindowsUpdate"
-                if ($ComputerName.Count -eq 1 -or $NoMultithreading) {
-                    Start-WindowsUpdate @parms
+            try {
+                if ($method -eq "WindowsUpdate") {
+                    Write-PSFMessage -Level Verbose -Message "Method is WindowsUpdate"
+                    if ($ComputerName.Count -eq 1 -or $NoMultithreading) {
+                        Write-PSFMessage -Level Verbose -Message "Not using jobs"
+                        Start-WindowsUpdate @parms
+                    } else {
+                        Write-PSFMessage -Level Verbose -Message "Using jobs"
+                        $job = Start-Job -ScriptBlock $wublock
+                    }
                 } else {
-                    $job = Start-Job -ScriptBlock $wublock
+                    Write-PSFMessage -Level Verbose -Message "Method is DSC"
+                    if ($ComputerName.Count -eq 1 -or $NoMultithreading) {
+                        Write-PSFMessage -Level Verbose -Message "Not using jobs"
+                        Start-DscUpdate @parms -ErrorAction Stop
+                    } else {
+                        Write-PSFMessage -Level Verbose -Message "Using jobs"
+                        $job = Start-Job -ScriptBlock $dscblock -ErrorAction Stop
+                    }
                 }
-            } else {
-                Write-PSFMessage -Level Verbose -Message "Method is DSC"
-                if ($ComputerName.Count -eq 1 -or $NoMultithreading) {
-                    Start-DscUpdate @parms
-                } else {
-                    $job = Start-Job -ScriptBlock $dscblock
-                }
+            } catch {
+                write-warning hello
+                Stop-PSFFunction -Message "Failure on $hostname" -ErrorRecord $PSItem -EnableException:$EnableException
             }
         }
         $jobs += $job
 
         if ($jobs.Name) {
-            while ($kbjobs = Get-Job | Where-Object Name -in $jobs.Name) {
-                foreach ($item in $kbjobs) {
-                    try {
-                        $item | Receive-Job -ErrorAction Stop -OutVariable kbjob | Select-Object -Property * -ExcludeProperty RunspaceId
-                    } catch {
-                        Stop-PSFFunction -Message "Failure on $($item.Name)" -ErrorRecord $PSItem -EnableException:$EnableException -Continue
-                    }
+            try {
+                while ($kbjobs = Get-Job | Where-Object Name -in $jobs.Name) {
+                    foreach ($item in $kbjobs) {
+                        try {
+                            $item | Receive-Job -ErrorAction Stop -OutVariable kbjob | Select-Object -Property * -ExcludeProperty RunspaceId
+                        } catch {
+                            Stop-PSFFunction -Message "Failure on $($item.Name)" -ErrorRecord $PSItem -EnableException:$EnableException -Continue
+                        }
 
-                    if ($kbjob.Output) {
-                        $kbjob.Output | Write-Output
+                        if ($kbjob.Output) {
+                            $kbjob.Output | Write-Output
+                        }
+                        if ($kbjob.Warning) {
+                            $kbjob.Warning | Write-Warning
+                        }
+                        if ($kbjob.Verbose) {
+                            $kbjob.Verbose | Write-Verbose
+                        }
+                        if ($kbjob.Debug) {
+                            $kbjob.Debug | Write-Debug
+                        }
+                        if ($kbjob.Information) {
+                            $kbjob.Information | Write-Information
+                        }
                     }
-                    if ($kbjob.Warning) {
-                        $kbjob.Warning | Write-Warning
-                    }
-                    if ($kbjob.Verbose) {
-                        $kbjob.Verbose | Write-Verbose
-                    }
-                    if ($kbjob.Debug) {
-                        $kbjob.Debug | Write-Debug
-                    }
-                    if ($kbjob.Information) {
-                        $kbjob.Information | Write-Information
-                    }
-                }
-                $null = Remove-Variable -Name kbjob
-                foreach ($kbjob in ($kbjobs | Where-Object State -ne 'Running')) {
-                    Write-PSFMessage -Level Verbose -Message "Finished installing updates on $($kbjob.Name)"
-                    $null = $added++
-                    $done = $kbjobs | Where-Object Name -ne $kbjob.Name
-                    $progressparms = @{
-                        Activity        = "Installing updates"
-                        Status          = "Still installing updates on $($done.Name -join ', ')"
-                        PercentComplete = ($added / $totalsteps * 100)
-                    }
+                    $null = Remove-Variable -Name kbjob
+                    foreach ($kbjob in ($kbjobs | Where-Object State -ne 'Running')) {
+                        Write-PSFMessage -Level Verbose -Message "Finished installing updates on $($kbjob.Name)"
+                        $null = $added++
+                        $done = $kbjobs | Where-Object Name -ne $kbjob.Name
+                        $progressparms = @{
+                            Activity        = "Installing updates"
+                            Status          = "Still installing updates on $($done.Name -join ', ')"
+                            PercentComplete = ($added / $totalsteps * 100)
+                        }
 
-                    Write-Progress @progressparms
-                    $jorbs | Where-Object Name -eq $kbjob.name
-                    $kbjob | Remove-Job
+                        Write-Progress @progressparms
+                        $jorbs | Where-Object Name -eq $kbjob.name
+                        $kbjob | Remove-Job
+                    }
+                    Start-Sleep -Seconds 1
                 }
-                Start-Sleep -Seconds 1
+                Write-Progress -Activity "Installing updates" -Completed
+            } catch {
+                Stop-PSFFunction -Message "Failure on $hostname" -ErrorRecord $PSItem -EnableException:$EnableException
             }
-            Write-Progress -Activity "Installing updates" -Completed
         }
     }
 }
