@@ -428,6 +428,8 @@ function Start-DscUpdate {
                 }
             }
             try {
+
+
                 $null = Invoke-Command2 -ScriptBlock {
                     param (
                         $Hotfix,
@@ -503,7 +505,7 @@ function Start-DscUpdate {
                             }
                         }
                     }
-                } -ArgumentList $hotfix, $VerbosePreference, $FileName -EnableException:$true
+                } -ArgumentList $hotfix, $VerbosePreference, $FileName -EnableException
 
                 if ($deleteremotefile) {
                     Write-PSFMessage -Level Verbose -Message "Deleting $deleteremotefile"
@@ -576,7 +578,7 @@ function Start-DscUpdate {
                         FileName     = $updatefile.Name
                     }
                 } else {
-                    Stop-PSFFunction -Message "Failure on $hostname" -ErrorRecord $_
+                    Stop-PSFFunction -Message "Failure on $hostname" -ErrorRecord $PSitem -Continue
                 }
             }
         }
