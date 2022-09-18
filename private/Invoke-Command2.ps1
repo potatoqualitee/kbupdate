@@ -1,28 +1,42 @@
 function Invoke-Command2 {
     [cmdletbinding()]
     param(
-        [psobject]$ComputerName,
-        [PSCredential]$Credential,
+        [string]$ComputerName,
+        [Parameter(Mandatory)]
         [scriptblock]$ScriptBlock,
-        [string[]]$ArgumentList
+        [object[]]$ArgumentList,
+        [PSCredential]$Credential,
+        [switch]$HideComputerName,
+        [int]$ThrottleLimit = 32
     )
-
+    if (-not (Get-Module PSFramework)) {
+        Import-Module PSFramework 4>$null
+    }
+    $computer = [PSFComputer]$ComputerName
+    if (-not $computer.IsLocalhost) {
+        Write-PSFMessage -Level Verbose -Message "Computer is not localhost, adding $ComputerName to PSDefaultParameterValues"
+        $PSDefaultParameterValues['Invoke-Command:ComputerName'] = $ComputerName
+    }
+    if ($Credential) {
+        Write-PSFMessage -Level Verbose -Message "Adding Credential to Invoke-Command and Invoke-PSFCommand"
+        $PSDefaultParameterValues['Invoke-Command:Credential'] = $Credential
+        $PSDefaultParameterValues['Invoke-PSFCommand:Credential'] = $Credential
+    }
     if (-not (Get-PSFConfigValue -Name PSRemoting.Sessions.Enable)) {
-        if ($Credential) {
-            Invoke-Command -ComputerName "$ComputerName" -Credential $Credential -ScriptBlock $ScriptBlock -ArgumentList $ArgumentList
-
-        } else {
-            Invoke-Command -ComputerName "$ComputerName" -ScriptBlock $ScriptBlock -ArgumentList $ArgumentList
-        }
+        Write-PSFMessage -Level Verbose -Message "Sessions disabled, just using Invoke-Command"
+        Invoke-Command -ScriptBlock $ScriptBlock -ArgumentList $ArgumentList
     } else {
+        Write-PSFMessage -Level Verbose -Message "Sessions enabled, using Invoke-PSFCommand"
         $null = Get-PSSession | Where-Object { $PSItem.Name -eq "kbupdate-$ComputerName" -and $PSItem.State -eq "Broken" } | Remove-PSSession
         $session = Get-PSSession | Where-Object Name -eq "kbupdate-$ComputerName"
 
         if ($session.State -eq "Disconnected") {
+            Write-PSFMessage -Level Verbose -Message "Session is disconnected, reconnecting"
             $null = $session | Connect-PSSession -ErrorAction Stop
         }
 
         if (-not $session) {
+            Write-PSFMessage -Level Verbose -Message "Creating session objects"
             $sessionoptions = @{
                 IncludePortInSPN    = Get-PSFConfigValue -FullName PSRemoting.PsSessionOption.IncludePortInSPN
                 SkipCACheck         = Get-PSFConfigValue -FullName PSRemoting.PsSessionOption.SkipCACheck
@@ -37,17 +51,17 @@ function Invoke-Command2 {
                 SessionOption = $sessionOption
                 ErrorAction   = "Stop"
             }
-            if ($Credential) {
-                $null = $sessionparm.Add("Credential", $Credential)
-            }
             if (Get-PSFConfigValue -FullName PSRemoting.PsSession.UseSSL) {
                 $null = $sessionparm.Add("UseSSL", (Get-PSFConfigValue -FullName PSRemoting.PsSession.UseSSL))
             }
             if (Get-PSFConfigValue -FullName PSRemoting.PsSession.Port) {
                 $null = $sessionparm.Add("Port", (Get-PSFConfigValue -FullName PSRemoting.PsSession.Port))
             }
+
+            Write-PSFMessage -Level Verbose -Message "Creating new session"
             $session = New-PSSession @sessionparm
         }
+        Write-PSFMessage -Level Verbose -Message "Connecting to session using Invoke-PSFCommand"
         Invoke-PSFCommand -ComputerName $session -ScriptBlock $ScriptBlock -ArgumentList $ArgumentList
     }
 }

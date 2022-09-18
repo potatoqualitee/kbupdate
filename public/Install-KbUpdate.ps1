@@ -120,9 +120,10 @@ function Install-KbUpdate {
         [switch]$EnableException
     )
     begin {
-        # create code blocks for jobs
+        # create code blocks for  jobs
+        $cmd2 = $((Get-Command Invoke-Command2).Definition)
         $wublock = [scriptblock]::Create($((Get-Command Start-WindowsUpdate).Definition))
-        $dscblock = [scriptblock]::Create($((Get-Command Start-DscUpdate).Definition))
+        $dscblock = [scriptblock]::Create($((Get-Command Start-DscUpdate).Definition).Replace("# function Invoke-Command2", "function Invoke-Command2 { $cmd2 }"))
         # cleanup
         $null = Get-Job -ChildJobState Completed | Where-Object Name -in $ComputerName.ComputerName | Remove-Job -Force
     }
