@@ -2,7 +2,7 @@ function Start-DscUpdate {
     [CmdletBinding()]
     param (
         [Parameter(Mandatory)]
-        [psobject]$Computer,
+        [psobject]$ComputerName,
         [PSCredential]$Credential,
         [PSCredential]$PSDscRunAsCredential,
         [Parameter(ValueFromPipelineByPropertyName)]
@@ -28,22 +28,22 @@ function Start-DscUpdate {
         # Ignore this
         # function Invoke-Command2
         # No idea why this happens
-        if ($Computer -is [hashtable]) {
-            $hashtable = $Computer.PsObject.Copy()
+        if ($ComputerName -is [hashtable]) {
+            $hashtable = $ComputerName.PsObject.Copy()
             $null = Remove-Variable -Name Computer
             foreach ($key in $hashtable.keys) {
                 Set-Variable -Name $key -Value $hashtable[$key]
             }
         }
 
-        if ($Computer.ComputerName) {
-            $hostname = $Computer.ComputerName
+        if ($ComputerName.ComputerName) {
+            $hostname = $ComputerName.ComputerName
         } else {
-            $hostname = $Computer
+            $hostname = $ComputerName
         }
 
         if ($AllNeeded) {
-            $InputObject = Get-KbNeededUpdate -ComputerName $Computer -EnableException:$EnableException
+            $InputObject = Get-KbNeededUpdate -ComputerName $ComputerName -EnableException:$EnableException
         }
         if ($FilePath) {
             $InputObject += Get-ChildItem -Path $FilePath
@@ -63,23 +63,24 @@ function Start-DscUpdate {
         if ($PSDefaultParameterValues["Invoke-Command2:ComputerName"]) {
             $null = $PSDefaultParameterValues.Remove("Invoke-Command2:ComputerName")
         }
+        $PSDefaultParameterValues["Invoke-Command2:ComputerName"] = $ComputerName
 
         if ($IsLocalHost) {
             # a lot of the file copy work will be done in the $home dir
             $programhome = Invoke-Command2 -ScriptBlock { $home }
         } else {
             Write-PSFMessage -Level Verbose -Message "Adding $hostname to PSDefaultParameterValues for Invoke-Command2:ComputerName"
-            $PSDefaultParameterValues["Invoke-Command2:ComputerName"] = $Computer
+            $PSDefaultParameterValues["Invoke-Command2:ComputerName"] = $ComputerName
 
             Write-PSFMessage -Level Verbose -Message "Initializing remote session to $hostname and also getting the remote home directory"
             $programhome = Invoke-Command2 -ScriptBlock { $home }
 
             if (-not $remotesession) {
-                $remotesession = Get-PSSession -ComputerName $Computer -Verbose | Where-Object { $PsItem.Availability -eq 'Available' -and ($PsItem.Name -match 'WinRM' -or $PsItem.Name -match 'Runspace') } | Select-Object -First 1
+                $remotesession = Get-PSSession -ComputerName $ComputerName -Verbose | Where-Object { $PsItem.Availability -eq 'Available' -and ($PsItem.Name -match 'WinRM' -or $PsItem.Name -match 'Runspace') } | Select-Object -First 1
             }
 
             if (-not $remotesession) {
-                $remotesession = Get-PSSession -ComputerName $Computer | Where-Object { $PsItem.Availability -eq 'Available' } | Select-Object -First 1
+                $remotesession = Get-PSSession -ComputerName $ComputerName | Where-Object { $PsItem.Availability -eq 'Available' } | Select-Object -First 1
             }
 
             if (-not $remotesession) {
@@ -200,7 +201,7 @@ function Start-DscUpdate {
 
                     # try to automatically download it for them
                     if (-not $object -and $Pattern) {
-                        $object = Get-KbUpdate -ComputerName $Computer -Pattern $Pattern | Where-Object { $PSItem.Link -and $PSItem.Title -match $Pattern }
+                        $object = Get-KbUpdate -ComputerName $ComputerName -Pattern $Pattern | Where-Object { $PSItem.Link -and $PSItem.Title -match $Pattern }
                     }
 
                     # note to reader: if this picks the wrong one, please download the required file manually.
@@ -247,7 +248,7 @@ function Start-DscUpdate {
                 if (-not "$($FilePath)".StartsWith("\\") -and -not $IsLocalHost) {
                     Write-PSFMessage -Level Verbose -Message "Update is not located on a file server and not local, copying over the remote server"
                     try {
-                        $exists = Invoke-Command2 -ComputerName $Computer -ArgumentList $remotefile -ScriptBlock {
+                        $exists = Invoke-Command2 -ComputerName $ComputerName -ArgumentList $remotefile -ScriptBlock {
                             Get-ChildItem -Path $args -ErrorAction SilentlyContinue
                         }
                         if (-not $exists) {
@@ -255,7 +256,7 @@ function Start-DscUpdate {
                             $deleteremotefile = $remotefile
                         }
                     } catch {
-                        $null = Invoke-Command2 -ComputerName $Computer -ArgumentList $remotefile -ScriptBlock {
+                        $null = Invoke-Command2 -ComputerName $ComputerName -ArgumentList $remotefile -ScriptBlock {
                             Remove-Item $args -Force -ErrorAction SilentlyContinue
                         }
                         try {
@@ -263,7 +264,7 @@ function Start-DscUpdate {
                             $null = Copy-Item -Path $updatefile -Destination $remotefile -ToSession $remotesession -ErrorAction Stop
                             $deleteremotefile = $remotefile
                         } catch {
-                            $null = Invoke-Command2 -ComputerName $Computer -ArgumentList $remotefile -ScriptBlock {
+                            $null = Invoke-Command2 -ComputerName $ComputerName -ArgumentList $remotefile -ScriptBlock {
                                 Remove-Item $args -Force -ErrorAction SilentlyContinue
                             }
                             Stop-PSFFunction -Message "Could not copy $updatefile to $remotefile" -ErrorRecord $PSItem -Continue
@@ -509,13 +510,13 @@ function Start-DscUpdate {
 
                 if ($deleteremotefile) {
                     Write-PSFMessage -Level Verbose -Message "Deleting $deleteremotefile"
-                    $null = Invoke-Command2 -ComputerName $Computer -ArgumentList $deleteremotefile -ScriptBlock {
+                    $null = Invoke-Command2 -ComputerName $ComputerName -ArgumentList $deleteremotefile -ScriptBlock {
                         Get-ChildItem -ErrorAction SilentlyContinue $args | Remove-Item -Force -ErrorAction SilentlyContinue -Confirm:$false
                     }
                 }
 
                 Write-Verbose -Message "Finished installing, checking status"
-                $exists = Get-KbInstalledUpdate -ComputerName $Computer -Pattern $hotfix.property.id -IncludeHidden
+                $exists = Get-KbInstalledUpdate -ComputerName $ComputerName -Pattern $hotfix.property.id -IncludeHidden
 
                 if ($exists.Summary -match "restart") {
                     $status = "This update requires a restart"
@@ -547,7 +548,7 @@ function Start-DscUpdate {
             } catch {
                 if ("$PSItem" -match "Serialized XML is nested too deeply") {
                     Write-PSFMessage -Level Verbose -Message "Serialized XML is nested too deeply. Forcing output."
-                    $exists = Get-KbInstalledUpdate -ComputerName $Computer -HotfixId $hotfix.property.id
+                    $exists = Get-KbInstalledUpdate -ComputerName $ComputerName -HotfixId $hotfix.property.id
 
                     if ($exists.Summary -match "restart") {
                         $status = "This update requires a restart"

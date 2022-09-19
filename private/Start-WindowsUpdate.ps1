@@ -3,7 +3,7 @@ function Start-WindowsUpdate {
     [CmdletBinding()]
     param (
         [Parameter(Mandatory)]
-        [psobject]$Computer,
+        [psobject]$ComputerName,
         [PSCredential]$Credential,
         [PSCredential]$PSDscRunAsCredential,
         [Parameter(ValueFromPipelineByPropertyName)]
@@ -28,18 +28,18 @@ function Start-WindowsUpdate {
     )
     try {
         # No idea why this happens sometimes
-        if ($Computer -is [hashtable]) {
-            $hashtable = $Computer.PsObject.Copy()
+        if ($ComputerName -is [hashtable]) {
+            $hashtable = $ComputerName.PsObject.Copy()
             $null = Remove-Variable -Name Computer
             foreach ($key in $hashtable.keys) {
                 Set-Variable -Name $key -Value $hashtable[$key]
             }
         }
 
-        if ($Computer.ComputerName) {
-            $hostname = $Computer.ComputerName
+        if ($ComputerName.ComputerName) {
+            $hostname = $ComputerName.ComputerName
         } else {
-            $hostname = $Computer
+            $hostname = $ComputerName
         }
 
         Write-PSFMessage -Level Verbose -Message "Using the Windows Update method"

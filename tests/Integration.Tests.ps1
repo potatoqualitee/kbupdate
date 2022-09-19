@@ -215,7 +215,7 @@ Describe "Integration Tests" -Tag "IntegrationTests" {
     Context "Install-KbUpdate works" {
         It "installs a patch" {
             $update = Get-KbUpdate -Pattern KB4527377 | Save-KbUpdate -Path C:\temp
-            $results = Install-KbUpdate -ComputerName localhost -Path $update
+            $results = Install-KbUpdate -ComputerName $env:computername -Path $update
             $results | Should -Not -BeNullOrEmpty
         }
     }

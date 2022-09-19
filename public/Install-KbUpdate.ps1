@@ -124,7 +124,7 @@ function Install-KbUpdate {
         # create code blocks for  jobs
         $cmd2 = $((Get-Command Invoke-Command2).Definition)
         $wublock = [scriptblock]::Create($((Get-Command Start-WindowsUpdate).Definition))
-        $dscblock = [scriptblock]::Create($((Get-Command Start-DscUpdate).Definition).Replace("# function Invoke-PSFCommand", "function Invoke-PSFCommand { $cmd2 }"))
+        $dscblock = [scriptblock]::Create($((Get-Command Start-DscUpdate).Definition).Replace("# function Invoke-Command2", "function Invoke-Command2 { $cmd2 }"))
         # cleanup
         $null = Get-Job -ChildJobState Completed | Where-Object Name -in $ComputerName.ComputerName | Remove-Job -Force
     }
@@ -148,7 +148,7 @@ function Install-KbUpdate {
         }
 
         if (-not $PSBoundParameters.ComputerName -and $InputObject) {
-            $ComputerName = [PSFComputer]$InputObject.ComputerName
+            $ComputerName = [PSFComputer[]]$InputObject.ComputerName
             Write-PSFMessage -Level Verbose -Message "Added $ComputerName"
         }
 
@@ -166,7 +166,7 @@ function Install-KbUpdate {
                 Stop-PSFFunction -EnableException:$EnableException -Message "You must be an administrator to run this command on the local host" -Continue
             }
             $parms = @{
-                ComputerName    = $hostname
+                Computer        = $hostname
                 FilePath        = $FilePath
                 HotfixId        = $HotfixId
                 RepositoryPath  = $RepositoryPath
