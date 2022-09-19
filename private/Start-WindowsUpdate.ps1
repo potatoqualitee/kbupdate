@@ -24,7 +24,8 @@ function Start-WindowsUpdate {
         [pscustomobject[]]$InputObject,
         [switch]$EnableException,
         [switch]$AllNeeded,
-        [bool]$IsLocalHost
+        [bool]$IsLocalHost,
+        [string]$VerbosePreference
     )
     try {
         # No idea why this happens sometimes

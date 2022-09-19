@@ -22,7 +22,8 @@ function Start-DscUpdate {
         [switch]$AllNeeded,
         [switch]$NoMultithreading,
         [switch]$EnableException,
-        [bool]$IsLocalHost
+        [bool]$IsLocalHost,
+        [string]$VerbosePreference
     )
     begin {
         # Ignore this
