@@ -73,6 +73,14 @@ function Get-KbInstalledUpdate {
                 foreach ($name in $pattern) {
                     $packages += Get-Package -IncludeWindowsInstaller -ProviderName msi, msu, Programs -Name "*$name*" -ErrorAction SilentlyContinue
                     $packages += Get-Package -ProviderName msi, msu, Programs -Name "*$name*" -ErrorAction SilentlyContinue
+                    if ((Get-Service wuauserv | Where-Object StartType -ne Disabled)) {
+                        $session = [type]::GetTypeFromProgID("Microsoft.Update.Session")
+                        $wua = [activator]::CreateInstance($session)
+                        $updatesearcher = $wua.CreateUpdateSearcher()
+                        $count = $updatesearcher.GetTotalHistoryCount()
+                        $packages += $updatesearcher.QueryHistory(0, $count) | Where-Object Name -match $Pattern
+                    }
+
                 }
                 $packages = $packages | Sort-Object -Unique Name
             } else {
@@ -80,6 +88,13 @@ function Get-KbInstalledUpdate {
                 $packages += Get-Package -IncludeWindowsInstaller -ProviderName msi, msu, Programs
                 $packages += Get-Package -ProviderName msi, msu, Programs
                 $packages = $packages | Sort-Object -Unique Name
+                if ((Get-Service wuauserv | Where-Object StartType -ne Disabled)) {
+                    $session = [type]::GetTypeFromProgID("Microsoft.Update.Session")
+                    $wua = [activator]::CreateInstance($session)
+                    $updatesearcher = $wua.CreateUpdateSearcher()
+                    $count = $updatesearcher.GetTotalHistoryCount()
+                    $packages += $updatesearcher.QueryHistory(0, $count)
+                }
             }
             # Cim never reports stuff in a package :(
 

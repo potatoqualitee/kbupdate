@@ -32,11 +32,11 @@ function Select-KbLatest {
         $allkbs += $InputObject
     }
     end {
-        $matches = @()
+        $match = @()
         foreach ($kb in $allkbs) {
             $otherkbs = $allkbs | Where-Object Id -ne $kb.Id
-            $matches += $allkbs | Where-Object { $PSItem.Id -eq $kb.Id -and $otherkbs.Supersedes.Kb -notcontains $kb.Id }
+            $match += $allkbs | Where-Object { $PSItem.Id -eq $kb.Id -and $otherkbs.Supersedes.Kb -notcontains $kb.Id }
         }
-        $matches | Sort-Object UpdateId -Unique
+        $match | Sort-Object -Property @{Expression = "Id"; Descending = $true }, @{Expression = "LastModified"; Descending = $true } -Unique
     }
 }

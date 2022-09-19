@@ -104,7 +104,7 @@ Describe "Integration Tests" -Tag "IntegrationTests" {
             $results = Get-KbUpdate -Pattern 979906
             $results.Count | Should -Be 3
             $results = Get-KbUpdate -Pattern 2416447, 979906 -Latest
-            $results.Count | Should -Be 3
+            $results.Count | Should -Be 2
         }
 
         It -Skip "does not overwrite links" {

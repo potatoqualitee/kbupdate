@@ -31,9 +31,13 @@ function Start-DscUpdate {
 
         # load up if a job
         if (-not (Get-Module kbupdate)) {
-            $null = Import-Module PSSQLite -RequiredVersion 1.1.0 4>$null
-            $null = Import-Module PSFramework -RequiredVersion 1.7.227 4>$null
+            $null = Import-Module PSSQLite 4>$null
+            $null = Import-Module PSFramework 4>$null
             $null = Import-Module kbupdate 4>$null
+
+            if ($PSVersionTable.PSVersion.Major -gt 5) {
+                $null = Import-Module -UseWindowsPowerShell PSDesiredStateConfiguration -MaximumVersion 1.1 *>$null
+            }
         }
 
         # No idea why this sometimes happens
@@ -452,7 +456,12 @@ function Start-DscUpdate {
                         $VerbosePreference,
                         $ManualFileName
                     )
-                    Import-Module PSDesiredStateConfiguration 4>$null
+
+                    if ($PSVersionTable.PSVersion.Major -gt 5) {
+                        Import-Module -UseWindowsPowerShell PSDesiredStateConfiguration -MaximumVersion 1.1 *>$null
+                    } else {
+                        Import-Module PSDesiredStateConfiguration 4>$null
+                    }
                     Import-Module xPSDesiredStateConfiguration -RequiredVersion 9.2.0 4>$null
                     Import-Module xWindowsUpdate -RequiredVersion 3.0.0 4>$null
                     $PSDefaultParameterValues.Remove("Invoke-WebRequest:ErrorAction")
