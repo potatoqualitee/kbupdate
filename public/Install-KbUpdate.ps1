@@ -166,7 +166,7 @@ function Install-KbUpdate {
                 Stop-PSFFunction -EnableException:$EnableException -Message "You must be an administrator to run this command on the local host" -Continue
             }
             $parms = @{
-                Computer        = $hostname
+                ComputerName    = $hostname
                 FilePath        = $FilePath
                 HotfixId        = $HotfixId
                 RepositoryPath  = $RepositoryPath
