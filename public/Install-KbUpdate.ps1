@@ -98,7 +98,8 @@ function Install-KbUpdate {
     #>
     [CmdletBinding(SupportsShouldProcess, ConfirmImpact = "Medium")]
     param (
-        [PSFComputer[]]$ComputerName = $env:ComputerName,
+        [Parameter(Mandatory, ValueFromPipelineByPropertyName)]
+        [PSFComputer[]]$ComputerName,
         [PSCredential]$Credential,
         [PSCredential]$PSDscRunAsCredential,
         [Parameter(ValueFromPipelineByPropertyName)]

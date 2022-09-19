@@ -1,6 +1,7 @@
 function Invoke-Command2 {
     [cmdletbinding()]
     param(
+        [Parameter(Mandatory)]
         [string]$ComputerName,
         [Parameter(Mandatory)]
         [scriptblock]$ScriptBlock,
