@@ -36,7 +36,7 @@ function Invoke-Command2 {
     }
 
     try {
-        if (-not (Get-PSFConfigValue -Name PSRemoting.Sessions.Enable)) {
+        if (-not (Get-PSFConfigValue -Name PSRemoting.Sessions.Enable) -or $computer.IsLocalhost) {
             Write-PSFMessage -Level Verbose -Message "Sessions disabled, just using Invoke-Command"
             Invoke-Command -ScriptBlock $ScriptBlock -ArgumentList $ArgumentList
         } else {
