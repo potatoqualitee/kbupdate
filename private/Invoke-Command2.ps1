@@ -17,12 +17,14 @@ function Invoke-Command2 {
     $computer = [PSFComputer]$ComputerName
 
     Write-PSFMessage -Level Verbose -Message "Adding ErrorActon Stop to Invoke-Command and Invoke-PSFCommand"
-    $PSDefaultParameterValues['Invoke-Command:ErrorAction'] = "Stop"
-    $PSDefaultParameterValues['Invoke-PSFCommand:ErrorAction'] = "Stop"
+    $PSDefaultParameterValues['*:ErrorAction'] = "Stop"
+    $PSDefaultParameterValues['*:ErrorAction'] = "Stop"
 
     if ($EnableException) {
+        $null = $PSDefaultParameterValues.Remove('*:EnableException')
         $PSDefaultParameterValues['*:EnableException'] = $true
     } else {
+        $null = $PSDefaultParameterValues.Remove('*:EnableException')
         $PSDefaultParameterValues['*:EnableException'] = $false
     }
     if (-not $computer.IsLocalhost) {
@@ -76,7 +78,14 @@ function Invoke-Command2 {
                 $session = New-PSSession @sessionparm
             }
             Write-PSFMessage -Level Verbose -Message "Connecting to session using Invoke-PSFCommand"
-            Invoke-PSFCommand -ComputerName $session -ScriptBlock $ScriptBlock -ArgumentList $ArgumentList
+
+            $commandparm = @{
+                ComputerName = $session
+                ScriptBlock  = $ScriptBlock
+                ArgumentList = $ArgumentList
+            }
+
+            Invoke-PSFCommand @commandparm
         }
     } catch {
         Stop-PSFFunction -Message "Failure on $ComputerName" -ErrorRecord $PSItem

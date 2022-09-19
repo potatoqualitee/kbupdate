@@ -429,9 +429,13 @@ function Start-DscUpdate {
                 }
             }
             try {
-
-
-                $null = Invoke-Command2 -ScriptBlock {
+                $parms = @{
+                    ArgumentList    = $hotfix, $VerbosePreference, $FileName
+                    EnableException = $true
+                    WarningAction   = "SilentlyContinue"
+                    WarningVariable = "dscwarnings"
+                }
+                $null = Invoke-Command2 @parms -ScriptBlock {
                     param (
                         $Hotfix,
                         $VerbosePreference,
@@ -506,7 +510,15 @@ function Start-DscUpdate {
                             }
                         }
                     }
-                } -ArgumentList $hotfix, $VerbosePreference, $FileName -EnableException
+                }
+
+                if ($dscwarnings) {
+                    # too many extra spaces, baw
+                    while ("$dscwarnings" -match "  ") {
+                        $dscwarnings = "$dscwarnings" -replace "  ", " "
+                    }
+                    Write-PSFMessage -Level Warning -Message $dscwarnings
+                }
 
                 if ($deleteremotefile) {
                     Write-PSFMessage -Level Verbose -Message "Deleting $deleteremotefile"
