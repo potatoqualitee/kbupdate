@@ -165,7 +165,9 @@ function Get-KbUpdate {
         }
 
         Write-PSFMessage -Level Verbose -Message "Source set to $Source"
-        Write-PSFMessage -Level Verbose -Message "Operating system set to $OperatingSystem"
+        if ($OperatingSystem) {
+            Write-PSFMessage -Level Verbose -Message "Operating system set to $OperatingSystem"
+        }
 
         $script:allresults = @()
         function Get-KbItemFromDb {
