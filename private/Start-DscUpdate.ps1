@@ -158,6 +158,9 @@ function Start-DscUpdate {
         }
     }
     process {
+        if (-not $InputObject) {
+            Write-PSFMessage -Level Verbose -Message "Nothing to install on $hostname, moving on"
+        }
         foreach ($object in $InputObject) {
             if ($object.Link -and $RepositoryPath) {
                 $filename = Split-Path -Path $object.Link -Leaf

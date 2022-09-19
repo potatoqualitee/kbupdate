@@ -30,7 +30,7 @@ function Start-WindowsUpdate {
         # No idea why this happens sometimes
         if ($ComputerName -is [hashtable]) {
             $hashtable = $ComputerName.PsObject.Copy()
-            $null = Remove-Variable -Name Computer
+            $null = Remove-Variable -Name ComputerName
             foreach ($key in $hashtable.keys) {
                 Set-Variable -Name $key -Value $hashtable[$key]
             }
@@ -58,7 +58,7 @@ function Start-WindowsUpdate {
         Stop-PSFFunction -EnableException:$EnableException -Message "Failed to create update searcher" -ErrorRecord $_ -Continue
     }
     if ($searchresult.Updates.Count -eq 0) {
-        Stop-PSFFunction -Message "No updates found on $env:computername" -Continue
+        Stop-PSFFunction -Message "No updates needed on $env:computername" -Continue
     }
 
     # iterate the updates in searchresult

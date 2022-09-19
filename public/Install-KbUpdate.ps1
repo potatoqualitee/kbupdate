@@ -202,7 +202,7 @@ function Install-KbUpdate {
                         Start-WindowsUpdate @parms
                     } else {
                         Write-PSFMessage -Level Verbose -Message "Using jobs for update to $hostname"
-                        $job = Start-Job -ScriptBlock $wublock
+                        $jobs += Start-Job -ScriptBlock $wublock
                     }
                 } else {
                     Write-PSFMessage -Level Verbose -Message "Method is DSC"
@@ -211,14 +211,13 @@ function Install-KbUpdate {
                         Start-DscUpdate @parms -ErrorAction Stop
                     } else {
                         Write-PSFMessage -Level Verbose -Message "Using jobs for update to $hostname"
-                        $job = Start-Job -ScriptBlock $dscblock -ErrorAction Stop
+                        $jobs += Start-Job -ScriptBlock $dscblock -ErrorAction Stop
                     }
                 }
             } catch {
                 Stop-PSFFunction -Message "Failure on $hostname" -ErrorRecord $PSItem -EnableException:$EnableException -Continue
             }
         }
-        $jobs += $job
 
         if ($jobs.Name) {
             try {
