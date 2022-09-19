@@ -37,7 +37,7 @@ function Save-KbScanFile {
         [switch]$AllowClobber
     )
     process {
-        Write-PSFMessage -Level Verbose "Grabbing headers from catalog site"
+        Write-PSFMessage -Level Verbose -Message "Grabbing headers from catalog site"
         $request = Invoke-TlsWebRequest -Uri $Source -Method HEAD
 
         $lastmodified = $Request.Headers['Last-Modified']

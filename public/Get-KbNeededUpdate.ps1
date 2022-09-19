@@ -219,7 +219,7 @@ function Get-KbNeededUpdate {
                             Stop-PSFFunction -EnableException:$EnableException -Message "Session for $computer can't be found or no runspaces are available. Please file an issue on the GitHub repo at https://github.com/potatoqualitee/kbupdate/issues" -Continue
                         }
 
-                        Write-PSFMessage -Level Verbose "Copying $ScanFilePath to $temp on $computer"
+                        Write-PSFMessage -Level Verbose -Message "Copying $ScanFilePath to $temp on $computer"
                         $null = Copy-Item -Path $ScanFilePath -Destination $temp -ToSession $remotesession -Force
                     }
                 } else {
@@ -236,7 +236,7 @@ function Get-KbNeededUpdate {
                             Select-Object -Property * -ExcludeProperty PSComputerName, RunspaceId |
                             Select-DefaultView -Property ComputerName, Title, KBUpdate, UpdateId, Description, LastModified, RebootBehavior, RequestsUserInput, NetworkRequired, Link)) {
                     if (-not $result.Link) {
-                        Write-PSFMessage -Level Verbose "No link found for $($result.KBUpdate.Trim()). Looking it up."
+                        Write-PSFMessage -Level Verbose -Message "No link found for $($result.KBUpdate.Trim()). Looking it up."
                         $link = (Get-KbUpdate -Pattern "$($result.KBUpdate.Trim())" -Simple -Computer $computer | Where-Object Title -match $result.KBUpdate).Link
                         if ($link) {
                             $result.Link = $link

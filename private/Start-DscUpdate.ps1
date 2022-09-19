@@ -1,9 +1,8 @@
-
 function Start-DscUpdate {
     [CmdletBinding()]
     param (
         [Parameter(Mandatory)]
-        [psobject]$Computer,
+        [psobject]$ComputerName,
         [PSCredential]$Credential,
         [PSCredential]$PSDscRunAsCredential,
         [Parameter(ValueFromPipelineByPropertyName)]
@@ -22,29 +21,46 @@ function Start-DscUpdate {
         [pscustomobject[]]$InputObject,
         [switch]$AllNeeded,
         [switch]$NoMultithreading,
-        [switch]$DoException,
-        [bool]$IsLocalHost
+        [switch]$EnableException,
+        [bool]$IsLocalHost,
+        [string]$VerbosePreference
     )
     begin {
-        # No idea why this happens
-        if ($Computer -is [hashtable]) {
-            $hashtable = $Computer.PsObject.Copy()
-            $null = Remove-Variable -Name Computer
+        # Ignore this
+        # function Invoke-Command2
+
+        # load up if a job
+        if (-not (Get-Module kbupdate)) {
+            $null = Import-Module PSSQLite -RequiredVersion 1.1.0 4>$null
+            $null = Import-Module PSFramework -RequiredVersion 1.7.227 4>$null
+            $null = Import-Module kbupdate 4>$null
+        }
+
+        # No idea why this sometimes happens
+        if ($ComputerName -is [hashtable]) {
+            $hashtable = $ComputerName.PsObject.Copy()
+            $null = Remove-Variable -Name ComputerName
             foreach ($key in $hashtable.keys) {
                 Set-Variable -Name $key -Value $hashtable[$key]
             }
         }
-        if ($AllNeeded) {
-            $InputObject = Get-KbNeededUpdate -ComputerName $Computer -EnableException:$EnableException
-        }
-        if ($FilePath) {
-            $InputObject += Get-ChildItem -Path $FilePath
-        }
-
-        if ($DoException) {
+        if ($EnableException) {
             $PSDefaultParameterValues["*:EnableException"] = $true
         } else {
             $PSDefaultParameterValues["*:EnableException"] = $false
+        }
+
+        if ($ComputerName.ComputerName) {
+            $hostname = $ComputerName.ComputerName
+        } else {
+            $hostname = $ComputerName
+        }
+
+        if ($AllNeeded) {
+            $InputObject = Get-KbNeededUpdate -ComputerName $ComputerName
+        }
+        if ($FilePath) {
+            $InputObject += Get-ChildItem -Path $FilePath
         }
 
         $script:ModuleRoot = Split-Path -Path ((Get-Module -ListAvailable -Name kbupdate | Sort-Object Version -Descending).Path | Select-Object -First 1)
@@ -52,43 +68,44 @@ function Start-DscUpdate {
         # null out a couple things to be safe
         $remotefileexists = $programhome = $remotesession = $null
         # Method is DSC
-        if ($PSDefaultParameterValues["Invoke-PSFCommand:ComputerName"]) {
-            $null = $PSDefaultParameterValues.Remove("Invoke-PSFCommand:ComputerName")
+        if ($PSDefaultParameterValues["Invoke-Command2:ComputerName"]) {
+            $null = $PSDefaultParameterValues.Remove("Invoke-Command2:ComputerName")
         }
+        $PSDefaultParameterValues["Invoke-Command2:ComputerName"] = $ComputerName
 
         if ($IsLocalHost) {
             # a lot of the file copy work will be done in the $home dir
-            $programhome = Invoke-PSFCommand -ScriptBlock { $home }
+            $programhome = Invoke-Command2 -ScriptBlock { $home }
         } else {
-            Write-PSFMessage -Level Verbose -Message "Adding $Computer to PSDefaultParameterValues for Invoke-PSFCommand:ComputerName"
-            $PSDefaultParameterValues["Invoke-PSFCommand:ComputerName"] = $Computer
+            Write-PSFMessage -Level Verbose -Message "Adding $hostname to PSDefaultParameterValues for Invoke-Command2:ComputerName"
+            $PSDefaultParameterValues["Invoke-Command2:ComputerName"] = $ComputerName
 
-            Write-PSFMessage -Level Verbose -Message "Initializing remote session to $Computer and also getting the remote home directory"
-            $programhome = Invoke-PSFCommand -ScriptBlock { $home }
+            Write-PSFMessage -Level Verbose -Message "Initializing remote session to $hostname and also getting the remote home directory"
+            $programhome = Invoke-Command2 -ScriptBlock { $home }
 
             if (-not $remotesession) {
-                $remotesession = Get-PSSession -ComputerName $Computer -Verbose | Where-Object { $PsItem.Availability -eq 'Available' -and ($PsItem.Name -match 'WinRM' -or $PsItem.Name -match 'Runspace') } | Select-Object -First 1
+                $remotesession = Get-PSSession -ComputerName $ComputerName -Verbose | Where-Object { $PsItem.Availability -eq 'Available' -and ($PsItem.Name -match 'WinRM' -or $PsItem.Name -match 'Runspace') } | Select-Object -First 1
             }
 
             if (-not $remotesession) {
-                $remotesession = Get-PSSession -ComputerName $Computer | Where-Object { $PsItem.Availability -eq 'Available' } | Select-Object -First 1
+                $remotesession = Get-PSSession -ComputerName $ComputerName | Where-Object { $PsItem.Availability -eq 'Available' } | Select-Object -First 1
             }
 
             if (-not $remotesession) {
-                Stop-PSFFunction -Message "Session for $Computer can't be found or no runspaces are available. Please file an issue on the GitHub repo at https://github.com/potatoqualitee/kbupdate/issues" -Continue
+                Stop-PSFFunction -Message "Session for $hostname can't be found or no runspaces are available. Please file an issue on the GitHub repo at https://github.com/potatoqualitee/kbupdate/issues" -Continue
             }
         }
 
         # fix for SYSTEM which doesn't have a downloads directory by default
         Write-PSFMessage -Level Verbose -Message "Checking for home downloads directory"
-        Invoke-PSFCommand -ScriptBlock {
+        Invoke-Command2 -ScriptBlock {
             if (-not (Test-Path -Path "$home\Downloads")) {
                 Write-Warning "Creating Downloads directory at $home\Downloads"
                 $null = New-Item -ItemType Directory -Force -Path "$home\Downloads"
             }
         }
 
-        $hasxhotfix = Invoke-PSFCommand -ScriptBlock {
+        $hasxhotfix = Invoke-Command2 -ScriptBlock {
             Get-Module -ListAvailable xWindowsUpdate -ErrorAction Ignore | Where-Object Version -eq 3.0.0
         }
 
@@ -97,51 +114,54 @@ function Start-DscUpdate {
                 # Copy xWindowsUpdate to Program Files. The module is pretty much required to be in the PS Modules directory.
                 $oldpref = $ProgressPreference
                 $ProgressPreference = "SilentlyContinue"
-                $programfiles = Invoke-PSFCommand -ScriptBlock {
+                $programfiles = Invoke-Command2 -ScriptBlock {
                     $env:ProgramFiles
                 }
                 if ($IsLocalHost) {
-                    Write-PSFMessage -Level Verbose -Message "Copying xWindowsUpdate to $Computer (local to $programfiles\WindowsPowerShell\Modules\xWindowsUpdate)"
+                    Write-PSFMessage -Level Verbose -Message "Copying xWindowsUpdate to $hostname (local to $programfiles\WindowsPowerShell\Modules\xWindowsUpdate)"
                     $null = Copy-Item -Path "$script:ModuleRoot\library\xWindowsUpdate" -Destination "$programfiles\WindowsPowerShell\Modules" -Recurse -Force
                 } else {
-                    Write-PSFMessage -Level Verbose -Message "Copying xWindowsUpdate to $Computer (remote to $programfiles\WindowsPowerShell\Modules\xWindowsUpdate)"
+                    Write-PSFMessage -Level Verbose -Message "Copying xWindowsUpdate to $hostname (remote to $programfiles\WindowsPowerShell\Modules\xWindowsUpdate)"
                     $null = Copy-Item -Path "$script:ModuleRoot\library\xWindowsUpdate" -Destination "$programfiles\WindowsPowerShell\Modules" -ToSession $remotesession -Recurse -Force
                 }
 
                 $ProgressPreference = $oldpref
             } catch {
-                Stop-PSFFunction -Message "Couldn't auto-install xHotfix on $Computer. Please Install-Module xWindowsUpdate on $Computer to continue." -Continue
+                Stop-PSFFunction -Message "Couldn't auto-install xHotfix on $hostname. Please Install-Module xWindowsUpdate on $hostname to continue." -Continue
             }
         }
 
-        $hasxdsc = Invoke-PSFCommand -ScriptBlock {
+        $hasxdsc = Invoke-Command2 -ScriptBlock {
             Get-Module -ListAvailable xPSDesiredStateConfiguration -ErrorAction Ignore | Where-Object Version -eq 9.2.0
         }
 
         if (-not $hasxdsc) {
             try {
-                Write-PSFMessage -Level Verbose -Message "Adding xPSDesiredStateConfiguration to $Computer"
+                Write-PSFMessage -Level Verbose -Message "Adding xPSDesiredStateConfiguration to $hostname"
                 # Copy xWindowsUpdate to Program Files. The module is pretty much required to be in the PS Modules directory.
                 $oldpref = $ProgressPreference
                 $ProgressPreference = "SilentlyContinue"
-                $programfiles = Invoke-PSFCommand -ScriptBlock {
+                $programfiles = Invoke-Command2 -ScriptBlock {
                     $env:ProgramFiles
                 }
                 if ($IsLocalHost) {
-                    Write-PSFMessage -Level Verbose -Message "Copying xPSDesiredStateConfiguration to $Computer (local to $programfiles\WindowsPowerShell\Modules\xPSDesiredStateConfiguration)"
+                    Write-PSFMessage -Level Verbose -Message "Copying xPSDesiredStateConfiguration to $hostname (local to $programfiles\WindowsPowerShell\Modules\xPSDesiredStateConfiguration)"
                     $null = Copy-Item -Path "$script:ModuleRoot\library\xPSDesiredStateConfiguration" -Destination "$programfiles\WindowsPowerShell\Modules" -Recurse -Force
                 } else {
-                    Write-PSFMessage -Level Verbose -Message "Copying xPSDesiredStateConfiguration to $Computer (remote)"
+                    Write-PSFMessage -Level Verbose -Message "Copying xPSDesiredStateConfiguration to $hostname (remote)"
                     $null = Copy-Item -Path "$script:ModuleRoot\library\xPSDesiredStateConfiguration" -Destination "$programfiles\WindowsPowerShell\Modules" -ToSession $remotesession -Recurse -Force
                 }
 
                 $ProgressPreference = $oldpref
             } catch {
-                Stop-PSFFunction -Message "Couldn't auto-install newer DSC resources on $Computer. Please Install-Module xPSDesiredStateConfiguration version 9.2.0 on $Computer to continue." -Continue
+                Stop-PSFFunction -Message "Couldn't auto-install newer DSC resources on $hostname. Please Install-Module xPSDesiredStateConfiguration version 9.2.0 on $hostname to continue." -Continue
             }
         }
     }
     process {
+        if (-not $InputObject) {
+            Write-PSFMessage -Level Verbose -Message "Nothing to install on $hostname, moving on"
+        }
         foreach ($object in $InputObject) {
             if ($object.Link -and $RepositoryPath) {
                 $filename = Split-Path -Path $object.Link -Leaf
@@ -152,7 +172,7 @@ function Start-DscUpdate {
             }
 
             if ($FilePath) {
-                $remotefileexists = $updatefile = Invoke-PSFCommand -ArgumentList $FilePath -ScriptBlock {
+                $remotefileexists = $updatefile = Invoke-Command2 -ArgumentList $FilePath -ScriptBlock {
                     Get-ChildItem -Path $args -ErrorAction SilentlyContinue
                 }
             }
@@ -192,7 +212,7 @@ function Start-DscUpdate {
 
                     # try to automatically download it for them
                     if (-not $object -and $Pattern) {
-                        $object = Get-KbUpdate -ComputerName $Computer -Pattern $Pattern | Where-Object { $PSItem.Link -and $PSItem.Title -match $Pattern }
+                        $object = Get-KbUpdate -ComputerName $ComputerName -Pattern $Pattern | Where-Object { $PSItem.Link -and $PSItem.Title -match $Pattern }
                     }
 
                     # note to reader: if this picks the wrong one, please download the required file manually.
@@ -203,13 +223,13 @@ function Start-DscUpdate {
                             $file = Split-Path $object.Link -Leaf | Select-Object -Last 1
                         }
                     } else {
-                        Stop-PSFFunction -Message "Could not find file on $Computer and couldn't find it online. Try piping in exactly what you'd like from Get-KbUpdate." -Continue
+                        Stop-PSFFunction -Message "Could not find file on $hostname and couldn't find it online. Try piping in exactly what you'd like from Get-KbUpdate." -Continue
                     }
 
                     if ((Test-Path -Path "$home\Downloads\$file")) {
                         $updatefile = Get-ChildItem -Path "$home\Downloads\$file"
                     } else {
-                        Write-PSFMessage -Level Verbose -Message "File not detected on $Computer, downloading now to $home\Downloads and copying to remote computer"
+                        Write-PSFMessage -Level Verbose -Message "File not detected on $hostname, downloading now to $home\Downloads and copying to remote computer"
 
                         $warnatbottom = $true
 
@@ -239,7 +259,7 @@ function Start-DscUpdate {
                 if (-not "$($FilePath)".StartsWith("\\") -and -not $IsLocalHost) {
                     Write-PSFMessage -Level Verbose -Message "Update is not located on a file server and not local, copying over the remote server"
                     try {
-                        $exists = Invoke-PSFCommand -ComputerName $Computer -ArgumentList $remotefile -ScriptBlock {
+                        $exists = Invoke-Command2 -ComputerName $ComputerName -ArgumentList $remotefile -ScriptBlock {
                             Get-ChildItem -Path $args -ErrorAction SilentlyContinue
                         }
                         if (-not $exists) {
@@ -247,7 +267,7 @@ function Start-DscUpdate {
                             $deleteremotefile = $remotefile
                         }
                     } catch {
-                        $null = Invoke-PSFCommand -ComputerName $Computer -ArgumentList $remotefile -ScriptBlock {
+                        $null = Invoke-Command2 -ComputerName $ComputerName -ArgumentList $remotefile -ScriptBlock {
                             Remove-Item $args -Force -ErrorAction SilentlyContinue
                         }
                         try {
@@ -255,7 +275,7 @@ function Start-DscUpdate {
                             $null = Copy-Item -Path $updatefile -Destination $remotefile -ToSession $remotesession -ErrorAction Stop
                             $deleteremotefile = $remotefile
                         } catch {
-                            $null = Invoke-PSFCommand -ComputerName $Computer -ArgumentList $remotefile -ScriptBlock {
+                            $null = Invoke-Command2 -ComputerName $ComputerName -ArgumentList $remotefile -ScriptBlock {
                                 Remove-Item $args -Force -ErrorAction SilentlyContinue
                             }
                             Stop-PSFFunction -Message "Could not copy $updatefile to $remotefile" -ErrorRecord $PSItem -Continue
@@ -420,14 +440,21 @@ function Start-DscUpdate {
                 }
             }
             try {
-                $null = Invoke-PSFCommand -ScriptBlock {
+                $parms = @{
+                    ArgumentList    = $hotfix, $VerbosePreference, $FileName
+                    EnableException = $true
+                    WarningAction   = "SilentlyContinue"
+                    WarningVariable = "dscwarnings"
+                }
+                $null = Invoke-Command2 @parms -ScriptBlock {
                     param (
                         $Hotfix,
                         $VerbosePreference,
                         $ManualFileName
                     )
-                    Import-Module xPSDesiredStateConfiguration -RequiredVersion 9.2.0 -Force
-                    Import-Module xWindowsUpdate -RequiredVersion 3.0.0 -Force
+                    Import-Module PSDesiredStateConfiguration 4>$null
+                    Import-Module xPSDesiredStateConfiguration -RequiredVersion 9.2.0 4>$null
+                    Import-Module xWindowsUpdate -RequiredVersion 3.0.0 4>$null
                     $PSDefaultParameterValues.Remove("Invoke-WebRequest:ErrorAction")
                     $PSDefaultParameterValues['*:ErrorAction'] = 'SilentlyContinue'
                     $ErrorActionPreference = "Stop"
@@ -436,11 +463,32 @@ function Start-DscUpdate {
                     if (-not (Get-Command Invoke-DscResource)) {
                         throw "Invoke-DscResource not found on $env:ComputerName"
                     }
-                    $null = Import-Module xWindowsUpdate -Force
-                    Write-Verbose -Message "Installing $($hotfix.property.id) from $($hotfix.property.path)"
+                    $null = Import-Module xWindowsUpdate -Force 4>$null
+
+                    $hotfixpath = $hotfix.property.path
+                    if (-not $hotfixpath) {
+                        $hotfixpath = $hotfix.property.sourcepath
+                    }
+                    $hotfixnameid = $hotfix.property.name
+                    if (-not $hotfixnameid) {
+                        $hotfixnameid = $hotfix.property.id
+                    }
+
+                    Write-Verbose -Message "Installing $hotfixnameid from $hotfixpath"
                     try {
-                        if (-not (Invoke-DscResource @hotfix -Method Test)) {
-                            Invoke-DscResource @hotfix -Method Set -ErrorAction Stop
+                        $ProgressPreference = "SilentlyContinue"
+                        if (-not (Invoke-DscResource @hotfix -Method Test 4>$null)) {
+                            $msgs = Invoke-DscResource @hotfix -Method Set -ErrorAction Stop 4>&1
+
+                            if ($msgs) {
+                                foreach ($msg in $msgs) {
+                                    # too many extra spaces, baw
+                                    while ("$msg" -match "  ") {
+                                        $msg = "$msg" -replace "  ", " "
+                                    }
+                                    $msg | Write-Verbose
+                                }
+                            }
                         }
                         $ProgressPreference = $oldpref
                     } catch {
@@ -451,7 +499,18 @@ function Start-DscUpdate {
                             try {
                                 Write-Verbose -Message "Retrying install with /quit parameter"
                                 $hotfix.Property.Arguments = "/quiet"
-                                Invoke-DscResource @hotfix -Method Set -ErrorAction Stop
+                                $msgs = Invoke-DscResource @hotfix -Method Set -ErrorAction Stop 4>&1
+
+                                if ($msgs) {
+                                    write-warning HELLO
+                                    foreach ($msg in $msgs) {
+                                        # too many extra spaces, baw
+                                        while ("$msg" -match "  ") {
+                                            $msg = "$msg" -replace "  ", " "
+                                        }
+                                        $msg | Write-Verbose
+                                    }
+                                }
                             } catch {
                                 $message = "$_".TrimStart().TrimEnd().Trim()
                             }
@@ -481,21 +540,31 @@ function Start-DscUpdate {
                                 throw "System can't find the file specified for some reason."
                             }
                             default {
-                                throw
+                                throw $message
                             }
                         }
                     }
-                } -ArgumentList $hotfix, $VerbosePreference, $FileName -ErrorAction Stop
+                }
+
+                if ($dscwarnings) {
+                    foreach ($warning in $dscwarnings) {
+                        # too many extra spaces, baw
+                        while ("$warning" -match "  ") {
+                            $warning = "$warning" -replace "  ", " "
+                        }
+                        Write-PSFMessage -Level Warning -Message $warning
+                    }
+                }
 
                 if ($deleteremotefile) {
                     Write-PSFMessage -Level Verbose -Message "Deleting $deleteremotefile"
-                    $null = Invoke-PSFCommand -ComputerName $Computer -ArgumentList $deleteremotefile -ScriptBlock {
+                    $null = Invoke-Command2 -ComputerName $ComputerName -ArgumentList $deleteremotefile -ScriptBlock {
                         Get-ChildItem -ErrorAction SilentlyContinue $args | Remove-Item -Force -ErrorAction SilentlyContinue -Confirm:$false
                     }
                 }
 
-                Write-Verbose -Message "Finished installing, checking status"
-                $exists = Get-KbInstalledUpdate -ComputerName $Computer -Pattern $hotfix.property.id -IncludeHidden
+                Write-PSFMessage -Level Verbose -Message "Finished installing, checking status"
+                $exists = Get-KbInstalledUpdate -ComputerName $ComputerName -Pattern $hotfix.property.id -IncludeHidden
 
                 if ($exists.Summary -match "restart") {
                     $status = "This update requires a restart"
@@ -517,17 +586,20 @@ function Start-DscUpdate {
                     $filetitle = $updatefile.VersionInfo.ProductName
                 }
 
+                if ($message) {
+                    $status = "sucks"
+                }
                 [pscustomobject]@{
-                    ComputerName = $Computer
+                    ComputerName = $hostname
                     Title        = $filetitle
                     ID           = $id
-                    Status       = $Status
+                    Status       = $status
                     FileName     = $updatefile.Name
                 }
             } catch {
                 if ("$PSItem" -match "Serialized XML is nested too deeply") {
                     Write-PSFMessage -Level Verbose -Message "Serialized XML is nested too deeply. Forcing output."
-                    $exists = Get-KbInstalledUpdate -ComputerName $Computer -HotfixId $hotfix.property.id
+                    $exists = Get-KbInstalledUpdate -ComputerName $ComputerName -HotfixId $hotfix.property.id
 
                     if ($exists.Summary -match "restart") {
                         $status = "This update requires a restart"
@@ -551,14 +623,14 @@ function Start-DscUpdate {
                     }
 
                     [pscustomobject]@{
-                        ComputerName = $Computer
+                        ComputerName = $hostname
                         Title        = $filetitle
                         ID           = $id
                         Status       = $Status
                         FileName     = $updatefile.Name
                     }
                 } else {
-                    Stop-PSFFunction -Message "Failure on $Computer" -ErrorRecord $_
+                    Stop-PSFFunction -Message "Failure on $hostname" -ErrorRecord $PSitem -Continue -EnableException:$EnableException
                 }
             }
         }

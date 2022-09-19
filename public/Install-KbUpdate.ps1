@@ -98,7 +98,8 @@ function Install-KbUpdate {
     #>
     [CmdletBinding(SupportsShouldProcess, ConfirmImpact = "Medium")]
     param (
-        [PSFComputer[]]$ComputerName = $env:ComputerName,
+        [Parameter(Mandatory, ValueFromPipelineByPropertyName)]
+        [PSFComputer[]]$ComputerName,
         [PSCredential]$Credential,
         [PSCredential]$PSDscRunAsCredential,
         [Parameter(ValueFromPipelineByPropertyName)]
@@ -120,9 +121,10 @@ function Install-KbUpdate {
         [switch]$EnableException
     )
     begin {
-        # create code blocks for jobs
+        # create code blocks for  jobs
+        $cmd2 = $((Get-Command Invoke-Command2).Definition)
         $wublock = [scriptblock]::Create($((Get-Command Start-WindowsUpdate).Definition))
-        $dscblock = [scriptblock]::Create($((Get-Command Start-DscUpdate).Definition))
+        $dscblock = [scriptblock]::Create($((Get-Command Start-DscUpdate).Definition).Replace("# function Invoke-Command2", "function Invoke-Command2 { $cmd2 }"))
         # cleanup
         $null = Get-Job -ChildJobState Completed | Where-Object Name -in $ComputerName.ComputerName | Remove-Job -Force
     }
@@ -146,13 +148,12 @@ function Install-KbUpdate {
         }
 
         if (-not $PSBoundParameters.ComputerName -and $InputObject) {
-            $ComputerName = [PSFComputer]$InputObject.ComputerName
+            $ComputerName = [PSFComputer[]]$InputObject.ComputerName
             Write-PSFMessage -Level Verbose -Message "Added $ComputerName"
         }
 
         $jobs = @()
         $added = 0
-        $totalsteps = ($ComputerName.Count * 2) + 1 # The plus one is for pretty
 
         foreach ($computer in $ComputerName) {
             $hostname = $computer.ComputerName
@@ -163,107 +164,160 @@ function Install-KbUpdate {
             if ($computer.IsLocalHost -and -not (Test-ElevationRequirement -ComputerName $hostname)) {
                 Stop-PSFFunction -EnableException:$EnableException -Message "You must be an administrator to run this command on the local host" -Continue
             }
-            $parms = @{
-                Computer       = $hostname
-                FilePath       = $FilePath
-                HotfixId       = $HotfixId
-                RepositoryPath = $RepositoryPath
-                Guid           = $Guid
-                Title          = $Title
-                ArgumentList   = $ArgumentList
-                InputObject    = $InputObject
-                DoException    = $EnableException
-                IsLocalHost    = $computer.IsLocalHost
-                AllNeeded      = $AllNeeded
-            }
 
-            $null = $PSDefaultParameterValues["Start-Job:ArgumentList"] = $parms
-            $null = $PSDefaultParameterValues["Start-Job:Name"] = $hostname
-
-            Write-Progress -Activity "Installing updates" -Status "Added $($computer.ComputerName) to queue. Processing $added computers..." -PercentComplete ($added / $totalsteps * 100)
+            Write-Progress -Activity "Installing updates" -Status "Added $($computer.ComputerName) to queue. Processing $added computers..." -PercentComplete ($added / 100 * 100)
 
             Write-PSFMessage -Level Verbose -Message "Processing $($parms.ComputerName)"
 
             if ($computer.IsLocalhost) {
-                if ((Get-Service wuauserv | Where-Object StartType -ne Disabled) -and $InputObject.InputObject) {
-
+                if ((Get-Service wuauserv | Where-Object StartType -ne Disabled)) {
                     Write-PSFMessage -Level Verbose -Message "Setting method to Windows Update $($parms.ComputerName)"
                     $method = "WindowsUpdate"
                 }
-                if ($AllNeeded -and -not $PSBoundParameters.InputObject.InputObject) {
-                    Write-PSFMessage -Level Verbose -Message "Setting method to Windows Update $($parms.ComputerName) then getting all needed windows updates"
-                    $method = "WindowsUpdate"
-                    $InputObject = @(Get-KbNeededUpdate -ComputerName $computer)
-                }
-            } elseif ($AllNeeded -and -not $PSBoundParameters.InputObject.InputObject) {
-                Write-PSFMessage -Level Verbose -Message "Getting all needed Windows Updates on $($parms.ComputerName)"
-                $InputObject = Get-KbNeededUpdate -ComputerName $computer
-                if (-not $InputObject.ComputerName.Count) {
-
-                }
             }
 
-            if ($method -eq "WindowsUpdate") {
-                Write-PSFMessage -Level Verbose -Message "Method is WindowsUpdate"
-                if ($ComputerName.Count -eq 1 -or $NoMultithreading) {
-                    Start-WindowsUpdate @parms
-                } else {
-                    $job = Start-Job -ScriptBlock $wublock
+            try {
+                $parms = @{
+                    ComputerName      = $hostname
+                    FilePath          = $FilePath
+                    HotfixId          = $HotfixId
+                    RepositoryPath    = $RepositoryPath
+                    Guid              = $Guid
+                    Title             = $Title
+                    ArgumentList      = $ArgumentList
+                    InputObject       = $InputObject
+                    EnableException   = $EnableException
+                    IsLocalHost       = $computer.IsLocalHost
+                    AllNeeded         = $AllNeeded
+                    VerbosePreference = $VerbosePreference
                 }
-            } else {
-                Write-PSFMessage -Level Verbose -Message "Method is DSC"
-                if ($ComputerName.Count -eq 1 -or $NoMultithreading) {
-                    Start-DscUpdate @parms
+                $null = $PSDefaultParameterValues["Start-Job:ArgumentList"] = $parms
+                $null = $PSDefaultParameterValues["Start-Job:Name"] = $hostname
+
+                if ($method -eq "WindowsUpdate") {
+                    Write-PSFMessage -Level Verbose -Message "Method is WindowsUpdate"
+                    if ($ComputerName.Count -eq 1 -or $NoMultithreading) {
+                        Write-PSFMessage -Level Verbose -Message "Not using jobs for update to $hostname"
+                        Start-WindowsUpdate @parms
+                    } else {
+                        Write-PSFMessage -Level Verbose -Message "Using jobs for update to $hostname"
+                        $jobs += Start-Job -ScriptBlock $wublock
+                    }
                 } else {
-                    $job = Start-Job -ScriptBlock $dscblock
+                    Write-PSFMessage -Level Verbose -Message "Method is DSC"
+                    if ($ComputerName.Count -eq 1 -or $NoMultithreading) {
+                        Write-PSFMessage -Level Verbose -Message "Not using jobs for update to $hostname"
+                        Start-DscUpdate @parms -ErrorAction Stop
+                    } else {
+                        Write-PSFMessage -Level Verbose -Message "Using jobs for update to $hostname"
+                        $jobs += Start-Job -ScriptBlock $dscblock -ErrorAction Stop
+                    }
                 }
+            } catch {
+                Stop-PSFFunction -Message "Failure on $hostname" -ErrorRecord $PSItem -EnableException:$EnableException -Continue
             }
         }
-        $jobs += $job
 
         if ($jobs.Name) {
-            while ($kbjobs = Get-Job | Where-Object Name -in $jobs.Name) {
-                foreach ($item in $kbjobs) {
-                    try {
-                        $item | Receive-Job -ErrorAction Stop -OutVariable kbjob | Select-Object -Property * -ExcludeProperty RunspaceId
-                    } catch {
-                        Stop-PSFFunction -Message "Failure on $($item.Name)" -ErrorRecord $PSItem -EnableException:$EnableException -Continue
+            try {
+                while ($kbjobs = Get-Job | Where-Object Name -in $jobs.Name) {
+                    # People really just want to know that it's still going and DSC doesn't give us a proper status
+                    # Just shoooooooooooooooooow a progress bar
+                    if ($added -eq 100) {
+                        $added = 0
                     }
-
-                    if ($kbjob.Output) {
-                        $kbjob.Output | Write-Output
-                    }
-                    if ($kbjob.Warning) {
-                        $kbjob.Warning | Write-Warning
-                    }
-                    if ($kbjob.Verbose) {
-                        $kbjob.Verbose | Write-Verbose
-                    }
-                    if ($kbjob.Debug) {
-                        $kbjob.Debug | Write-Debug
-                    }
-                    if ($kbjob.Information) {
-                        $kbjob.Information | Write-Information
-                    }
-                }
-                $null = Remove-Variable -Name kbjob
-                foreach ($kbjob in ($kbjobs | Where-Object State -ne 'Running')) {
-                    Write-PSFMessage -Level Verbose -Message "Finished installing updates on $($kbjob.Name)"
-                    $null = $added++
-                    $done = $kbjobs | Where-Object Name -ne $kbjob.Name
+                    $added++
                     $progressparms = @{
                         Activity        = "Installing updates"
-                        Status          = "Still installing updates on $($done.Name -join ', ')"
-                        PercentComplete = ($added / $totalsteps * 100)
+                        Status          = "Still installing updates on $($kbjobs.Name -join ', '). Please enjoy the inaccurate progress bar."
+                        PercentComplete = ($added / 100 * 100)
                     }
-
                     Write-Progress @progressparms
-                    $jorbs | Where-Object Name -eq $kbjob.name
-                    $kbjob | Remove-Job
+                    foreach ($item in $kbjobs) {
+                        try {
+                            $item | Receive-Job -OutVariable kbjob 4>$verboseoutput | Select-Object -Property * -ExcludeProperty RunspaceId
+                        } catch {
+                            Stop-PSFFunction -Message "Failure on $($item.Name)" -ErrorRecord $PSItem -EnableException:$EnableException -Continue
+                        }
+
+                        if ($kbjob.Output) {
+                            foreach ($msg in $kbjob.Output) {
+                                Write-PSFMessage -Level Debug -Message "$msg"
+                            }
+                        }
+                        if ($kbjob.Warning) {
+                            foreach ($msg in $kbjob.Warning) {
+                                if ($msg) {
+                                    # too many extra spaces, baw
+                                    while ("$msg" -match "  ") {
+                                        $msg = "$msg" -replace "  ", " "
+                                    }
+                                }
+                            }
+                            Write-PSFMessage -Level Warning -Message "$msg"
+                        }
+                        if ($kbjob.Verbose) {
+                            foreach ($msg in $kbjob.Verbose) {
+                                if ($msg) {
+                                    # too many extra spaces, baw
+                                    while ("$msg" -match "  ") {
+                                        $msg = "$msg" -replace "  ", " "
+                                    }
+                                }
+                            }
+                            $verboseoutput
+                            Write-PSFMessage -Level Verbose -Message "$msg"
+                        }
+
+
+                        if ($verboseoutput) {
+                            foreach ($msg in $verboseoutput) {
+                                if ($msg) {
+                                    # too many extra spaces, baw
+                                    while ("$msg" -match "  ") {
+                                        $msg = "$msg" -replace "  ", " "
+                                    }
+                                }
+                            }
+                            Write-PSFMessage -Level Verbose -Message "$msg"
+                        }
+
+                        if ($kbjob.Debug) {
+                            foreach ($msg in $kbjob.Debug) {
+                                Write-PSFMessage -Level Debug -Message "$msg"
+                            }
+                        }
+
+                        if ($kbjob.Information) {
+                            foreach ($msg in $kbjob.Information) {
+                                Write-PSFMessage -Level Information -Message "$msg"
+                            }
+                        }
+                    }
+                    $null = Remove-Variable -Name kbjob
+                    foreach ($kbjob in ($kbjobs | Where-Object State -ne 'Running')) {
+                        Write-PSFMessage -Level Verbose -Message "Finished installing updates on $($kbjob.Name)"
+                        if ($added -eq 100) {
+                            $added = 0
+                        }
+                        $null = $added++
+                        $done = $kbjobs | Where-Object Name -ne $kbjob.Name
+                        $progressparms = @{
+                            Activity        = "Installing updates"
+                            Status          = "Still installing updates on $($done.Name -join ', '). Please enjoy the inaccurate progress bar."
+                            PercentComplete = ($added / 100 * 100)
+                        }
+
+                        Write-Progress @progressparms
+                        $jorbs | Where-Object Name -eq $kbjob.name
+                        $kbjob | Remove-Job
+                    }
+                    Start-Sleep -Seconds 1
                 }
-                Start-Sleep -Seconds 1
+                Write-Progress -Activity "Installing updates" -Completed
+            } catch {
+                Stop-PSFFunction -Message "Failure on $hostname" -ErrorRecord $PSItem -EnableException:$EnableException
             }
-            Write-Progress -Activity "Installing updates" -Completed
         }
     }
 }

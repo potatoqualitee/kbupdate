@@ -104,3 +104,16 @@ if ($internet) {
     $PSDefaultParameterValues['Get-KbUpdate:Source'] = "Database"
     $PSDefaultParameterValues['Save-KbUpdate:Source'] = "Database"
 }
+
+# Disables session caching
+Set-PSFConfig -FullName PSRemoting.Sessions.Enable -Value $true -Initialize -Validation bool -Handler { } -Description 'Globally enables session caching for PowerShell remoting'
+
+# New-PSSessionOption
+Set-PSFConfig -FullName PSRemoting.PsSessionOption.IncludePortInSPN -Value $false -Initialize -Validation bool -Description 'Changes the value of -IncludePortInSPN parameter used by New-PsSessionOption which is used for kbupdate internally when working with PSRemoting.'
+Set-PSFConfig -FullName PSRemoting.PsSessionOption.SkipCACheck -Value $false -Initialize -Validation bool -Description 'Changes the value of -SkipCACheck parameter used by New-PsSessionOption which is used for kbupdate internally when working with PSRemoting.'
+Set-PSFConfig -FullName PSRemoting.PsSessionOption.SkipCNCheck -Value $false -Initialize -Validation bool -Description 'Changes the value of -SkipCNCheck parameter used by New-PsSessionOption which is used for kbupdate internally when working with PSRemoting.'
+Set-PSFConfig -FullName PSRemoting.PsSessionOption.SkipRevocationCheck -Value $false -Initialize -Validation bool -Description 'Changes the value of -SkipRevocationCheck parameter used by New-PsSessionOption which is used for kbupdate internally when working with PSRemoting.'
+
+# New-PSSession
+Set-PSFConfig -FullName PSRemoting.PsSession.UseSSL -Value $false -Initialize -Validation bool -Description 'Changes the value of -UseSSL parameter used by New-PsSession which is used for kbupdate internally when working with PSRemoting.'
+Set-PSFConfig -FullName PSRemoting.PsSession.Port -Value $null -Initialize -Validation integerpositive -Description 'Changes the -Port parameter value used by New-PsSession which is used for kbupdate internally when working with PSRemoting. Use it when you don''t work with default port number. To reset, use Set-PSFConfig -FullName PSRemoting.PsSession.Port -Value $null'

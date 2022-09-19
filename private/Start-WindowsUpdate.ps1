@@ -3,7 +3,7 @@ function Start-WindowsUpdate {
     [CmdletBinding()]
     param (
         [Parameter(Mandatory)]
-        [psobject]$Computer,
+        [psobject]$ComputerName,
         [PSCredential]$Credential,
         [PSCredential]$PSDscRunAsCredential,
         [Parameter(ValueFromPipelineByPropertyName)]
@@ -22,19 +22,27 @@ function Start-WindowsUpdate {
         [string]$ArgumentList,
         [Parameter(ValueFromPipeline)]
         [pscustomobject[]]$InputObject,
-        [switch]$DoException,
+        [switch]$EnableException,
         [switch]$AllNeeded,
-        [bool]$IsLocalHost
+        [bool]$IsLocalHost,
+        [string]$VerbosePreference
     )
     try {
         # No idea why this happens sometimes
-        if ($Computer -is [hashtable]) {
-            $hashtable = $Computer.PsObject.Copy()
-            $null = Remove-Variable -Name Computer
+        if ($ComputerName -is [hashtable]) {
+            $hashtable = $ComputerName.PsObject.Copy()
+            $null = Remove-Variable -Name ComputerName
             foreach ($key in $hashtable.keys) {
                 Set-Variable -Name $key -Value $hashtable[$key]
             }
         }
+
+        if ($ComputerName.ComputerName) {
+            $hostname = $ComputerName.ComputerName
+        } else {
+            $hostname = $ComputerName
+        }
+
         Write-PSFMessage -Level Verbose -Message "Using the Windows Update method"
         $sessiontype = [type]::GetTypeFromProgID("Microsoft.Update.Session")
         $session = [activator]::CreateInstance($sessiontype)
@@ -51,7 +59,7 @@ function Start-WindowsUpdate {
         Stop-PSFFunction -EnableException:$EnableException -Message "Failed to create update searcher" -ErrorRecord $_ -Continue
     }
     if ($searchresult.Updates.Count -eq 0) {
-        Stop-PSFFunction -Message "No updates found on $env:computername" -Continue
+        Stop-PSFFunction -Message "No updates needed on $env:computername" -Continue
     }
 
     # iterate the updates in searchresult
@@ -136,7 +144,7 @@ function Start-WindowsUpdate {
             }
 
             [pscustomobject]@{
-                ComputerName = $Computer
+                ComputerName = $hostname
                 Title        = $update.Title
                 ID           = $update.Identity.UpdateID
                 Status       = $status

@@ -215,7 +215,7 @@ Describe "Integration Tests" -Tag "IntegrationTests" {
     Context "Install-KbUpdate works" {
         It "installs a patch" {
             $update = Get-KbUpdate -Pattern KB4527377 | Save-KbUpdate -Path C:\temp
-            $results = Install-KbUpdate -Path $update
+            $results = Install-KbUpdate -ComputerName $env:computername -Path $update
             $results | Should -Not -BeNullOrEmpty
         }
     }
@@ -233,7 +233,7 @@ Describe "Integration Tests" -Tag "IntegrationTests" {
 
     Context "Uninstall-KbUpdate works" {
         It -Skip "Uninstalls a patch" {
-            $results = Uninstall-KbUpdate -HotfixId KB4527377 -Confirm:$false
+            $results = Uninstall-KbUpdate -ComputerName $env:computername -HotfixId KB4527377 -Confirm:$false
             $results | Should -Not -BeNullOrEmpty
         }
         It -Skip "Uninstalls a patch" {
