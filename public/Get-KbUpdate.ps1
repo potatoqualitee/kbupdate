@@ -389,7 +389,7 @@ function Get-KbUpdate {
             Write-PSFMessage -Level Verbose -Message "$kb"
 
             if ($kb -match '^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$') {
-                Write-Verbose -Message "Guid passed in, skipping initial web search"
+                Write-PSFMessage -Level Verbose -Message "Guid passed in, skipping initial web search"
                 $guids = @()
                 $guids += [PSCustomObject]@{
                     Guid  = $kb
@@ -531,8 +531,9 @@ function Get-KbUpdate {
                     $completed++
                     $guid = $psitem.Guid
                     $itemtitle = $psitem.Title
-                    Write-Verbose -Message "Downloading information for $itemtitle"
-                    Write-ProgressHelper -TotalSteps $guids.Count -StepNumber $completed -Activity "Searching catalog" -Message "Downloading information for $itemtitle"
+                    Write-PSFMessage -Level Verbose -Message "Downloading information for $itemtitle"
+                    $total = ($guids.Count) + 2
+                    Write-ProgressHelper -TotalSteps $total -StepNumber $completed -Activity "Searching catalog" -Message "Downloading information for $itemtitle"
                     $post = @{ size = 0; updateID = $guid; uidInfo = $guid } | ConvertTo-Json -Compress
                     $body = @{ updateIDs = "[$post]" }
                     Invoke-TlsWebRequest -Uri 'https://www.catalog.update.microsoft.com/DownloadDialog.aspx' -Method Post -Body $body | Select-Object -ExpandProperty Content
@@ -550,7 +551,8 @@ function Get-KbUpdate {
                 foreach ($downloaddialog in $downloaddialogs) {
                     $completed++
                     $title = Get-Info -Text $downloaddialog -Pattern 'enTitle ='
-                    Write-ProgressHelper -TotalSteps $downloaddialogs.Count -StepNumber $completed -Activity "Downloading details" -Message "Getting details for $title"
+                    $total = ($downloaddialogs.Count) + 2
+                    Write-ProgressHelper -TotalSteps $total -StepNumber $completed -Activity "Downloading details" -Message "Getting details for $title"
                     $arch = $null
                     $longlang = Get-Info -Text $downloaddialog -Pattern 'longLanguages ='
                     if ($Pattern -match '^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$') {

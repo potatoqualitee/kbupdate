@@ -28,7 +28,14 @@ function Start-DscUpdate {
         # Ignore this
         # function Invoke-Command2
 
-        # No idea why this happens sometimes
+        # load up if a job
+        if (-not (Get-Module kbupdate)) {
+            $null = Import-Module PSSQLite -RequiredVersion 1.1.0 4>$null
+            $null = Import-Module PSFramework -RequiredVersion 1.7.227 4>$null
+            $null = Import-Module kbupdate 4>$null
+        }
+
+        # No idea why this sometimes happens
         if ($ComputerName -is [hashtable]) {
             $hashtable = $ComputerName.PsObject.Copy()
             $null = Remove-Variable -Name ComputerName
@@ -36,11 +43,10 @@ function Start-DscUpdate {
                 Set-Variable -Name $key -Value $hashtable[$key]
             }
         }
-        # load up if a job
-        if (-not (Get-Module kbupdate)) {
-            $null = Import-Module PSSQLite -RequiredVersion 1.1.0 4>$null
-            $null = Import-Module PSFramework -RequiredVersion 1.7.227 4>$null
-            $null = Import-Module kbupdate 4>$null
+        if ($EnableException) {
+            $PSDefaultParameterValues["*:EnableException"] = $true
+        } else {
+            $PSDefaultParameterValues["*:EnableException"] = $false
         }
 
         if ($ComputerName.ComputerName) {
@@ -50,16 +56,10 @@ function Start-DscUpdate {
         }
 
         if ($AllNeeded) {
-            $InputObject = Get-KbNeededUpdate -ComputerName $ComputerName -EnableException:$EnableException
+            $InputObject = Get-KbNeededUpdate -ComputerName $ComputerName
         }
         if ($FilePath) {
             $InputObject += Get-ChildItem -Path $FilePath
-        }
-
-        if ($EnableException) {
-            $PSDefaultParameterValues["*:EnableException"] = $true
-        } else {
-            $PSDefaultParameterValues["*:EnableException"] = $false
         }
 
         $script:ModuleRoot = Split-Path -Path ((Get-Module -ListAvailable -Name kbupdate | Sort-Object Version -Descending).Path | Select-Object -First 1)
@@ -475,8 +475,19 @@ function Start-DscUpdate {
 
                     Write-Verbose -Message "Installing $hotfixnameid from $hotfixpath"
                     try {
-                        if (-not (Invoke-DscResource @hotfix -Method Test)) {
-                            Invoke-DscResource @hotfix -Method Set -ErrorAction Stop
+                        $ProgressPreference = "SilentlyContinue"
+                        if (-not (Invoke-DscResource @hotfix -Method Test 4>$null)) {
+                            $msgs = Invoke-DscResource @hotfix -Method Set -ErrorAction Stop 4>&1
+
+                            if ($msgs) {
+                                foreach ($msg in $msgs) {
+                                    # too many extra spaces, baw
+                                    while ("$msg" -match "  ") {
+                                        $msg = "$msg" -replace "  ", " "
+                                    }
+                                    $msg | Write-Verbose
+                                }
+                            }
                         }
                         $ProgressPreference = $oldpref
                     } catch {
@@ -487,7 +498,18 @@ function Start-DscUpdate {
                             try {
                                 Write-Verbose -Message "Retrying install with /quit parameter"
                                 $hotfix.Property.Arguments = "/quiet"
-                                Invoke-DscResource @hotfix -Method Set -ErrorAction Stop
+                                $msgs = Invoke-DscResource @hotfix -Method Set -ErrorAction Stop 4>&1
+
+                                if ($msgs) {
+                                    write-warning HELLO
+                                    foreach ($msg in $msgs) {
+                                        # too many extra spaces, baw
+                                        while ("$msg" -match "  ") {
+                                            $msg = "$msg" -replace "  ", " "
+                                        }
+                                        $msg | Write-Verbose
+                                    }
+                                }
                             } catch {
                                 $message = "$_".TrimStart().TrimEnd().Trim()
                             }
@@ -524,11 +546,13 @@ function Start-DscUpdate {
                 }
 
                 if ($dscwarnings) {
-                    # too many extra spaces, baw
-                    while ("$dscwarnings" -match "  ") {
-                        $dscwarnings = "$dscwarnings" -replace "  ", " "
+                    foreach ($warning in $dscwarnings) {
+                        # too many extra spaces, baw
+                        while ("$warning" -match "  ") {
+                            $warning = "$warning" -replace "  ", " "
+                        }
+                        Write-PSFMessage -Level Warning -Message $warning
                     }
-                    Write-PSFMessage -Level Warning -Message $dscwarnings
                 }
 
                 if ($deleteremotefile) {
@@ -538,7 +562,7 @@ function Start-DscUpdate {
                     }
                 }
 
-                Write-Verbose -Message "Finished installing, checking status"
+                Write-PSFMessage -Level Verbose -Message "Finished installing, checking status"
                 $exists = Get-KbInstalledUpdate -ComputerName $ComputerName -Pattern $hotfix.property.id -IncludeHidden
 
                 if ($exists.Summary -match "restart") {
@@ -561,11 +585,14 @@ function Start-DscUpdate {
                     $filetitle = $updatefile.VersionInfo.ProductName
                 }
 
+                if ($message) {
+                    $status = "sucks"
+                }
                 [pscustomobject]@{
                     ComputerName = $hostname
                     Title        = $filetitle
                     ID           = $id
-                    Status       = $Status
+                    Status       = $status
                     FileName     = $updatefile.Name
                 }
             } catch {
@@ -602,7 +629,7 @@ function Start-DscUpdate {
                         FileName     = $updatefile.Name
                     }
                 } else {
-                    Stop-PSFFunction -Message "Failure on $hostname" -ErrorRecord $PSitem -Continue
+                    Stop-PSFFunction -Message "Failure on $hostname" -ErrorRecord $PSitem -Continue -EnableException:$EnableException
                 }
             }
         }

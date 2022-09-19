@@ -154,7 +154,6 @@ function Install-KbUpdate {
 
         $jobs = @()
         $added = 0
-        $totalsteps = ($ComputerName.Count * 2) + 1 # The plus one is for pretty
 
         foreach ($computer in $ComputerName) {
             $hostname = $computer.ComputerName
@@ -166,7 +165,7 @@ function Install-KbUpdate {
                 Stop-PSFFunction -EnableException:$EnableException -Message "You must be an administrator to run this command on the local host" -Continue
             }
 
-            Write-Progress -Activity "Installing updates" -Status "Added $($computer.ComputerName) to queue. Processing $added computers..." -PercentComplete ($added / $totalsteps * 100)
+            Write-Progress -Activity "Installing updates" -Status "Added $($computer.ComputerName) to queue. Processing $added computers..." -PercentComplete ($added / 100 * 100)
 
             Write-PSFMessage -Level Verbose -Message "Processing $($parms.ComputerName)"
 
@@ -222,9 +221,21 @@ function Install-KbUpdate {
         if ($jobs.Name) {
             try {
                 while ($kbjobs = Get-Job | Where-Object Name -in $jobs.Name) {
+                    # People really just want to know that it's still going and DSC doesn't give us a proper status
+                    # Just shoooooooooooooooooow a progress bar
+                    if ($added -eq 100) {
+                        $added = 0
+                    }
+                    $added++
+                    $progressparms = @{
+                        Activity        = "Installing updates"
+                        Status          = "Still installing updates on $($kbjobs.Name -join ', '). Please enjoy the inaccurate progress bar."
+                        PercentComplete = ($added / 100 * 100)
+                    }
+                    Write-Progress @progressparms
                     foreach ($item in $kbjobs) {
                         try {
-                            $item | Receive-Job -OutVariable kbjob | Select-Object -Property * -ExcludeProperty RunspaceId
+                            $item | Receive-Job -OutVariable kbjob 4>$verboseoutput | Select-Object -Property * -ExcludeProperty RunspaceId
                         } catch {
                             Stop-PSFFunction -Message "Failure on $($item.Name)" -ErrorRecord $PSItem -EnableException:$EnableException -Continue
                         }
@@ -254,6 +265,20 @@ function Install-KbUpdate {
                                     }
                                 }
                             }
+                            $verboseoutput
+                            Write-PSFMessage -Level Verbose -Message "$msg"
+                        }
+
+
+                        if ($verboseoutput) {
+                            foreach ($msg in $verboseoutput) {
+                                if ($msg) {
+                                    # too many extra spaces, baw
+                                    while ("$msg" -match "  ") {
+                                        $msg = "$msg" -replace "  ", " "
+                                    }
+                                }
+                            }
                             Write-PSFMessage -Level Verbose -Message "$msg"
                         }
 
@@ -272,12 +297,15 @@ function Install-KbUpdate {
                     $null = Remove-Variable -Name kbjob
                     foreach ($kbjob in ($kbjobs | Where-Object State -ne 'Running')) {
                         Write-PSFMessage -Level Verbose -Message "Finished installing updates on $($kbjob.Name)"
+                        if ($added -eq 100) {
+                            $added = 0
+                        }
                         $null = $added++
                         $done = $kbjobs | Where-Object Name -ne $kbjob.Name
                         $progressparms = @{
                             Activity        = "Installing updates"
-                            Status          = "Still installing updates on $($done.Name -join ', ')"
-                            PercentComplete = ($added / $totalsteps * 100)
+                            Status          = "Still installing updates on $($done.Name -join ', '). Please enjoy the inaccurate progress bar."
+                            PercentComplete = ($added / 100 * 100)
                         }
 
                         Write-Progress @progressparms
