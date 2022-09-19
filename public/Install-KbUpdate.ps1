@@ -165,65 +165,57 @@ function Install-KbUpdate {
             if ($computer.IsLocalHost -and -not (Test-ElevationRequirement -ComputerName $hostname)) {
                 Stop-PSFFunction -EnableException:$EnableException -Message "You must be an administrator to run this command on the local host" -Continue
             }
-            $parms = @{
-                Computer        = $hostname
-                FilePath        = $FilePath
-                HotfixId        = $HotfixId
-                RepositoryPath  = $RepositoryPath
-                Guid            = $Guid
-                Title           = $Title
-                ArgumentList    = $ArgumentList
-                InputObject     = $InputObject
-                EnableException = $EnableException
-                IsLocalHost     = $computer.IsLocalHost
-                AllNeeded       = $AllNeeded
-            }
-
-            $null = $PSDefaultParameterValues["Start-Job:ArgumentList"] = $parms
-            $null = $PSDefaultParameterValues["Start-Job:Name"] = $hostname
 
             Write-Progress -Activity "Installing updates" -Status "Added $($computer.ComputerName) to queue. Processing $added computers..." -PercentComplete ($added / $totalsteps * 100)
 
             Write-PSFMessage -Level Verbose -Message "Processing $($parms.ComputerName)"
 
             if ($computer.IsLocalhost) {
-                if ((Get-Service wuauserv | Where-Object StartType -ne Disabled) -and $InputObject.InputObject) {
-
+                if ((Get-Service wuauserv | Where-Object StartType -ne Disabled)) {
                     Write-PSFMessage -Level Verbose -Message "Setting method to Windows Update $($parms.ComputerName)"
                     $method = "WindowsUpdate"
                 }
-                if ($AllNeeded -and -not $PSBoundParameters.InputObject.InputObject) {
-                    Write-PSFMessage -Level Verbose -Message "Setting method to Windows Update $($parms.ComputerName) then getting all needed windows updates"
-                    $method = "WindowsUpdate"
-                    $InputObject = @(Get-KbNeededUpdate -ComputerName $computer)
-                }
-            } elseif ($AllNeeded -and -not $PSBoundParameters.InputObject.InputObject) {
-                Write-PSFMessage -Level Verbose -Message "Getting all needed Windows Updates on $($parms.ComputerName)"
-                $InputObject = Get-KbNeededUpdate -ComputerName $computer
             }
 
             try {
+                $parms = @{
+                    ComputerName      = $hostname
+                    FilePath          = $FilePath
+                    HotfixId          = $HotfixId
+                    RepositoryPath    = $RepositoryPath
+                    Guid              = $Guid
+                    Title             = $Title
+                    ArgumentList      = $ArgumentList
+                    InputObject       = $InputObject
+                    EnableException   = $EnableException
+                    IsLocalHost       = $computer.IsLocalHost
+                    AllNeeded         = $AllNeeded
+                    VerbosePreference = $VerbosePreference
+                }
+                $null = $PSDefaultParameterValues["Start-Job:ArgumentList"] = $parms
+                $null = $PSDefaultParameterValues["Start-Job:Name"] = $hostname
+
                 if ($method -eq "WindowsUpdate") {
                     Write-PSFMessage -Level Verbose -Message "Method is WindowsUpdate"
                     if ($ComputerName.Count -eq 1 -or $NoMultithreading) {
-                        Write-PSFMessage -Level Verbose -Message "Not using jobs"
+                        Write-PSFMessage -Level Verbose -Message "Not using jobs for update to $hostname"
                         Start-WindowsUpdate @parms
                     } else {
-                        Write-PSFMessage -Level Verbose -Message "Using jobs"
+                        Write-PSFMessage -Level Verbose -Message "Using jobs for update to $hostname"
                         $job = Start-Job -ScriptBlock $wublock
                     }
                 } else {
                     Write-PSFMessage -Level Verbose -Message "Method is DSC"
                     if ($ComputerName.Count -eq 1 -or $NoMultithreading) {
-                        Write-PSFMessage -Level Verbose -Message "Not using jobs"
+                        Write-PSFMessage -Level Verbose -Message "Not using jobs for update to $hostname"
                         Start-DscUpdate @parms -ErrorAction Stop
                     } else {
-                        Write-PSFMessage -Level Verbose -Message "Using jobs"
+                        Write-PSFMessage -Level Verbose -Message "Using jobs for update to $hostname"
                         $job = Start-Job -ScriptBlock $dscblock -ErrorAction Stop
                     }
                 }
             } catch {
-                Stop-PSFFunction -Message "Failure on $hostname" -ErrorRecord $PSItem -EnableException:$EnableException
+                Stop-PSFFunction -Message "Failure on $hostname" -ErrorRecord $PSItem -EnableException:$EnableException -Continue
             }
         }
         $jobs += $job
@@ -233,25 +225,49 @@ function Install-KbUpdate {
                 while ($kbjobs = Get-Job | Where-Object Name -in $jobs.Name) {
                     foreach ($item in $kbjobs) {
                         try {
-                            $item | Receive-Job -ErrorAction Stop -OutVariable kbjob | Select-Object -Property * -ExcludeProperty RunspaceId
+                            $item | Receive-Job -OutVariable kbjob | Select-Object -Property * -ExcludeProperty RunspaceId
                         } catch {
                             Stop-PSFFunction -Message "Failure on $($item.Name)" -ErrorRecord $PSItem -EnableException:$EnableException -Continue
                         }
 
                         if ($kbjob.Output) {
-                            $kbjob.Output | Write-Output
+                            foreach ($msg in $kbjob.Output) {
+                                Write-PSFMessage -Level Debug -Message "$msg"
+                            }
                         }
                         if ($kbjob.Warning) {
-                            $kbjob.Warning | Write-Warning
+                            foreach ($msg in $kbjob.Warning) {
+                                if ($msg) {
+                                    # too many extra spaces, baw
+                                    while ("$msg" -match "  ") {
+                                        $msg = "$msg" -replace "  ", " "
+                                    }
+                                }
+                            }
+                            Write-PSFMessage -Level Warning -Message "$msg"
                         }
                         if ($kbjob.Verbose) {
-                            $kbjob.Verbose | Write-Verbose
+                            foreach ($msg in $kbjob.Verbose) {
+                                if ($msg) {
+                                    # too many extra spaces, baw
+                                    while ("$msg" -match "  ") {
+                                        $msg = "$msg" -replace "  ", " "
+                                    }
+                                }
+                            }
+                            Write-PSFMessage -Level Verbose -Message "$msg"
                         }
+
                         if ($kbjob.Debug) {
-                            $kbjob.Debug | Write-Debug
+                            foreach ($msg in $kbjob.Debug) {
+                                Write-PSFMessage -Level Debug -Message "$msg"
+                            }
                         }
+
                         if ($kbjob.Information) {
-                            $kbjob.Information | Write-Information
+                            foreach ($msg in $kbjob.Information) {
+                                Write-PSFMessage -Level Information -Message "$msg"
+                            }
                         }
                     }
                     $null = Remove-Variable -Name kbjob

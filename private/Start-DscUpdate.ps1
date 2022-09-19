@@ -27,13 +27,20 @@ function Start-DscUpdate {
     begin {
         # Ignore this
         # function Invoke-Command2
-        # No idea why this happens
+
+        # No idea why this happens sometimes
         if ($ComputerName -is [hashtable]) {
             $hashtable = $ComputerName.PsObject.Copy()
-            $null = Remove-Variable -Name Computer
+            $null = Remove-Variable -Name ComputerName
             foreach ($key in $hashtable.keys) {
                 Set-Variable -Name $key -Value $hashtable[$key]
             }
+        }
+        # load up if a job
+        if (-not (Get-Module kbupdate)) {
+            $null = Import-Module PSSQLite -RequiredVersion 1.1.0 4>$null
+            $null = Import-Module PSFramework -RequiredVersion 1.7.227 4>$null
+            $null = Import-Module kbupdate 4>$null
         }
 
         if ($ComputerName.ComputerName) {
@@ -441,8 +448,9 @@ function Start-DscUpdate {
                         $VerbosePreference,
                         $ManualFileName
                     )
-                    Import-Module xPSDesiredStateConfiguration -RequiredVersion 9.2.0 -Force 4>$null
-                    Import-Module xWindowsUpdate -RequiredVersion 3.0.0 -Force 4>$null
+                    Import-Module PSDesiredStateConfiguration 4>$null
+                    Import-Module xPSDesiredStateConfiguration -RequiredVersion 9.2.0 4>$null
+                    Import-Module xWindowsUpdate -RequiredVersion 3.0.0 4>$null
                     $PSDefaultParameterValues.Remove("Invoke-WebRequest:ErrorAction")
                     $PSDefaultParameterValues['*:ErrorAction'] = 'SilentlyContinue'
                     $ErrorActionPreference = "Stop"
