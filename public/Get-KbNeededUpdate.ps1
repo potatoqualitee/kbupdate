@@ -13,9 +13,11 @@ function Get-KbNeededUpdate {
         The optional alternative credential to be used when connecting to ComputerName
 
     .PARAMETER ScanFilePath
-        If Windows Update does not have access to WSUS or Microsoft's update catalog, a local copy of the catalog can be provided. This parameter is optional.
+        If Windows Update does not have access to WSUS or Microsoft's update catalog, a local copy of the catalog can be provided.
 
-        The local copy can be downloaded using Save-KbScanFile from an internet-connected computer.
+        This optional parameter will force the command to use a local update database instead of WSUS or Microsoft's online update catalog.
+
+        The scan file catalog/database can be downloaded using Save-KbScanFile from an internet-connected computer.
 
     .PARAMETER Force
         Force will copies the scan file to a temporary directory on the remote system if required.

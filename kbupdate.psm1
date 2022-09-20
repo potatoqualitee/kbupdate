@@ -117,3 +117,5 @@ Set-PSFConfig -FullName PSRemoting.PsSessionOption.SkipRevocationCheck -Value $f
 # New-PSSession
 Set-PSFConfig -FullName PSRemoting.PsSession.UseSSL -Value $false -Initialize -Validation bool -Description 'Changes the value of -UseSSL parameter used by New-PsSession which is used for kbupdate internally when working with PSRemoting.'
 Set-PSFConfig -FullName PSRemoting.PsSession.Port -Value $null -Initialize -Validation integerpositive -Description 'Changes the -Port parameter value used by New-PsSession which is used for kbupdate internally when working with PSRemoting. Use it when you don''t work with default port number. To reset, use Set-PSFConfig -FullName PSRemoting.PsSession.Port -Value $null'
+
+Set-Alias -Name Get-KbInstalledUpdate -Value Get-KbUpdateSoftware

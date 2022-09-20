@@ -56,5 +56,5 @@ jobs:
           Write-Output "Installing needed updates"
           $saveit | Install-KbUpdate -RepositoryPath C:\temp -Verbose
           if ($($saveit.Count) -gt 0) {
-            Get-KbInstalledUpdate -Pattern $needed.KBUpdate
+            Get-KbInstalledSoftware -Pattern $needed.KBUpdate
           }

@@ -37,6 +37,11 @@ function Install-KbUpdate {
     .PARAMETER AllNeeded
         Installs all needed updates
 
+    .PARAMETER ScanFilePath
+        This optional parameter can be passed along with AllNeeded to use a local update database instead of WSUS or Microsoft's online update catalog.
+
+        The local copy can be downloaded using Save-KbScanFile from an internet-connected computer.
+
     .PARAMETER ArgumentList
         This is an advanced parameter for those of you who need special argumentlists for your platform-specific update.
 
@@ -117,6 +122,9 @@ function Install-KbUpdate {
         [Parameter(ValueFromPipeline)]
         [pscustomobject[]]$InputObject,
         [switch]$AllNeeded,
+        [parameter(ValueFromPipeline)]
+        [Alias("FullName")]
+        [string]$ScanFilePath,
         [switch]$NoMultithreading,
         [switch]$EnableException
     )
