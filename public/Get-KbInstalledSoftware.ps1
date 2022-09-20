@@ -1,10 +1,10 @@
 function Get-KbInstalledSoftware {
     <#
     .SYNOPSIS
-        Replacement for Get-Hotfix, Get-Package, searching the registry and searching CIM for install updates and programs.
+        Tries its darndest to return all of the software installed on a system.
 
     .DESCRIPTION
-        Replacement for Get-Hotfix, Get-Package, searching the registry and searching CIM for install updates and programs.
+        Tries its darndest to return all of the software installed on a system. It's intended to be a replacement for Get-Hotfix, Get-Package, Windows Update results and searching CIM for install updates and programs.
 
     .PARAMETER Pattern
         Any pattern. But really, a KB pattern is your best bet.
