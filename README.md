@@ -111,9 +111,14 @@ Get-KbInstalledSoftware -ComputerName server23 | Uninstall-KbUpdate
 Tries its darndest to return all of the software installed on a system. It's intended to be a replacement for Get-Hotfix, Get-Package, Windows Update results and searching CIM for install updates and programs.
 
 ```powershell
+# Returns all software (updates and programs) installed on a computer
+Get-KbInstalledSoftware -ComputerName server01
+
+# Returns all software including updates listsed as hidden
+Get-KbInstalledSoftware -ComputerName server01 -IncludeHidden
+
 # Test to see if KB4057119 and get a bunch of info about it on server01
 Get-KbInstalledSoftware -ComputerName server01 -Pattern KB4057119
-
 ```
 
 ## Screenshots
