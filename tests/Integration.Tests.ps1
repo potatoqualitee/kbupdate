@@ -264,7 +264,7 @@ Describe "Integration Tests" -Tag "IntegrationTests" {
     Context "Paging" {
         It "pages to get additional results" {
             $results = Get-KbUpdate -Pattern "Windows Server 2019" -MaxPages 2 -Source Web
-            $results.Count | Should -Be 50
+            $results.Count | Should -BeGreaterThan 47
         }
     }
 }
