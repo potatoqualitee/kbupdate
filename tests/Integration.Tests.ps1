@@ -220,13 +220,13 @@ Describe "Integration Tests" -Tag "IntegrationTests" {
         }
     }
 
-    Context "Get-KbInstalledUpdate works" {
+    Context "Get-KbInstalledSoftware works" {
         It "gets some installed updates" {
-            $results = Get-KbInstalledUpdate -Pattern Windows | Where-Object FastPackageReference
+            $results = Get-KbInstalledSoftware -Pattern Windows | Where-Object FastPackageReference
             $results.Count | Should -BeGreaterThan 5
         }
         It "confirms that KB4527377 was actually installed" {
-            [array]$results = Get-KbInstalledUpdate -Pattern KB4527377
+            [array]$results = Get-KbInstalledSoftware -Pattern KB4527377
             $results.Count | Should -BeGreaterThan 0
         }
     }
@@ -237,7 +237,7 @@ Describe "Integration Tests" -Tag "IntegrationTests" {
             $results | Should -Not -BeNullOrEmpty
         }
         It -Skip "Uninstalls a patch" {
-            $results = Get-KbInstalledUpdate -Pattern KB4527377 | Uninstall-KbUpdate -Confirm:$false
+            $results = Get-KbInstalledSoftware -Pattern KB4527377 | Uninstall-KbUpdate -Confirm:$false
             $results | Should -Not -BeNullOrEmpty
         }
     }
@@ -264,7 +264,7 @@ Describe "Integration Tests" -Tag "IntegrationTests" {
     Context "Paging" {
         It "pages to get additional results" {
             $results = Get-KbUpdate -Pattern "Windows Server 2019" -MaxPages 2 -Source Web
-            $results.Count | Should -Be 50
+            $results.Count | Should -BeGreaterThan 47
         }
     }
 }

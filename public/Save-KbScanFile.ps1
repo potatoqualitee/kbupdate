@@ -4,10 +4,12 @@ function Save-KbScanFile {
     Retrieve the latest WSUSSCN2.cab file from Windows Update
 
     .DESCRIPTION
+    Retrieve the latest WSUSSCN2.cab file from Windows Update
+
     Windows Update Agent (WUA) can be used to scan computers for security updates without connecting to Windows Update or to a Windows Server Update Services (WSUS) server, which enables computers that are not connected to the Internet to be scanned for security updates.
 
     .PARAMETER Path
-    The directory where the WSUSSCN2.cab scan file will be saved.
+    The directory where the WSUSSCN2.cab scan file will be saved. If Path is not specified, it will be saved to a temporary folder.
 
     .PARAMETER Source
     The URL for the WSUSSCN2.cab file. Defaults to a secure download from Microsoft.

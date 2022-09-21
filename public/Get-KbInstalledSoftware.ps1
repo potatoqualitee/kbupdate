@@ -1,10 +1,10 @@
-function Get-KbInstalledUpdate {
+function Get-KbInstalledSoftware {
     <#
     .SYNOPSIS
-        Replacement for Get-Hotfix, Get-Package, searching the registry and searching CIM for updates
+        Tries its darndest to return all of the software installed on a system.
 
     .DESCRIPTION
-        Replacement for Get-Hotfix, Get-Package, searching the registry and searching CIM for updates.
+        Tries its darndest to return all of the software installed on a system. It's intended to be a replacement for Get-Hotfix, Get-Package, Windows Update results and searching CIM for install updates and programs.
 
     .PARAMETER Pattern
         Any pattern. But really, a KB pattern is your best bet.
@@ -29,22 +29,22 @@ function Get-KbInstalledUpdate {
         License: MIT https://opensource.org/licenses/MIT
 
     .EXAMPLE
-        PS C:\> Get-KbInstalledUpdate
+        PS C:\> Get-KbInstalledSoftware
 
         Gets all the updates installed on the local machine
 
     .EXAMPLE
-        PS C:\> Get-KbInstalledUpdate -ComputerName server01
+        PS C:\> Get-KbInstalledSoftware -ComputerName server01
 
         Gets all the updates installed on server01
 
     .EXAMPLE
-        PS C:\> Get-KbInstalledUpdate -ComputerName server01 -Pattern KB4057119
+        PS C:\> Get-KbInstalledSoftware -ComputerName server01 -Pattern KB4057119
 
         Gets all the updates installed on server01 that match KB4057119
 
     .EXAMPLE
-        PS C:\> Get-KbInstalledUpdate -ComputerName server01 -Pattern KB4057119 | Select -ExpandProperty InstallFile
+        PS C:\> Get-KbInstalledSoftware -ComputerName server01 -Pattern KB4057119 | Select -ExpandProperty InstallFile
 
         Shows alls of the install files for KB4057119 on server01. InstallFile is hidden by default because it has a lot of information.
 #>
@@ -80,9 +80,7 @@ function Get-KbInstalledUpdate {
                         $count = $updatesearcher.GetTotalHistoryCount()
                         $packages += $updatesearcher.QueryHistory(0, $count) | Where-Object Name -match $Pattern
                     }
-
                 }
-                $packages = $packages | Sort-Object -Unique Name
             } else {
                 $packages = @()
                 $packages += Get-Package -IncludeWindowsInstaller -ProviderName msi, msu, Programs
@@ -96,6 +94,8 @@ function Get-KbInstalledUpdate {
                     $packages += $updatesearcher.QueryHistory(0, $count)
                 }
             }
+
+            $packages = $packages | Where-Object Name | Sort-Object -Unique Name
             # Cim never reports stuff in a package :(
 
             foreach ($package in $packages) {
@@ -112,10 +112,10 @@ function Get-KbInstalledUpdate {
                 }
 
                 $null = $package | Add-Member -MemberType ScriptMethod -Name ToString -Value { $this.Name } -Force
-                if (($regpath = ($package.FastPackageReference).Replace("hklm64\HKEY_LOCAL_MACHINE", "HKLM:\")) -match 'HKLM') {
+                if (($regpath = "$($package.FastPackageReference)".Replace("hklm64\HKEY_LOCAL_MACHINE", "HKLM:\")) -match 'HKLM') {
                     $reg = Get-ItemProperty -Path $regpath -ErrorAction SilentlyContinue
                     $null = $reg | Add-Member -MemberType ScriptMethod -Name ToString -Value { $this.DisplayName } -Force
-                    $hotfixid = Split-Path -Path $regpath -Leaf | Where-Object { $psitem.StartsWith("KB") }
+                    $hotfixid = Split-Path -Path $regpath -Leaf | Where-Object { "$PSItem".StartsWith("KB") }
                 } else {
                     $reg = $null
                     $hotfixid = $null
@@ -130,7 +130,6 @@ function Get-KbInstalledUpdate {
                 } else {
                     $hotfixid = $package.HotfixId
                 }
-
                 if ($hotfixid) {
                     $null = $allhotfixids.Add($hotfixid)
                     $cbs = $allcbs | Where-Object Name -match $hotfixid | Get-ItemProperty
@@ -171,7 +170,28 @@ function Get-KbInstalledUpdate {
                         }
                     }
                 }
+
                 # gotta get dism module and try that jesus christ
+                if ($package.Meta.Attributes) {
+                    $DisplayName = $package.Meta.Attributes['DisplayName']
+                    $DisplayIcon = $package.Meta.Attributes['DisplayIcon']
+                    $UninstallString = $package.Meta.Attributes['UninstallString']
+                    $QuietUninstallString = $package.Meta.Attributes['QuietUninstallString']
+                    $InstallLocation = $package.Meta.Attributes['InstallLocation']
+                    $EstimatedSize = $package.Meta.Attributes['EstimatedSize']
+                    $Publisher = $package.Meta.Attributes['Publisher']
+                    $VersionMajor = $package.Meta.Attributes['VersionMajor']
+                    $VersionMinor = $package.Meta.Attributes['VersionMinor']
+                } else {
+                    $DisplayIcon = $null
+                    $UninstallString = $null
+                    $QuietUninstallString = $null
+                    $InstallLocation = $null
+                    $EstimatedSize = $null
+                    $Publisher = $null
+                    $VersionMajor = $null
+                    $VersionMinor = $null
+                }
                 [pscustomobject]@{
                     ComputerName         = $env:COMPUTERNAME
                     Name                 = $package.Name
@@ -194,15 +214,15 @@ function Get-KbInstalledUpdate {
                     FixComments          = $cim.FixComments
                     ServicePackInEffect  = $cim.ServicePackInEffect
                     Caption              = $cim.Caption
-                    DisplayName          = $package.Meta.Attributes['DisplayName']
-                    DisplayIcon          = $package.Meta.Attributes['DisplayIcon']
-                    UninstallString      = $package.Meta.Attributes['UninstallString']
-                    QuietUninstallString = $package.Meta.Attributes['QuietUninstallString']
-                    InstallLocation      = $package.Meta.Attributes['InstallLocation']
-                    EstimatedSize        = $package.Meta.Attributes['EstimatedSize']
-                    Publisher            = $package.Meta.Attributes['Publisher']
-                    VersionMajor         = $package.Meta.Attributes['VersionMajor']
-                    VersionMinor         = $package.Meta.Attributes['VersionMinor']
+                    DisplayName          = $DisplayName
+                    DisplayIcon          = $DisplayIcon
+                    UninstallString      = $UninstallString
+                    QuietUninstallString = $QuietUninstallString
+                    InstallLocation      = $InstallLocation
+                    EstimatedSize        = $EstimatedSize
+                    Publisher            = $Publisher
+                    VersionMajor         = $VersionMajor
+                    VersionMinor         = $VersionMinor
                     TagId                = $package.TagId
                     PackageObject        = $package
                     RegistryObject       = $reg
@@ -216,6 +236,7 @@ function Get-KbInstalledUpdate {
             if ($pattern) {
                 $allcim = $allcim | Where-Object HotfixId -in $pattern
             }
+
 
             foreach ($cim in $allcim) {
                 #return the same properties as above

@@ -42,7 +42,7 @@
         'Get-KbUpdate',
         'Save-KbUpdate',
         'Connect-KbWsusServer',
-        'Get-KbInstalledUpdate',
+        'Get-KbInstalledSoftware',
         'Install-KbUpdate',
         'Uninstall-KbUpdate',
         'Select-KbLatest',
@@ -50,6 +50,7 @@
         'Get-KbNeededUpdate'
     )
 
+    AliasesToExport   = @('Get-KbInstalledUpdate')
     PrivateData       = @{
         # PSData is module packaging and gallery metadata embedded in PrivateData
         # It's for rebuilding PowerShellGet (and PoshCode) NuGet-style packages

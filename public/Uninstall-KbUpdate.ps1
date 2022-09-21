@@ -6,7 +6,7 @@ function Uninstall-KbUpdate {
     .DESCRIPTION
         Uninstalls KB updates on Windows-based systems
 
-        Note that sometimes, an uninstall will leave registry entries and Get-KbInstalledUpdate will report the product is installed. This is the behavior of some patches and happens even when using the Windows uninstall GUI.
+        Note that sometimes, an uninstall will leave registry entries and Get-KbInstalledSoftware will report the product is installed. This is the behavior of some patches and happens even when using the Windows uninstall GUI.
 
     .PARAMETER ComputerName
         Used to connect to a remote host
@@ -18,7 +18,7 @@ function Uninstall-KbUpdate {
         The HotfixId of the patch
 
     .PARAMETER InputObject
-        Allows results to be piped in from Get-KbInstalledUpdate
+        Allows results to be piped in from Get-KbInstalledSoftware
 
     .PARAMETER ArgumentList
         Allows you to override our automatically determined ArgumentList
@@ -51,7 +51,7 @@ function Uninstall-KbUpdate {
         Uninstalls kb4498951 on sql2017 without prompts
 
     .EXAMPLE
-        PS C:\>  Get-KbInstalledUpdate -ComputerName server23, server24 -Pattern kb4498951 | Uninstall-KbUpdate
+        PS C:\>  Get-KbInstalledSoftware -ComputerName server23, server24 -Pattern kb4498951 | Uninstall-KbUpdate
 
         Uninstalls kb4498951 from server23 and server24
 
@@ -62,7 +62,7 @@ function Uninstall-KbUpdate {
 
     .EXAMPLE
         PS C:\> Install-KbUpdate -ComputerName sql2017 -FilePath \\dc\sql\windows10.0-kb4486129-x64_0b61d9a03db731562e0a0b49383342a4d8cbe36a.msu
-        PS C:\> Get-KbInstalledUpdate -Pattern kb4486129 -ComputerName sql2017 | Uninstall-KbUpdate
+        PS C:\> Get-KbInstalledSoftware -Pattern kb4486129 -ComputerName sql2017 | Uninstall-KbUpdate
 
         Quick lil example to show an install, followed by an uninstall
 #>
@@ -176,7 +176,7 @@ function Uninstall-KbUpdate {
                 foreach ($computer in $ComputerName) {
                     Write-PSFMessage -Level Verbose -Message "Adding uninstall for $hotfix to queue on $computer"
 
-                    $exists = Get-KbInstalledUpdate -Pattern $hotfix -ComputerName $computer -IncludeHidden
+                    $exists = Get-KbInstalledSoftware -Pattern $hotfix -ComputerName $computer -IncludeHidden
                     if (-not $exists) {
                         Write-PSFMessage -Level Warning -Message "$hotfix is not installed on $computer"
                     } else {
@@ -218,8 +218,21 @@ function Uninstall-KbUpdate {
                 Stop-PSFFunction -Message "To run this command locally, you must run as admin." -Continue -EnableException:$EnableException
             }
 
-            $needuninstallstring = $true
-            if ($update.QuietUninstallString -and $update.ProviderName -eq "Programs") {
+            if ($PSBoundParameters.ArgumentList) {
+                $needuninstallstring = $false
+                if ($update.QuietUninstallString) {
+                    $string = $update.QuietUninstallString
+                } else {
+                    $string = $update.UninstallString
+                }
+                $path = $string -match '^(".+") (/.+) (/.+)'
+                if ($matches) {
+                    $program = $matches[1]
+                }
+                if (-not $path) {
+                    $program = Split-Path $string
+                }
+            } elseif ($update.QuietUninstallString -and $update.ProviderName -eq "Programs" -and -not $NoQuiet) {
                 $path = $update.QuietUninstallString -match '^(".+") (/.+) (/.+)'
                 if ($matches) {
                     $needuninstallstring = $false
@@ -228,9 +241,7 @@ function Uninstall-KbUpdate {
                 if (-not $path) {
                     $program = Split-Path $update.QuietUninstallString
                 }
-                if (-not $PSBoundParameters.ArgumentList) {
-                    $ArgumentList = $update.QuietUninstallString.Replace($program, "")
-                }
+                $ArgumentList = $update.QuietUninstallString.Replace($program, "")
             } elseif ($update.UninstallString -and $update.ProviderName -eq "Programs" -and $update.UninstallString -notmatch "SetupARP.exe") {
                 $path = $update.UninstallString -match '^(".+") (/.+) (/.+)'
                 if ($matches) {
@@ -240,9 +251,7 @@ function Uninstall-KbUpdate {
                 if (-not $path) {
                     $program = Split-Path $update.UninstallString
                 }
-                if (-not $PSBoundParameters.ArgumentList) {
-                    $ArgumentList = $update.UninstallString.Replace($program, "")
-                }
+                $ArgumentList = $update.UninstallString.Replace($program, "")
                 if ($ArgumentList -match "msedge") {
                     $ArgumentList = "$ArgumentList --force-uninstall"
                 } elseif ($ArgumentList -notmatch "/quiet" -and -not $NoQuiet -and -not $PSBoundParameters.ArgumentList -and $ArgumentList -ne "/S" -and $ArgumentList -ne "/Q") {

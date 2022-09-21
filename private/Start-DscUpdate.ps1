@@ -573,7 +573,7 @@ function Start-DscUpdate {
                 }
 
                 Write-PSFMessage -Level Verbose -Message "Finished installing, checking status"
-                $exists = Get-KbInstalledUpdate -ComputerName $ComputerName -Pattern $hotfix.property.id -IncludeHidden
+                $exists = Get-KbInstalledSoftware -ComputerName $ComputerName -Pattern $hotfix.property.id -IncludeHidden
 
                 if ($exists.Summary -match "restart") {
                     $status = "This update requires a restart"
@@ -608,7 +608,7 @@ function Start-DscUpdate {
             } catch {
                 if ("$PSItem" -match "Serialized XML is nested too deeply") {
                     Write-PSFMessage -Level Verbose -Message "Serialized XML is nested too deeply. Forcing output."
-                    $exists = Get-KbInstalledUpdate -ComputerName $ComputerName -HotfixId $hotfix.property.id
+                    $exists = Get-KbInstalledSoftware -ComputerName $ComputerName -HotfixId $hotfix.property.id
 
                     if ($exists.Summary -match "restart") {
                         $status = "This update requires a restart"
