@@ -1,15 +1,12 @@
 <img align="left" src=https://user-images.githubusercontent.com/8278033/60797982-97668c00-a170-11e9-8f61-06bd40413c54.png alt="kbupdate logo">
 
-# kbupdate
-KB Viewer, Saver, Installer and Uninstaller
+# KB Viewer, Saver, Installer and Uninstaller
 
-kbupdate finds, downloads, installs and uninstalls Windows patches. It started as a command-line Windows Update Catalog but now has grown beyond that. Now, it can gather and list what's already installed on a system, it can who needed updates (either from Windows Update or from Microsoft's monthly catalog) and as previously mentioned, it can install and uninstall updates, on local and remote systems.
+kbupdate finds, downloads, installs and uninstalls Windows patches. This toolset can greatly simplify the patching process for organizations that need to install specific patches that were not pushed out by their organization's WSUS server or Windows Update.
 
-kbupdate can even install patches on remote systems from centralized repositories.
+kbupdate started as a command-line Windows Update Catalog but can now support a number of patching tasks. It can gather and list what's already installed on a system, it can check if any updates are needed on a system (either from Microsoft Update or from Microsoft's monthly catalog) and as previously mentioned, it can install and uninstall updates, on both local and remote systems.
 
-If you're wondering about the difference between `kbupdate` and `PSWindowsUpdate`, `PSWindowsUpdate` only gets you updates your systems needs, either from WSUS or from WU. You can exclude some, but you won't get anything that your system doesn't currently need. `PSWindowsUpdate` also uses Schedule Tasks and Windows Update to get around security restrictions, while `kbupdate` uses `Invoke-DscResource` on remote machines and attempts to use Windows Update on local systems if the Windows Update service is not disabled.
-
-It's possible you'll end up using `PSWindowsUpdate` and `kbudpate` together.
+kbupdate can even install patches on remote systems from centralized repositories and it works on older and new versions of PowerShell. Many commands work on Linux and mac OS too.
 
 ## Install
 
@@ -26,6 +23,8 @@ Save-Module kbupdate -Path C:\temp\copy_to_usb\
 ```
 
 ## Examples
+
+kbupdate has about 10 commands that help simplify your patching process.
 
 ### Get-KbUpdate
 
@@ -88,22 +87,21 @@ Install-KbUpdate -ComputerName localhost, sqlcs, sql01 -AllNeeded
 Install-KbUpdate -ComputerName localhost, sqlcs, sql01 -AllNeeded
 ```
 
-### Uninstall-KbUpdate
+### Get-KbNeededUpdate
 
-Quietly uninstalls updates. If
+Checks the target machines for needed updates.  If Windows Update does not have access to WSUS or Microsoft's update catalog, a [local copy of the catalog](#Save-KbScanFile) can be provided.
+
 
 ```powershell
-# Uninstalls KB4498951 from server01
-Uninstall-KbUpdate -ComputerName server01 -HotfixId KB4498951
+# Get all the updates needed on the local machine using whatever upstream is set by Windows Update
+Get-KbNeededUpdate
 
-# Uninstalls KB4498951 on server01 without prompts
-Uninstall-KbUpdate -ComputerName server01 -HotfixId KB4498951 -Confirm:$false
+# Get all the updates needed on server01 using the locally saved cab file
+$scanfile = Save-KbScanFile -Path \\server01\c$\temp
+Get-KbNeededUpdate -ComputerName server01 -ScanFilePath $scanfile
 
-# Uninstall kb4498951 from server23 and server24
-Get-KbInstalledSoftware -ComputerName server23, server24 -Pattern kb4498951 | Uninstall-KbUpdate
-
-# Or uninstall allll software, what what
-Get-KbInstalledSoftware -ComputerName server23 | Uninstall-KbUpdate
+# Get all the updates needed on server01, then selecting which ones you want to install, then install it
+Get-KbNeededUpdate -ComputerName server01 | Out-GridView -Passthru | Install-KbUpdate
 ```
 
 ### Get-KbInstalledSoftware
@@ -119,6 +117,52 @@ Get-KbInstalledSoftware -ComputerName server01 -IncludeHidden
 
 # Test to see if KB4057119 and get a bunch of info about it on server01
 Get-KbInstalledSoftware -ComputerName server01 -Pattern KB4057119
+```
+
+### Uninstall-KbUpdate
+
+Quietly uninstalls updates. If the package provides a QuietUninstallString, this command tries its best to figure it out.
+
+```powershell
+# Uninstalls KB4498951 from server01
+Uninstall-KbUpdate -ComputerName server01 -HotfixId KB4498951
+
+# Uninstalls KB4498951 on server01 without prompts
+Uninstall-KbUpdate -ComputerName server01 -HotfixId KB4498951 -Confirm:$false
+
+# Uninstall kb4498951 from server23 and server24
+Get-KbInstalledSoftware -ComputerName server23, server24 -Pattern kb4498951 | Uninstall-KbUpdate
+
+# Or uninstall allll software, what what
+Get-KbInstalledSoftware -ComputerName server23 | Uninstall-KbUpdate
+```
+
+If you receive the message `Couldn't determine a way to uninstall $($update.Name). It may be marked as a permanent install or part of another package that contains the unintaller`, you can pass the uninstaller argument string.
+
+```powershell
+# Or uninstall allll software, what what
+Get-KbInstalledSoftware -ComputerName server23 -ArgumentList "/S" | Uninstall-KbUpdate
+```
+
+### Save-KbScanFile
+
+ Windows Update Agent (WUA) plus [the wsusscn2.cab catalog file](https://learn.microsoft.com/en-us/windows/win32/wua_sdk/using-wua-to-scan-for-updates-offline) can be used to scan computers for security updates without connecting to Windows Update or to a Windows Server Update Services (WSUS) server, which enables computers that are not connected to the Internet to be scanned for security updates.
+
+```powershell
+# Saves the cab file to a temporary directory and returns the results of Get-ChildItem for the cab file
+Save-KbScanFile
+
+# Saves the cab file to C:\temp and overwrite file if it exists. Returns the results of Get-ChildItem for the cab file
+Save-KbScanFile -Path C:\temp -AllowClobber
+``
+
+### Select-KbLatest
+
+Gets the latest patches from a batch of patches, based on Supersedes and SupersededBy. This command basically exposes the routine that is used to filter using -Latest in Get-KbUpdate.
+
+```powershell
+# Selects latest from a batch of patches based on Supersedes and SupersededBy
+Get-KbUpdate -Pattern 'sql 2017' | Where-Object Classification -eq Updates | Select-KbLatest
 ```
 
 ## Screenshots
@@ -148,6 +192,12 @@ kbupdate uses [Invoke-DscResource](https://devblogs.microsoft.com/powershell/inv
 If you need it on older systems (going back to Windows Server 2008 R2 and Windows 7 SP1), you can find the binaries on [Microsoft's site](https://learn.microsoft.com/en-us/powershell/scripting/windows-powershell/wmf/setup/install-configure?view=powershell-7.2).
 
 If you can't update to WMF 5.0+, `PSWindowsUpdate` is probably your best bet.
+
+## PSWindowsUpdate
+
+If you're wondering about the difference between `kbupdate` and `PSWindowsUpdate`, `PSWindowsUpdate` only gets you updates your systems needs, either from WSUS or from WU. You can exclude some, but you won't get anything that your system doesn't currently need. `PSWindowsUpdate` also uses Schedule Tasks and Windows Update to get around security restrictions, while `kbupdate` uses `Invoke-DscResource` on remote machines and attempts to use Windows Update on local systems if the Windows Update service is not disabled.
+
+It's possible you'll end up using `PSWindowsUpdate` and `kbudpate` together.
 
 ## DSC Considerations
 
