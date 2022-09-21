@@ -154,7 +154,7 @@ Save-KbScanFile
 
 # Saves the cab file to C:\temp and overwrite file if it exists. Returns the results of Get-ChildItem for the cab file
 Save-KbScanFile -Path C:\temp -AllowClobber
-``
+```
 
 ### Select-KbLatest
 
