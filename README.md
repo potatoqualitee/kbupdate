@@ -165,6 +165,14 @@ Gets the latest patches from a batch of patches, based on Supersedes and Superse
 Get-KbUpdate -Pattern 'sql 2017' | Where-Object Classification -eq Updates | Select-KbLatest
 ```
 
+## Installation Methodolgy
+
+kbupdate uses [Invoke-DscResource](https://devblogs.microsoft.com/powershell/invoking-powershell-dsc-resources-directly/) to install patches on remote machines. `Invoke-DscResource` was introduced in the WMF 5.0 Preview in February 2015 and is included in Windows Server 2016+, and Windows 10+.
+
+If you need it on older systems (going back to Windows Server 2008 R2 and Windows 7 SP1), you can find the binaries on [Microsoft's site](https://learn.microsoft.com/en-us/powershell/scripting/windows-powershell/wmf/setup/install-configure?view=powershell-7.2).
+
+If you can't update to WMF 5.0+, downloading patches using kbupdate then installing them using [PSWindowsUpdate](#PSWindowsUpdate) is probably your best bet.
+
 ## Screenshots
 
 ![image](https://user-images.githubusercontent.com/8278033/60805564-c127af00-a180-11e9-843a-e7d159a50aa7.png)
@@ -184,14 +192,6 @@ Get more help
 ```powershell
 Get-Help Get-KbUpdate -Detailed
 ```
-
-## Methodolgy
-
-kbupdate uses [Invoke-DscResource](https://devblogs.microsoft.com/powershell/invoking-powershell-dsc-resources-directly/) to install patches on remote machines. `Invoke-DscResource` was introduced in the WMF 5.0 Preview in February 2015 and is included in Windows Server 2016+, and Windows 10+.
-
-If you need it on older systems (going back to Windows Server 2008 R2 and Windows 7 SP1), you can find the binaries on [Microsoft's site](https://learn.microsoft.com/en-us/powershell/scripting/windows-powershell/wmf/setup/install-configure?view=powershell-7.2).
-
-If you can't update to WMF 5.0+, `PSWindowsUpdate` is probably your best bet.
 
 ## PSWindowsUpdate
 
