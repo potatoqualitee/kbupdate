@@ -137,7 +137,11 @@ Get-KbInstalledSoftware -ComputerName server23, server24 -Pattern kb4498951 | Un
 Get-KbInstalledSoftware -ComputerName server23 | Uninstall-KbUpdate
 ```
 
-If you receive the message `Couldn't determine a way to uninstall $($update.Name). It may be marked as a permanent install or part of another package that contains the unintaller`, you can pass the uninstaller argument string.
+If you receive the following message:
+
+> Couldn't determine a way to uninstall $($update.Name). It may be marked as a permanent install or part of another package that contains the unintaller
+
+You can pass the uninstaller argument string, as seen in the example below.
 
 ```powershell
 # Or uninstall allll software, what what
