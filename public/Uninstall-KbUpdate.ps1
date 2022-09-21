@@ -218,8 +218,21 @@ function Uninstall-KbUpdate {
                 Stop-PSFFunction -Message "To run this command locally, you must run as admin." -Continue -EnableException:$EnableException
             }
 
-            $needuninstallstring = $true
-            if ($update.QuietUninstallString -and $update.ProviderName -eq "Programs") {
+            if ($PSBoundParameters.ArgumentList) {
+                $needuninstallstring = $false
+                if ($update.QuietUninstallString) {
+                    $string = $update.QuietUninstallString
+                } else {
+                    $string = $update.UninstallString
+                }
+                $path = $string -match '^(".+") (/.+) (/.+)'
+                if ($matches) {
+                    $program = $matches[1]
+                }
+                if (-not $path) {
+                    $program = Split-Path $string
+                }
+            } elseif ($update.QuietUninstallString -and $update.ProviderName -eq "Programs" -and -not $NoQuiet) {
                 $path = $update.QuietUninstallString -match '^(".+") (/.+) (/.+)'
                 if ($matches) {
                     $needuninstallstring = $false
@@ -228,9 +241,7 @@ function Uninstall-KbUpdate {
                 if (-not $path) {
                     $program = Split-Path $update.QuietUninstallString
                 }
-                if (-not $PSBoundParameters.ArgumentList) {
-                    $ArgumentList = $update.QuietUninstallString.Replace($program, "")
-                }
+                $ArgumentList = $update.QuietUninstallString.Replace($program, "")
             } elseif ($update.UninstallString -and $update.ProviderName -eq "Programs" -and $update.UninstallString -notmatch "SetupARP.exe") {
                 $path = $update.UninstallString -match '^(".+") (/.+) (/.+)'
                 if ($matches) {
@@ -240,9 +251,7 @@ function Uninstall-KbUpdate {
                 if (-not $path) {
                     $program = Split-Path $update.UninstallString
                 }
-                if (-not $PSBoundParameters.ArgumentList) {
-                    $ArgumentList = $update.UninstallString.Replace($program, "")
-                }
+                $ArgumentList = $update.UninstallString.Replace($program, "")
                 if ($ArgumentList -match "msedge") {
                     $ArgumentList = "$ArgumentList --force-uninstall"
                 } elseif ($ArgumentList -notmatch "/quiet" -and -not $NoQuiet -and -not $PSBoundParameters.ArgumentList -and $ArgumentList -ne "/S" -and $ArgumentList -ne "/Q") {
