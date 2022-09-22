@@ -63,191 +63,111 @@ function Get-KbNeededUpdate {
         [switch]$EnableException
     )
     begin {
-        $scriptblock = {
-            param (
-                $Computer,
-                $ScanFilePath,
-                $VerbosePreference
-            )
-
-            if ($ScanFilePath) {
-                try {
-                    If (-not (Test-Path $ScanFilePath -ErrorAction Stop)) {
-                        Write-Warning "Windows Update offline scan file, $ScanFilePath, cannot be found on $Computer"
-                        return
-                    }
-                } catch {
-                    if (($ScanFilePath).StartsWith("\\") -and $PSItem -match "Denied") {
-                        throw "$PSItem. This may be a Kerberos issue caused by the ScanFilePath being on a remote system. Use -Force to copy the catalog to a temporary directory on the remote system."
-                    } else {
-                        throw $PSItem
-                    }
-                }
-            }
-
-            try {
-                Write-Verbose -Message "Processing $computer"
-                $session = [type]::GetTypeFromProgID("Microsoft.Update.Session")
-                $wua = [activator]::CreateInstance($session)
-                if ($ScanFilePath) {
-                    Write-Verbose -Message "Registering $ScanFilePath on $computer"
-                    try {
-                        $progid = [type]::GetTypeFromProgID("Microsoft.Update.ServiceManager")
-                        $sm = [activator]::CreateInstance($progid)
-                        $packageservice = $sm.AddScanPackageService("Offline Sync Service", $ScanFilePath)
-                    } catch {
-                        if (($ScanFilePath).StartsWith("\\") -and $PSItem -match "Denied") {
-                            throw "$PSItem. This may be ca Kerberos issue. Consider using a Credential in order to avoid a double-hop."
-                        } else {
-                            throw $PSItem
-                        }
-                    }
-                }
-                $searcher = $wua.CreateUpdateSearcher()
-                Write-Verbose -Message "Searching for needed updates"
-                $wsuskbs = $searcher.Search("Type='Software' and IsHidden=0")
-                Write-Verbose -Message "Found $($wsuskbs.Updates.Count) updates"
-
-                foreach ($wsu in $wsuskbs) {
-                    foreach ($wsuskb in $wsu.Updates) {
-                        #isinstalled didnt work as expected for me in the searcher
-                        if ($wsuskb.IsInstalled) {
-                            continue
-                        }
-                        # iterate the updates in searchresult
-                        # it must be force iterated like this
-                        $links = @()
-                        foreach ($bundle in $wsuskb.BundledUpdates) {
-                            foreach ($file in $bundle.DownloadContents) {
-                                if ($file.DownloadUrl) {
-                                    $links += $file.DownloadUrl.Replace("http://download.windowsupdate.com", "https://catalog.s.download.windowsupdate.com")
-                                }
-                            }
-                        }
-
-                        [pscustomobject]@{
-                            ComputerName      = $Computer
-                            Title             = $wsuskb.Title
-                            Id                = ($wsuskb.KBArticleIDs | Select-Object -First 1)
-                            UpdateId          = $wsuskb.Identity.UpdateID
-                            Description       = $wsuskb.Description
-                            LastModified      = $wsuskb.ArrivalDate
-                            Size              = $wsuskb.Size
-                            Classification    = $wsuskb.UpdateClassificationTitle
-                            KBUpdate          = "KB$($wsuskb.KBArticleIDs | Select-Object -First 1)"
-                            SupportedProducts = $wsuskb.ProductTitles
-                            MSRCNumber        = $alert
-                            MSRCSeverity      = $wsuskb.MsrcSeverity
-                            RebootBehavior    = $wsuskb.InstallationBehavior.RebootBehavior -eq $true
-                            RequestsUserInput = $wsuskb.InstallationBehavior.CanRequestUserInput
-                            ExclusiveInstall  = $null
-                            NetworkRequired   = $wsuskb.InstallationBehavior.RequiresNetworkConnectivity
-                            UninstallNotes    = $wsuskb.UninstallNotes
-                            UninstallSteps    = $wsuskb.UninstallSteps
-                            Supersedes        = $null #TODO
-                            SupersededBy      = $null #TODO
-                            Link              = $links
-                            InputObject       = $wsuskb
-                        }
-                    }
-                }
-                try {
-                    if ($ScanFilePath -and $packageservice) {
-                        Write-Verbose "Unregistering $ScanFilePath ($id) from WUA"
-                        $id = $packageservice.ServiceID
-                        $null = $sm.RemoveService($id)
-                    }
-                } catch {
-                    Write-Verbose "Failed to unregister $id from WUA"
-                }
-            } catch {
-                if ($PSItem -match "HRESULT: 0x80070005") {
-                    Write-Warning "You must run this command as administator in order to perform the task"
-                } else {
-                    throw $_
-                }
-            }
-        }
+        $remotescriptblock = (Get-Command Get-Needed).Definition | ConvertTo-Json -Depth 3 -Compress
+        $jobs = @()
     }
     process {
-        $completed = 0
-        $totalcount = (($ComputerName.Count) + 1)
-
         if ($IsLinux -or $IsMacOs) {
             Stop-PSFFunction -Message "This command using remoting and only supports Windows at this time" -EnableException:$EnableException
             return
         }
-        foreach ($item in $ComputerName) {
+        foreach ($computer in $ComputerName) {
+            if ($machine.IsLocalHost -and -not (Test-ElevationRequirement -ComputerName $computer)) {
+                continue
+            }
+
             try {
-                $computer = $item.ComputerName
-                $null = $completed++
-                if ($item.IsLocalHost -and -not (Test-ElevationRequirement -ComputerName $computer)) {
-                    continue
+                Write-PSFMessage -Level Verbose -Message "Adding job for $computer"
+                $arglist = [pscustomobject]@{
+                    ComputerName    = $computer
+                    Credential      = $Credential
+                    ScanFilePath    = $ScanFilePath
+                    EnableException = $EnableException
+                    Force           = $Force
+                    ScriptBlock     = $remotescriptblock
                 }
 
-                if ($ScanFilePath -and $Force -and -not $item.IsLocalhost) {
-                    Write-PSFMessage -Level Verbose -Message "Initializing remote session to $computer and getting the path to the temp directory"
+                $invokeblock = {
+                    $sbjson = $args.ScriptBlock | ConvertFrom-Json
+                    $sb = [scriptblock]::Create($sbjson)
+                    $machine = $args.ComputerName
+                    $Credential = $args.Credential
+                    $ScanFilePath = $args.ScanFilePath
+                    $EnableException = $args.EnableException
+                    $Force = $args.Force
+                    $ScriptBlock = $sb
 
-                    $scanfile = Get-ChildItem -Path $ScanFilePath
-                    $temp = Invoke-PSFCommand -Computer $computer -Credential $Credential -ErrorAction Stop -ScriptBlock {
-                        [system.io.path]::GetTempPath()
-                    }
-                    $filename = Split-Path -Path $ScanFilePath -Leaf
-                    $cabpath = Join-PSFPath -Path $temp -Child $filename
+                    $computer = $machine.ComputerName
+                    $null = $completed++
 
-                    Write-PSFMessage -Level Verbose -Message "Checking to see if $cabpath already exists on $computer"
+                    if ($ScanFilePath -and $Force -and -not $machine.IsLocalhost) {
+                        Write-PSFMessage -Level Verbose -Message "Initializing remote session to $computer and getting the path to the temp directory"
 
-                    $exists = Invoke-PSFCommand -Computer $computer -Credential $Credential -ArgumentList $cabpath -ErrorAction Stop -ScriptBlock {
-                        Get-ChildItem -Path $args -ErrorAction Ignore
-                    }
+                        $scanfile = Get-ChildItem -Path $ScanFilePath
+                        $temp = Invoke-PSFCommand -Computer $computer -Credential $Credential -ErrorAction Stop -ScriptBlock {
+                            [system.io.path]::GetTempPath()
+                        }
+                        $filename = Split-Path -Path $ScanFilePath -Leaf
+                        $cabpath = Join-PSFPath -Path $temp -Child $filename
 
-                    if ($exists.BaseName -and $scanfile.Length -eq $exists.Length) {
-                        Write-PSFMessage -Level Verbose -Message "File exists and is of the same size. Skipping copy"
+                        Write-PSFMessage -Level Verbose -Message "Checking to see if $cabpath already exists on $computer"
+
+                        $exists = Invoke-PSFCommand -Computer $computer -Credential $Credential -ArgumentList $cabpath -ErrorAction Stop -ScriptBlock {
+                            Get-ChildItem -Path $args -ErrorAction Ignore
+                        }
+
+                        if ($exists.BaseName -and $scanfile.Length -eq $exists.Length) {
+                            Write-PSFMessage -Level Verbose -Message "File exists and is of the same size. Skipping copy"
+                        } else {
+                            Write-PSFMessage -Level Verbose -Message "File does not exist"
+                            if ($Credential) {
+                                $PSDefaultParameterValues["*:Credential"] = $Credential
+                            }
+
+                            $remotesession = Get-PSSession | Where-Object Name -eq "kbupdate-$computer"
+
+                            if (-not $remotesession) {
+                                $remotesession = Invoke-KbCommand -ComputerName $computer -ScriptBlock { Get-ChildItem }
+                                $remotesession = Get-PSSession | Where-Object Name -eq "kbupdate-$computer"
+                            }
+
+                            if (-not $remotesession) {
+                                Stop-PSFFunction -EnableException:$EnableException -Message "Session for $computer can't be found or no runspaces are available. Please file an issue on the GitHub repo at https://github.com/potatoqualitee/kbupdate/issues" -Continue
+                            }
+
+                            Write-PSFMessage -Level Verbose -Message "Copying $ScanFilePath to $temp on $computer"
+                            $null = Copy-Item -Path $ScanFilePath -Destination $temp -ToSession $remotesession -Force
+                        }
                     } else {
-                        Write-PSFMessage -Level Verbose -Message "File does not exist"
-                        if ($Credential) {
-                            $PSDefaultParameterValues["Get-PSSession:Credential"] = $Credential
-                        }
-
-                        if (-not $remotesession) {
-                            $remotesession = Get-PSSession -ComputerName $computer -Verbose | Where-Object { $PsItem.Availability -eq 'Available' -and ($PsItem.Name -match 'WinRM' -or $PsItem.Name -match 'Runspace') } | Select-Object -First 1
-                        }
-
-                        if (-not $remotesession) {
-                            $remotesession = Get-PSSession -ComputerName $computer | Where-Object { $PsItem.Availability -eq 'Available' } | Select-Object -First 1
-                        }
-
-                        if (-not $remotesession) {
-                            Stop-PSFFunction -EnableException:$EnableException -Message "Session for $computer can't be found or no runspaces are available. Please file an issue on the GitHub repo at https://github.com/potatoqualitee/kbupdate/issues" -Continue
-                        }
-
-                        Write-PSFMessage -Level Verbose -Message "Copying $ScanFilePath to $temp on $computer"
-                        $null = Copy-Item -Path $ScanFilePath -Destination $temp -ToSession $remotesession -Force
+                        $cabpath = $ScanFilePath
                     }
-                } else {
-                    $cabpath = $ScanFilePath
-                }
 
-                if ($item.IsLocalHost -and -not (Test-ElevationRequirement -ComputerName $computer)) {
-                    continue
-                }
-
-                Write-ProgressHelper -TotalSteps $totalcount -StepNumber $completed -Activity "Getting updates" -Message "Processing $computer"
-
-                foreach ($result in (Invoke-PSFCommand -Computer $computer -Credential $Credential -ErrorAction Stop -ScriptBlock $scriptblock -ArgumentList $computer, $cabpath, $VerbosePreference |
-                            Select-Object -Property * -ExcludeProperty PSComputerName, RunspaceId |
-                            Select-DefaultView -Property ComputerName, Title, KBUpdate, UpdateId, Description, LastModified, RebootBehavior, RequestsUserInput, NetworkRequired, Link)) {
-                    if (-not $result.Link) {
-                        Write-PSFMessage -Level Verbose -Message "No link found for $($result.KBUpdate.Trim()). Looking it up."
-                        $link = (Get-KbUpdate -Pattern "$($result.KBUpdate.Trim())" -Simple -Computer $computer | Where-Object Title -match $result.KBUpdate).Link
-                        if ($link) {
-                            $result.Link = $link
-                        }
+                    if ($machine.IsLocalHost -and -not (Test-ElevationRequirement -ComputerName $computer)) {
+                        continue
                     }
-                    $result
+
+                    foreach ($result in (Invoke-PSFCommand -Computer $computer -Credential $Credential -ErrorAction Stop -ScriptBlock $scriptblock -ArgumentList $computer, $cabpath, $VerbosePreference)) {
+                        if (-not $result.Link) {
+                            Write-PSFMessage -Level Verbose -Message "No link found for $($result.KBUpdate.Trim()). Looking it up."
+                            $link = (Get-KbUpdate -Pattern "$($result.KBUpdate.Trim())" -Simple -Computer $computer | Where-Object Title -match $result.KBUpdate).Link
+                            if ($link) {
+                                $result.Link = $link
+                            }
+                        }
+                        $result
+                    }
                 }
+
+                $jobs += Start-Job -Name $computer -ScriptBlock $invokeblock -ArgumentList $arglist -ErrorAction Stop
             } catch {
                 Stop-PSFFunction -EnableException:$EnableException -Message "Failure on $computer" -ErrorRecord $PSItem -Continue
+            }
+        }
+        if ($jobs.Name) {
+            try {
+                $jobs | Start-JobProcess -Activity "Getting needed updates" -Status "getting needed updates" | Select-Object -Property * -ExcludeProperty PSComputerName, RunspaceId | Select-DefaultView -ExcludeProperty InstallFile | Select-DefaultView -Property ComputerName, Title, KBUpdate, UpdateId, Description, LastModified, RebootBehavior, RequestsUserInput, NetworkRequired, Link
+            } catch {
+                Stop-PSFFunction -Message "Failure" -ErrorRecord $PSItem -EnableException:$EnableException -Continue
             }
         }
     }

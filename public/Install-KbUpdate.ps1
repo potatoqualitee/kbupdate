@@ -130,9 +130,8 @@ function Install-KbUpdate {
     )
     begin {
         # create code blocks for  jobs
-        $cmd2 = $((Get-Command Invoke-Command2).Definition)
         $wublock = [scriptblock]::Create($((Get-Command Start-WindowsUpdate).Definition))
-        $dscblock = [scriptblock]::Create($((Get-Command Start-DscUpdate).Definition).Replace("# function Invoke-Command2", "function Invoke-Command2 { $cmd2 }"))
+        $dscblock = [scriptblock]::Create($((Get-Command Start-DscUpdate).Definition))
         # cleanup
         $null = Get-Job -ChildJobState Completed | Where-Object Name -in $ComputerName.ComputerName | Remove-Job -Force
     }
@@ -228,103 +227,9 @@ function Install-KbUpdate {
 
         if ($jobs.Name) {
             try {
-                while ($kbjobs = Get-Job | Where-Object Name -in $jobs.Name) {
-                    # People really just want to know that it's still going and DSC doesn't give us a proper status
-                    # Just shoooooooooooooooooow a progress bar
-                    if ($added -eq 100) {
-                        $added = 0
-                    }
-                    $added++
-                    $progressparms = @{
-                        Activity        = "Installing updates"
-                        Status          = "Still installing updates on $($kbjobs.Name -join ', '). Please enjoy the inaccurate progress bar."
-                        PercentComplete = ($added / 100 * 100)
-                    }
-                    Write-Progress @progressparms
-                    foreach ($item in $kbjobs) {
-                        try {
-                            $item | Receive-Job -OutVariable kbjob 4>$verboseoutput | Select-Object -Property * -ExcludeProperty RunspaceId
-                        } catch {
-                            Stop-PSFFunction -Message "Failure on $($item.Name)" -ErrorRecord $PSItem -EnableException:$EnableException -Continue
-                        }
-
-                        if ($kbjob.Output) {
-                            foreach ($msg in $kbjob.Output) {
-                                Write-PSFMessage -Level Debug -Message "$msg"
-                            }
-                        }
-                        if ($kbjob.Warning) {
-                            foreach ($msg in $kbjob.Warning) {
-                                if ($msg) {
-                                    # too many extra spaces, baw
-                                    while ("$msg" -match "  ") {
-                                        $msg = "$msg" -replace "  ", " "
-                                    }
-                                }
-                            }
-                            Write-PSFMessage -Level Warning -Message "$msg"
-                        }
-                        if ($kbjob.Verbose) {
-                            foreach ($msg in $kbjob.Verbose) {
-                                if ($msg) {
-                                    # too many extra spaces, baw
-                                    while ("$msg" -match "  ") {
-                                        $msg = "$msg" -replace "  ", " "
-                                    }
-                                }
-                            }
-                            $verboseoutput
-                            Write-PSFMessage -Level Verbose -Message "$msg"
-                        }
-
-
-                        if ($verboseoutput) {
-                            foreach ($msg in $verboseoutput) {
-                                if ($msg) {
-                                    # too many extra spaces, baw
-                                    while ("$msg" -match "  ") {
-                                        $msg = "$msg" -replace "  ", " "
-                                    }
-                                }
-                            }
-                            Write-PSFMessage -Level Verbose -Message "$msg"
-                        }
-
-                        if ($kbjob.Debug) {
-                            foreach ($msg in $kbjob.Debug) {
-                                Write-PSFMessage -Level Debug -Message "$msg"
-                            }
-                        }
-
-                        if ($kbjob.Information) {
-                            foreach ($msg in $kbjob.Information) {
-                                Write-PSFMessage -Level Information -Message "$msg"
-                            }
-                        }
-                    }
-                    $null = Remove-Variable -Name kbjob
-                    foreach ($kbjob in ($kbjobs | Where-Object State -ne 'Running')) {
-                        Write-PSFMessage -Level Verbose -Message "Finished installing updates on $($kbjob.Name)"
-                        if ($added -eq 100) {
-                            $added = 0
-                        }
-                        $null = $added++
-                        $done = $kbjobs | Where-Object Name -ne $kbjob.Name
-                        $progressparms = @{
-                            Activity        = "Installing updates"
-                            Status          = "Still installing updates on $($done.Name -join ', '). Please enjoy the inaccurate progress bar."
-                            PercentComplete = ($added / 100 * 100)
-                        }
-
-                        Write-Progress @progressparms
-                        $jorbs | Where-Object Name -eq $kbjob.name
-                        $kbjob | Remove-Job
-                    }
-                    Start-Sleep -Seconds 1
-                }
-                Write-Progress -Activity "Installing updates" -Completed
+                $jobs | Start-JobProcess -Activity "Installing updates" -Status "installing updates"
             } catch {
-                Stop-PSFFunction -Message "Failure on $hostname" -ErrorRecord $PSItem -EnableException:$EnableException
+                Stop-PSFFunction -Message "Failure" -ErrorRecord $PSItem -EnableException:$EnableException -Continue
             }
         }
     }
