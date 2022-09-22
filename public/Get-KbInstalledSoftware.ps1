@@ -77,7 +77,7 @@ function Get-KbInstalledSoftware {
                 $jobs = @()
                 foreach ($computer in $ComputerName) {
                     Write-PSFMessage -Level Verbose -Message "Adding job for $computer"
-                    $json = [pscustomobject]@{
+                    $arglist = [pscustomobject]@{
                         ComputerName = $computer
                         Credential   = $Credential
                         ScriptBlock  = $swblock
@@ -95,7 +95,7 @@ function Get-KbInstalledSoftware {
                         }
                         Invoke-KbCommand @parms -ErrorAction Stop
                     }
-                    $jobs += Start-Job -Name $computer -ScriptBlock $invokeblock -ArgumentList $json -ErrorAction Stop
+                    $jobs += Start-Job -Name $computer -ScriptBlock $invokeblock -ArgumentList $arglist -ErrorAction Stop
                 }
             }
 
