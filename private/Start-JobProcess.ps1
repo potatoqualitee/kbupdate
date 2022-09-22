@@ -69,7 +69,9 @@ function Start-JobProcess {
                                 }
                             }
                         }
-                        Write-PSFMessage -Level Warning -Message "$msg"
+                        if ($msg) {
+                            Write-PSFMessage -Level Warning -Message "$msg"
+                        }
                     }
                     if ($kbjob.Verbose) {
                         foreach ($msg in $kbjob.Verbose) {
@@ -80,8 +82,10 @@ function Start-JobProcess {
                                 }
                             }
                         }
-                        $verboseoutput
-                        Write-PSFMessage -Level Verbose -Message "$msg"
+
+                        if ($msg) {
+                            Write-PSFMessage -Level Verbose -Message "$msg"
+                        }
                     }
 
 
@@ -94,7 +98,9 @@ function Start-JobProcess {
                                 }
                             }
                         }
-                        Write-PSFMessage -Level Verbose -Message "$msg"
+                        if ($msg) {
+                            Write-PSFMessage -Level Verbose -Message "$msg"
+                        }
                     }
 
                     if ($kbjob.Debug) {
@@ -105,13 +111,15 @@ function Start-JobProcess {
 
                     if ($kbjob.Information) {
                         foreach ($msg in $kbjob.Information) {
-                            Write-PSFMessage -Level Verbose -Message "$msg"
+                            if ($msg) {
+                                Write-PSFMessage -Level Verbose -Message "$msg"
+                            }
                         }
                     }
                 }
                 $null = Remove-Variable -Name kbjob
                 foreach ($kbjob in ($kbjobs | Where-Object State -ne 'Running')) {
-                    Write-PSFMessage -Level Verbose -Message "Finished installing updates on $($kbjob.Name)"
+                    Write-PSFMessage -Level Verbose -Message "Finished $Status on $($kbjob.Name)"
                     if ($added -eq 100) {
                         $added = 0
                     }
@@ -129,7 +137,7 @@ function Start-JobProcess {
                 }
                 Start-Sleep -Seconds 1
             }
-            Write-Progress -Activity "Installing updates" -Completed
+            Write-Progress -Activity $Activity -Completed
         } catch {
             Stop-PSFFunction -Message "Failure on $hostname" -ErrorRecord $PSItem -EnableException:$EnableException
         }
