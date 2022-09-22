@@ -68,6 +68,7 @@ function Get-KbInstalledSoftware {
 
         try {
             if ($ComputerName.Count -eq 1) {
+                Write-PSFMessage -Level Verbose -Message "Executing command on $computer"
                 $computer = $ComputerName | Select-Object -First 1
                 $scriptblock = [scriptblock]::Create($((Get-Command Get-Software).Definition))
                 Invoke-KbCommand -ComputerName $computer -Credential $Credential -ErrorAction Stop -ScriptBlock $scriptblock -ArgumentList @($Pattern), $IncludeHidden, $VerbosePreference | Sort-Object -Property Name |
@@ -75,6 +76,7 @@ function Get-KbInstalledSoftware {
             } else {
                 $jobs = @()
                 foreach ($computer in $ComputerName) {
+                    Write-PSFMessage -Level Verbose -Message "Adding job for $computer"
                     $json = [pscustomobject]@{
                         ComputerName = $computer
                         Credential   = $Credential

@@ -11,8 +11,6 @@ function Start-JobProcess {
         [string]$Status = "making progress"
     )
     begin {
-        $caller = (Get-PSCallStack)[1].Command
-
         if ($Credential.UserName) {
             $null = $PSDefaultParameterValues["*:Credential"] = $Credential
         }
