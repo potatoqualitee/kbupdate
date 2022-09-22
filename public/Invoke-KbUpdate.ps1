@@ -1,4 +1,48 @@
-function Invoke-Command2 {
+function Invoke-KbCommand {
+    <#
+	.SYNOPSIS
+		An Invoke-Command and Invoke-PSFCommand wrapper with even more integrated session management.
+
+        This command really isn't intended to run anything for the end-user, I just had to export
+        it to make jobs easier.
+
+	.DESCRIPTION
+		An Invoke-Command and Invoke-PSFCommand wrapper with even more integrated session management.
+
+        This command really isn't intended to run anything for the end-user, I just had to export
+        it to make jobs easier.
+
+	.PARAMETER ComputerName
+		The computer(s) to invoke the command on.
+		Accepts all kinds of things that legally point at a computer, including DNS names, ADComputer objects, IP Addresses, SQL Server connection strings, CimSessions or PowerShell Sessions.
+		It will reuse PSSession objects if specified (and not include them in its session management).
+
+	.PARAMETER ScriptBlock
+		The code to execute.
+
+	.PARAMETER ArgumentList
+		The arguments to pass into the scriptblock.
+
+	.PARAMETER Credential
+		Credentials to use when establishing connections.
+		Note: These will be ignored if there already exists an established connection.
+
+	.PARAMETER HideComputerName
+		Indicates that this cmdlet omits the computer name of each object from the output display. By default, the name of the computer that generated the object appears in the display.
+
+	.PARAMETER ThrottleLimit
+		Specifies the maximum number of concurrent connections that can be established to run this command. If you omit this parameter or enter a value of 0, the default value, 32, is used.
+
+	.EXAMPLE
+		PS C:\> Invoke-KbCommand -ScriptBlock $ScriptBlock
+
+		Runs the $scriptblock against the local computer.
+
+	.EXAMPLE
+		PS C:\> Invoke-KbCommand -ComputerName sql01, sql02 -ScriptBlock $ScriptBlock
+
+		Runs the $scriptblock against sql01 and sql02
+    #>
     [cmdletbinding()]
     param(
         [Parameter(Mandatory)]

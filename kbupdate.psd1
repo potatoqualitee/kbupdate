@@ -47,7 +47,8 @@
         'Uninstall-KbUpdate',
         'Select-KbLatest',
         'Save-KbScanFile',
-        'Get-KbNeededUpdate'
+        'Get-KbNeededUpdate',
+        'Invoke-KbCommand'
     )
 
     AliasesToExport   = @('Get-KbInstalledUpdate')

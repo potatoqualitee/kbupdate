@@ -130,9 +130,8 @@ function Install-KbUpdate {
     )
     begin {
         # create code blocks for  jobs
-        $cmd2 = $((Get-Command Invoke-Command2).Definition)
         $wublock = [scriptblock]::Create($((Get-Command Start-WindowsUpdate).Definition))
-        $dscblock = [scriptblock]::Create($((Get-Command Start-DscUpdate).Definition).Replace("# function Invoke-Command2", "function Invoke-Command2 { $cmd2 }"))
+        $dscblock = [scriptblock]::Create($((Get-Command Start-DscUpdate).Definition))
         # cleanup
         $null = Get-Job -ChildJobState Completed | Where-Object Name -in $ComputerName.ComputerName | Remove-Job -Force
     }
@@ -201,7 +200,6 @@ function Install-KbUpdate {
                 }
                 $null = $PSDefaultParameterValues["Start-Job:ArgumentList"] = $parms
                 $null = $PSDefaultParameterValues["Start-Job:Name"] = $hostname
-                $null = $PSDefaultParameterValues["Start-Job:InitializationScript"] = { Import-Module kbupdate }
 
                 if ($method -eq "WindowsUpdate") {
                     Write-PSFMessage -Level Verbose -Message "Method is WindowsUpdate"
@@ -228,7 +226,11 @@ function Install-KbUpdate {
         }
 
         if ($jobs.Name) {
-            $jobs | Start-JobProcess
+            try {
+                $jobs | Start-JobProcess -Activity "Installing updates" -Status "installing updates"
+            } catch {
+                Stop-PSFFunction -Message "Failure" -ErrorRecord $PSItem -EnableException:$EnableException -Continue
+            }
         }
     }
 }
