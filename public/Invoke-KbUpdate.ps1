@@ -1,13 +1,13 @@
 function Invoke-KbCommand {
     <#
 	.SYNOPSIS
-		An Invoke-Command and Invoke-PSFCommand wrapper with even more integrated session management.
+        An Invoke-Command and Invoke-PSFCommand wrapper with even more integrated session management.
 
         This command really isn't intended to run anything for the end-user, I just had to export
         it to make jobs easier.
 
 	.DESCRIPTION
-		An Invoke-Command and Invoke-PSFCommand wrapper with even more integrated session management.
+        An Invoke-Command and Invoke-PSFCommand wrapper with even more integrated session management.
 
         This command really isn't intended to run anything for the end-user, I just had to export
         it to make jobs easier.
