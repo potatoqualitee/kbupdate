@@ -870,7 +870,7 @@ function Get-KbUpdate {
                     $results += Get-KbItemFromWeb -kb $kb -exact $exact -exclude $exclude
                 }
                 $allkbs += $results
-            } elseif ($Source -eq "Database") {
+            } elseif ($Source.Count -eq 1 -and $Source -eq "Database") {
                 if ($Since -or $CustomQuery) {
                     Get-KbItemFromDb -kb $kb -os $OperatingSystem -lang $Language -arch $Architecture -exclude $exclude -since $Since -customquery $CustomQuery | Select-DefaultView -Property $properties
                 } else {
