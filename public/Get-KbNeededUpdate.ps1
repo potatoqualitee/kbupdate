@@ -85,9 +85,11 @@ function Get-KbNeededUpdate {
                     EnableException = $EnableException
                     Force           = $Force
                     ScriptBlock     = $remotescriptblock
+                    ModulePath      = (Join-Path -Path $script:ModuleRoot -ChildPath kbupdate.psm1)
                 }
 
                 $invokeblock = {
+                    Import-Module $args.ModulePath
                     $sbjson = $args.ScriptBlock | ConvertFrom-Json
                     $sb = [scriptblock]::Create($sbjson)
                     $machine = $args.ComputerName
