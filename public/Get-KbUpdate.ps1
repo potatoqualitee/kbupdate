@@ -54,11 +54,16 @@ function Get-KbUpdate {
     .PARAMETER Multithread
         Multithread when three or more matches are returned. This is a lot faster than the default singlethread but also a lot less reliable.
 
-    .PARAMETER NoMultithreading
-        Obsolete as multithreading is no longer enabled by default. It's too unreliable.
-
     .PARAMETER Exact
         Search for exact matches only. Basically, the search will be in quotes.
+
+    .PARAMETER Since
+        Only return results newer than this date.
+
+    .PARAMETER CustomQuery
+        Perform a custom query on the kbupdate-library sqlite database. Sets the Source to Database.
+
+        A common query looks like this: select *, NULL AS SupersededBy, NULL AS Supersedes, NULL AS Link from kb where UpdateId in (select UpdateId from kb where UpdateId = '$kb' or Title like '%$kb%' or Id like '%$kb%' or Description like '%$kb%' or MSRCNumber like '%$kb%') and SupportedProducts in ('$oses') COLLATE NOCASE and UpdateId not in (select UpdateId from kb where UpdateId = '$ex' or Title like '%$ex%' or Id like '%$ex%' or Description like '%$ex%')
 
     .PARAMETER MaxPages
         Maximum number of pages to parse when using the web source, each page returns 25 results. Defaults to 1 for a total of 25 max results from the web.
@@ -146,10 +151,28 @@ function Get-KbUpdate {
         [ValidateSet("Wsus", "Web", "Database")]
         [string[]]$Source = @("Web", "Database"),
         [int]$MaxPages = 1,
+        [datetime]$Since,
+        [string]$CustomQuery,
         [switch]$EnableException
     )
     begin {
         $script:MaxPages = $MaxPages
+        if ($script:runspaces) {
+            # BLOCK 5: Wait for runspaces to finish
+            while ($script:runspaces.Status.IsCompleted -notcontains $true) {}
+
+            # BLOCK 6: Clean up
+            foreach ($runspace1 in $script:runspaces) {
+                # EndInvoke method retrieves the results of the asynchronous call
+                $null = $runspace1.Pipe.EndInvoke($runspace1.Status)
+                $runspace1.Pipe.Dispose()
+            }
+
+            $script:pool.Close()
+            $script:pool.Dispose()
+            Remove-Variable -Scope Script -Name runspaces
+        }
+
         if ($NoMultithreading) {
             Write-PSFMessage -Level Warning -Message "Multithreading now disabled by default. This parameter will likely be removed in future versions."
         }
@@ -164,6 +187,14 @@ function Get-KbUpdate {
             $Source = "Wsus"
         }
 
+        if ($PSBoundParameters.Query -or $PSBoundParameters.Since) {
+            Write-PSFMessage -Level Verbose -Message "Query or Since specified, switching to database source only"
+            if (-not $Pattern) {
+                $Pattern = "%"
+            }
+            $Source = "Database"
+        }
+
         Write-PSFMessage -Level Verbose -Message "Source set to $Source"
         if ($OperatingSystem) {
             Write-PSFMessage -Level Verbose -Message "Operating system set to $OperatingSystem"
@@ -172,7 +203,7 @@ function Get-KbUpdate {
         $script:allresults = @()
         function Get-KbItemFromDb {
             [CmdletBinding()]
-            param($kb, $os, $arch, $lang, $exclude)
+            param($kb, $os, $arch, $lang, $exclude, $since, $customquery)
             process {
                 if (-not $kb) {
                     continue
@@ -180,29 +211,38 @@ function Get-KbUpdate {
                 Write-PSFMessage -Level Verbose -Message "Processing $kb"
                 # Join to dupe and check dupe
                 $kb = $kb.ToLower()
-                $query = "select *, NULL AS SupersededBy, NULL AS Supersedes, NULL AS Link from kb where UpdateId in (select UpdateId from kb where UpdateId = '$kb' or Title like '%$kb%' or Id like '%$kb%' or Description like '%$kb%' or MSRCNumber like '%$kb%')"
 
-                if ($os) {
-                    $oses = $os -join "', '"
-                    $query = "$query and SupportedProducts in ('$oses') COLLATE NOCASE"
-                }
+                if ($customquery) {
+                    $query = $customquery
+                } else {
+                    $query = "select *, NULL AS SupersededBy, NULL AS Supersedes, NULL AS Link from kb where UpdateId in (select UpdateId from kb where UpdateId = '$kb' or Title like '%$kb%' or Id like '%$kb%' or Description like '%$kb%' or MSRCNumber like '%$kb%')"
 
-                if ($arch) {
-                    $arch = $arch -join "', '"
-                    $query = "$query and Architecture in ('$arch') COLLATE NOCASE"
-                }
+                    if ($Since) {
+                        $date = $Since.ToString("yyyy-MM-dd")
+                        $query = "$query and DateAdded > '$date'"
+                    }
 
-                if ($lang) {
-                    $lang = $lang -join "', '"
-                    $query = "$query and Language in ('$lang') COLLATE NOCASE"
-                }
+                    if ($os) {
+                        $oses = $os -join "', '"
+                        $query = "$query and SupportedProducts in ('$oses') COLLATE NOCASE"
+                    }
 
-                if ($exclude) {
-                    foreach ($ex in $exclude) {
-                        $query = "$query and UpdateId not in (select UpdateId from kb where UpdateId = '$ex' or Title like '%$ex%' or Id like '%$ex%' or Description like '%$ex%')"
+                    if ($arch) {
+                        $arch = $arch -join "', '"
+                        $query = "$query and Architecture in ('$arch') COLLATE NOCASE"
+                    }
+
+                    if ($lang) {
+                        $lang = $lang -join "', '"
+                        $query = "$query and Language in ('$lang') COLLATE NOCASE"
+                    }
+
+                    if ($exclude) {
+                        foreach ($ex in $exclude) {
+                            $query = "$query and UpdateId not in (select UpdateId from kb where UpdateId = '$ex' or Title like '%$ex%' or Id like '%$ex%' or Description like '%$ex%')"
+                        }
                     }
                 }
-
                 Write-PSFMessage -Level Verbose -Message "Query: $query"
 
                 $allitems = Invoke-SqliteQuery -DataSource $script:basedb -Query $query |
@@ -215,12 +255,9 @@ function Get-KbUpdate {
                 foreach ($item in $allitems) {
                     $script:allresults += $item.UpdateId
                     # I do wish my import didn't return empties but sometimes it does so check for length of 3
-                    $item.SupersededBy = Invoke-SqliteQuery -DataSource $script:basedb -Query "select KB, Description from SupersededBy where UpdateId = '$($item.UpdateId)' COLLATE NOCASE and LENGTH(kb) > 3"
-
-                    # I do wish my import didn't return empties but sometimes it does so check for length of 3
-                    $item.Supersedes = Invoke-SqliteQuery -DataSource $script:basedb -Query "select KB, Description from Supersedes where UpdateId = '$($item.UpdateId)' COLLATE NOCASE and LENGTH(kb) > 3"
-                    $item.Link = (Invoke-SqliteQuery -DataSource $script:basedb -Query "select DISTINCT Link from Link where UpdateId = '$($item.UpdateId)' COLLATE NOCASE").Link
-                    $item
+                    $item.SupersededBy = $script:superbyhash[$item.UpdateId]
+                    $item.Supersedes = $script:superhash[$item.UpdateId]
+                    $item.Link = $script:linkhash[$item.UpdateId]
 
                     if ($item.SupportedProducts -match "\|") {
                         $item.SupportedProducts = $item.SupportedProducts -split "\|"
@@ -274,6 +311,7 @@ function Get-KbUpdate {
                     foreach ($superby in $item.SupersededBy) {
                         $null = $superby | Add-Member -MemberType ScriptMethod -Name ToString -Value { $this.Description } -Force
                     }
+                    $item
                 }
 
                 if (-not $item -and $Source -eq "Database") {
@@ -840,13 +878,12 @@ function Get-KbUpdate {
             }
 
             if ($Source -contains "Database") {
-                $results += Get-KbItemFromDb -kb $kb -os $OperatingSystem -lang $Language -arch $Architecture -exclude $exclude
+                $results += Get-KbItemFromDb -kb $kb -os $OperatingSystem -lang $Language -arch $Architecture -exclude $exclude -since $Since -customquery $CustomQuery
             }
 
             if ($Source -contains "Web") {
                 $results += Get-KbItemFromWeb -kb $kb -exact $exact -exclude $exclude
             }
-
             $allkbs += $results
         }
     }
@@ -854,6 +891,8 @@ function Get-KbUpdate {
         # I'm not super awesome with the pipeline, and am open to suggestions if this is not the best way
         if ($Latest -and $allkbs) {
             $allkbs | Search-Kb @boundparams | Select-KbLatest | Select-DefaultView -Property $properties
+        } elseif ($Since -or $Query) {
+            $allkbs | Select-DefaultView -Property $properties
         } else {
             $allkbs | Search-Kb @boundparams | Select-DefaultView -Property $properties
         }

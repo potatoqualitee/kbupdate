@@ -11,7 +11,7 @@ function Write-ProgressHelper {
     )
 
     if (-not $Activity) {
-        $caller = (Get-PSCallStack)[1].Command
+        $caller = (Get-PSCallStack)[0].Command
         $Activity = "Executing $caller"
     }
     if (-not $Message) {

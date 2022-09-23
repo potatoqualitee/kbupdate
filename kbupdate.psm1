@@ -126,3 +126,27 @@ $null = $PSDefaultParameterValues["Start-Job:InitializationScript"] = {
     $null = Import-Module PSFramework 4>$null
     $null = Import-Module kbupdate 4>$null
 }
+
+Start-Import -ScriptBlock {
+    foreach ($result in (Invoke-SqliteQuery -DataSource $script:basedb -Query "select DISTINCT UpdateId, Link from Link")) {
+        $script:linkhash[$result.UpdateId] = $result.Link
+    }
+}
+
+Start-Import -ScriptBlock {
+    foreach ($result in (Invoke-SqliteQuery -DataSource $script:basedb -Query "select UpdateId, KB, Description, Description from SupersededBy")) {
+        $script:superbyhash[$result.UpdateId] = [pscustomobject]@{
+            KB          = $result.KB
+            Description = $result.Description
+        }
+    }
+}
+
+Start-Import -ScriptBlock {
+    foreach ($result in (Invoke-SqliteQuery -DataSource $script:basedb -Query "select UpdateId, KB, Description from Supersedes")) {
+        $script:superhash[$result.UpdateId] = [pscustomobject]@{
+            KB          = $result.KB
+            Description = $result.Description
+        }
+    }
+}
