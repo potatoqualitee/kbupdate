@@ -140,25 +140,27 @@ if ((Test-Path -Path $linklib)) {
 
     Start-Import -Name Link -ScriptBlock {
         foreach ($linkresult in (Invoke-SqliteQuery -DataSource $script:basedb -Query "select DISTINCT UpdateId, Link from Link")) {
-            $script:linkhash[$linkresult.UpdateId] = $linkresult.Link
+            $script:linkhash[$linkresult.UpdateId] += @($linkresult.Link)
         }
     }
 
     Start-Import -Name Supersedes -ScriptBlock {
         foreach ($superresult in (Invoke-SqliteQuery -DataSource $script:basedb -Query "select UpdateId, KB, Description from Supersedes")) {
-            $script:superhash[$superresult.UpdateId] = [pscustomobject]@{
-                KB          = $superresult.KB
-                Description = $superresult.Description
-            }
+            $script:superhash[$superresult.UpdateId] += @([pscustomobject]@{
+                    KB          = $superresult.KB
+                    Description = $superresult.Description
+                }
+            )
         }
     }
 
     Start-Import -Name SupersededBy -ScriptBlock {
         foreach ($superbyresult in (Invoke-SqliteQuery -DataSource $script:basedb -Query "select UpdateId, KB, Description, Description from SupersededBy")) {
-            $script:superbyhash[$superbyresult.UpdateId] = [pscustomobject]@{
-                KB          = $superbyresult.KB
-                Description = $superbyresult.Description
-            }
+            $script:superbyhash[$superbyresult.UpdateId] += @([pscustomobject]@{
+                    KB          = $superbyresult.KB
+                    Description = $superbyresult.Description
+                }
+            )
         }
     }
 
