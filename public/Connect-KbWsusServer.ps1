@@ -9,12 +9,11 @@ function Connect-KbWsusServer {
     .PARAMETER ComputerName
         Name of WSUS server. If not value is given, an attempt to read the value from registry will occur.
 
-    .PARAMETER SecureConnection
-        Determines if a secure connection will be used to connect to the WSUS server. If not used, then a non-secure
-        connection will be used.
+    .PARAMETER ForceInsecureConnection
+        Determines if an insecure (unencrypted) connection will be used to connect to the WSUS server. If not used, then a default connection to port 443 will be used.
 
     .PARAMETER Port
-        Port number to connect to. Default is Port "80" if not used. Accepted values are "80","443","8350" and "8351"
+        Port number to connect to. Default is Port "443" and "8530" if using HTTP. Accepted values are "80","443","8350" and "8351"
 
     .PARAMETER Credential
         The optional alternative credential to be used when connecting to ComputerName.
@@ -32,18 +31,18 @@ function Connect-KbWsusServer {
     .EXAMPLE
         PS C:\> Connect-KbWsusServer -ComputerName server1
 
-        This command will make the connection to the WSUS using an unsecure port (Default:80).
+        This command will make the connection to the WSUS using an HTTPS port (Default:443).
 
     .EXAMPLE
-        PS C:\> Connect-KbWsusServer -ComputerName server1 -SecureConnection
+        PS C:\> Connect-KbWsusServer -ComputerName server1 -ForceInsecureConnection
         PS C:\> Get-KbUpdate -Pattern KB2764916
 
-        This command will make a secure connection (Default: 443) to a WSUS server.
+        This command will make an unencrypted connection over port 8530 to a WSUS server.
 
         Then use Wsus as a source for Get-KbUpdate.
 
     .EXAMPLE
-        PS C:\> Connect-KbWsusServer -ComputerName server1 -port 8530
+        PS C:\> Connect-KbWsusServer -ComputerName server1 -Port 8531
 
         This command will make the connection to the WSUS using a defined port 8530.
     #>
@@ -53,19 +52,25 @@ function Connect-KbWsusServer {
         [Alias("WsusServer")]
         [PSFComputer]$ComputerName,
         [pscredential]$Credential,
-        [switch]$SecureConnection,
+        [switch]$ForceInsecureConnection,
         [ValidateSet("80", "443", "8530", "8531" )]
-        [int]$Port = 80,
+        [int]$Port = 443,
         [switch]$EnableException
     )
     begin {
         If ($IsLinux -or $IsMacOs) {
             return
         }
-        try {
-            Import-Module -Name PoshWSUS -ErrorAction Stop
-        } catch {
-            Import-Module "$script:ModuleRoot\library\PoshWSUS"
+        if ($ForceInsecureConnection -and -not $PSBoundParameters.Port) {
+            $Port = 8530
+        }
+
+        if (-not (Get-Command Connect-PSWSUSServer -ErrorAction Ignore)) {
+            try {
+                Import-Module -Name PoshWSUS -ErrorAction Stop
+            } catch {
+                Import-Module "$script:ModuleRoot\library\PoshWSUS"
+            }
         }
 
         # load the DLLs, does not load properly by default
@@ -88,6 +93,16 @@ function Connect-KbWsusServer {
             return
         }
         try {
+            Write-PSFMessage -Level Verbose -Message "Connecting to $ComputerName on port $Port"
+            if ($ForceInsecureConnection) {
+                Write-PSFMessage -Level Verbose -Message "Using ForceInsecureConnection"
+            }
+            if ($ForceInsecureConnection) {
+                $SecureConnection = $false
+            } else {
+                $SecureConnection = $true
+            }
+
             $script:ConnectedWsus = Connect-PSWSUSServer -WSUSserver $ComputerName -SecureConnection:$SecureConnection -Port $Port -WarningAction SilentlyContinue -WarningVariable warning
             # Handle the way PoshWSUS deals with errors
             if ($warning) {
