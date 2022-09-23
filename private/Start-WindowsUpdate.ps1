@@ -25,7 +25,9 @@ function Start-WindowsUpdate {
         [switch]$EnableException,
         [switch]$AllNeeded,
         [bool]$IsLocalHost,
-        [string]$VerbosePreference
+        [string]$VerbosePreference,
+        [Parameter(Mandatory)]
+        [string]$ModulePath
     )
     try {
         # No idea why this happens sometimes
@@ -43,6 +45,7 @@ function Start-WindowsUpdate {
             $hostname = $ComputerName
         }
 
+        Import-Module $ModulePath
         Write-PSFMessage -Level Verbose -Message "Using the Windows Update method"
         $sessiontype = [type]::GetTypeFromProgID("Microsoft.Update.Session")
         $session = [activator]::CreateInstance($sessiontype)

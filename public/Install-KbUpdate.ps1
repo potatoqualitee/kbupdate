@@ -197,6 +197,7 @@ function Install-KbUpdate {
                     IsLocalHost       = $computer.IsLocalHost
                     AllNeeded         = $AllNeeded
                     VerbosePreference = $VerbosePreference
+                    ModulePath        = (Join-Path -Path $script:ModuleRoot -ChildPath kbupdate.psm1)
                 }
                 $null = $PSDefaultParameterValues["Start-Job:ArgumentList"] = $parms
                 $null = $PSDefaultParameterValues["Start-Job:Name"] = $hostname

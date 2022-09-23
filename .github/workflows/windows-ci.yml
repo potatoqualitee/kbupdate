@@ -9,7 +9,7 @@ jobs:
     steps:
       - uses: actions/checkout@v1
       - name: Install and cache PowerShell modules
-        uses: potatoqualitee/psmodulecache@test
+        uses: potatoqualitee/psmodulecache@v5.0
         with:
           modules-to-cache: PSFramework, PSSQLite
           shell: powershell, pwsh
@@ -29,7 +29,7 @@ jobs:
         shell: powershell
         run: |
           Write-Output "Downloading freshest library"
-          Install-Module kbupdate-library
+          Install-Module kbupdate-library -Confirm:$false -Force
           Import-Module ./kbupdate.psd1 -ErrorAction Stop
 
           Write-Output "Saving scanfile"
@@ -38,9 +38,10 @@ jobs:
       - name: Getting needed updates
         shell: powershell
         run: |
-          Write-Output "Getting needed updates"
+          Write-Output "Importing kbupdate module"
           Import-Module ./kbupdate.psd1 -ErrorAction Stop
-          Get-KbNeededUpdate -ScanFilePath C:\temp\wsusscn2.cab -OutVariable needed | Select-Object -First 1 -OutVariable saveit
+          Write-Output "Getting needed updates"
+          Get-KbNeededUpdate -ScanFilePath C:\temp\wsusscn2.cab -OutVariable needed -ErrorAction Stop -EnableException | Select-Object -First 1 -OutVariable saveit
           $null = mkdir C:\temp\xml
 
           Write-Output "Found $($needed.Count) needed updates"

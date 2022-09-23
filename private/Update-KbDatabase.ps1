@@ -524,6 +524,60 @@ function Update-KbDatabase {
             Write-Progress -Activity "Compressing db" -Completed
             "The db is $size MB" | Write-Warning
             Get-ChildItem -Path $db
+
+            ####################################################################################################
+            #
+            #
+            #                               Build the cache
+            #
+            #
+            ####################################################################################################
+
+            # Links, supersedes abd supersededby was taking too long to populate
+            $linklib = Join-Path -Path $kblib -ChildPath links.dat
+            $superhashlib = Join-Path -Path $kblib -ChildPath supersedes.dat
+            $superbyhashlib = Join-Path -Path $kblib -ChildPath supersededby.dat
+
+
+            Start-Import -Name Link -ScriptBlock {
+                foreach ($linkresult in (Invoke-SqliteQuery -DataSource $script:basedb -Query "select DISTINCT UpdateId, Link from Link")) {
+                    $script:linkhash[$linkresult.UpdateId] += @($linkresult.Link)
+                }
+            }
+
+            Start-Import -Name Supersedes -ScriptBlock {
+                foreach ($superresult in (Invoke-SqliteQuery -DataSource $script:basedb -Query "select UpdateId, KB, Description from Supersedes")) {
+                    $script:superhash[$superresult.UpdateId] += @([pscustomobject]@{
+                            KB          = $superresult.KB
+                            Description = $superresult.Description
+                        }
+                    )
+                }
+            }
+
+            Start-Import -Name SupersededBy -ScriptBlock {
+                foreach ($superbyresult in (Invoke-SqliteQuery -DataSource $script:basedb -Query "select UpdateId, KB, Description, Description from SupersededBy")) {
+                    $script:superbyhash[$superbyresult.UpdateId] += @([pscustomobject]@{
+                            KB          = $superbyresult.KB
+                            Description = $superbyresult.Description
+                        }
+                    )
+                }
+            }
+
+            while ($runspaces.Status.IsCompleted -notcontains $true) {}
+
+            foreach ($rs in $runspaces) {
+                $null = $rs.Pipe.EndInvoke($rs.Status)
+                $null = $rs.Pipe.Dispose()
+            }
+
+            $null = $script:superbyhash | Export-PSFCliXml -Path $superbyhashlib -Depth 2
+            $null = $script:superhash | Export-PSFCliXml -Path $superhashlib -Depth 2
+            $null = $script:linkhash | Export-PSFCliXml -Path $linklib -Depth 2
+            Get-ChildItem $superbyhashlib
+            Get-ChildItem $superhashlib
+            Get-ChildItem $linklib
         } else {
             Write-Warning "No db to compress"
         }

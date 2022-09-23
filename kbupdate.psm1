@@ -120,9 +120,58 @@ Set-PSFConfig -FullName PSRemoting.PsSession.Port -Value $null -Initialize -Vali
 
 Set-Alias -Name Get-KbInstalledUpdate -Value Get-KbUpdateSoftware
 
-
 $null = $PSDefaultParameterValues["Start-Job:InitializationScript"] = {
     $null = Import-Module PSSQLite 4>$null
     $null = Import-Module PSFramework 4>$null
-    $null = Import-Module kbupdate 4>$null
+}
+
+# Links, supersedes abd supersededby was taking too long to populate
+$kblib = Join-Path -Path (Split-Path -Path (Get-Module -Name kbupdate-library | Select-Object -Last 1).Path) -ChildPath library
+$linklib = Join-Path -Path $kblib -ChildPath links.dat
+$superhashlib = Join-Path -Path $kblib -ChildPath supersedes.dat
+$superbyhashlib = Join-Path -Path $kblib -ChildPath supersededby.dat
+
+if ((Test-Path -Path $linklib)) {
+    $script:linkhash = Import-PSFCliXml -Path $linklib
+    $script:superhash = Import-PSFCliXml -Path $superhashlib
+    $script:superbyhash = Import-PSFCliXml -Path $superbyhashlib
+} else {
+    Write-PSFMessage -Level Warning -Message "Cache not found, rebuilding. This should take about 30 seconds."
+
+    Start-Import -Name Link -ScriptBlock {
+        foreach ($linkresult in (Invoke-SqliteQuery -DataSource $script:basedb -Query "select DISTINCT UpdateId, Link from Link")) {
+            $script:linkhash[$linkresult.UpdateId] += @($linkresult.Link)
+        }
+    }
+
+    Start-Import -Name Supersedes -ScriptBlock {
+        foreach ($superresult in (Invoke-SqliteQuery -DataSource $script:basedb -Query "select UpdateId, KB, Description from Supersedes")) {
+            $script:superhash[$superresult.UpdateId] += @([pscustomobject]@{
+                    KB          = $superresult.KB
+                    Description = $superresult.Description
+                }
+            )
+        }
+    }
+
+    Start-Import -Name SupersededBy -ScriptBlock {
+        foreach ($superbyresult in (Invoke-SqliteQuery -DataSource $script:basedb -Query "select UpdateId, KB, Description, Description from SupersededBy")) {
+            $script:superbyhash[$superbyresult.UpdateId] += @([pscustomobject]@{
+                    KB          = $superbyresult.KB
+                    Description = $superbyresult.Description
+                }
+            )
+        }
+    }
+
+    while ($runspaces.Status.IsCompleted -notcontains $true) {}
+
+    foreach ($rs in $runspaces) {
+        $null = $rs.Pipe.EndInvoke($rs.Status)
+        $null = $rs.Pipe.Dispose()
+    }
+
+    $null = $script:superbyhash | Export-PSFCliXml -Path $superbyhashlib -Depth 2
+    $null = $script:superhash | Export-PSFCliXml -Path $superhashlib -Depth 2
+    $null = $script:linkhash | Export-PSFCliXml -Path $linklib -Depth 2
 }

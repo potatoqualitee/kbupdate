@@ -82,9 +82,11 @@ function Get-KbInstalledSoftware {
                         Credential   = $Credential
                         ScriptBlock  = $swblock
                         ArgumentList = (@($Pattern), $IncludeHidden, $VerbosePreference)
+                        ModulePath   = (Join-Path -Path $script:ModuleRoot -ChildPath kbupdate.psm1)
                     }
 
                     $invokeblock = {
+                        Import-Module $args.ModulePath
                         $sbjson = $args.ScriptBlock | ConvertFrom-Json
                         $sb = [scriptblock]::Create($sbjson)
                         $parms = @{

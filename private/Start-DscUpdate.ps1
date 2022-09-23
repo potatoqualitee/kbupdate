@@ -23,11 +23,14 @@ function Start-DscUpdate {
         [switch]$NoMultithreading,
         [switch]$EnableException,
         [bool]$IsLocalHost,
-        [string]$VerbosePreference
+        [string]$VerbosePreference,
+        [Parameter(Mandatory)]
+        [string]$ModulePath
     )
     begin {
         # load up if a job
         if (-not (Get-Module kbupdate)) {
+            Import-Module -Name $ModulePath -Force
             $null = Import-Module PSSQLite 4>$null
             $null = Import-Module PSFramework 4>$null
             $null = Import-Module kbupdate 4>$null
