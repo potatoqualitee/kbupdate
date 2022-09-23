@@ -17,8 +17,6 @@ function Start-Import {
         }
     }
     process {
-        # Maybe I'll add this back later
-        if ($Name -ne "Link") { return }
         Write-PSFMessage -Level Verbose -Message "Creating Link process"
         $ps = [PowerShell]::Create()
         $runspace = [runspacefactory]::CreateRunspace()

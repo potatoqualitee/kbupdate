@@ -157,19 +157,6 @@ function Get-KbUpdate {
     )
     begin {
         $script:MaxPages = $MaxPages
-
-        if ($global:runspaces) {
-            # BLOCK 5: Wait for runspaces to finish
-            while ($global:runspaces.Status.IsCompleted -notcontains $true) {}
-            #return $global:runspaces
-            # BLOCK 6: Clean up
-            foreach ($rs in $global:runspaces) {
-                # EndInvoke method retrieves the results of the asynchronous call
-                $null = $rs.Pipe.EndInvoke($rs.Status)
-                $null = $rs.Pipe.Dispose()
-            }
-            #Remove-Variable -Scope Script -Name runspaces
-        }
         if ($NoMultithreading) {
             Write-PSFMessage -Level Warning -Message "Multithreading now disabled by default. This parameter will likely be removed in future versions."
         }
@@ -251,15 +238,8 @@ function Get-KbUpdate {
 
                 foreach ($item in $allitems) {
                     $script:allresults += $item.UpdateId
-                    # I do wish my import didn't return empties but sometimes it does so check for length of 3
-                    #$item.SupersededBy = $script:superbyhash[$item.UpdateId]
-                    #$item.Supersedes = $script:superhash[$item.UpdateId]
-                    # I do wish my import didn't return empties but sometimes it does so check for length of 3
-                    $item.SupersededBy = Invoke-SqliteQuery -DataSource $script:basedb -Query "select KB, Description from SupersededBy where UpdateId = '$($item.UpdateId)' COLLATE NOCASE"
-
-                    # I do wish my import didn't return empties but sometimes it does so check for length of 3
-                    $item.Supersedes = Invoke-SqliteQuery -DataSource $script:basedb -Query "select KB, Description from Supersedes where UpdateId = '$($item.UpdateId)' COLLATE NOCASE"
-
+                    $item.SupersededBy = $script:superbyhash[$item.UpdateId]
+                    $item.Supersedes = $script:superhash[$item.UpdateId]
                     $item.Link = $script:linkhash[$item.UpdateId]
 
                     if ($item.SupportedProducts -match "\|") {
@@ -876,27 +856,48 @@ function Get-KbUpdate {
                 continue
             }
             $results = @()
-            if ($Source -contains "Wsus") {
-                $results += Get-KbItemFromWsusApi -kb $kb -exact $exact -exclude $exclude
-            }
 
-            if ($Source -contains "Database") {
-                $results += Get-KbItemFromDb -kb $kb -os $OperatingSystem -lang $Language -arch $Architecture -exclude $exclude -since $Since -customquery $CustomQuery
-            }
+            if ($Latest) {
+                if ($Source -contains "Wsus") {
+                    $results += Get-KbItemFromWsusApi -kb $kb -exact $exact -exclude $exclude
+                }
 
-            if ($Source -contains "Web") {
-                $results += Get-KbItemFromWeb -kb $kb -exact $exact -exclude $exclude
+                if ($Source -contains "Database") {
+                    $results += Get-KbItemFromDb -kb $kb -os $OperatingSystem -lang $Language -arch $Architecture -exclude $exclude -since $Since -customquery $CustomQuery
+                }
+
+                if ($Source -contains "Web") {
+                    $results += Get-KbItemFromWeb -kb $kb -exact $exact -exclude $exclude
+                }
+                $allkbs += $results
+            } elseif ($Source -eq "Database") {
+                if ($Since -or $CustomQuery) {
+                    Get-KbItemFromDb -kb $kb -os $OperatingSystem -lang $Language -arch $Architecture -exclude $exclude -since $Since -customquery $CustomQuery | Select-DefaultView -Property $properties
+                } else {
+                    Get-KbItemFromDb -kb $kb -os $OperatingSystem -lang $Language -arch $Architecture -exclude $exclude -since $Since -customquery $CustomQuery | Search-Kb @boundparams | Select-DefaultView -Property $properties
+                }
+            } else {
+                if ($Source -contains "Wsus") {
+                    $results += Get-KbItemFromWsusApi -kb $kb -exact $exact -exclude $exclude
+                }
+
+                if ($Source -contains "Database") {
+                    $results += Get-KbItemFromDb -kb $kb -os $OperatingSystem -lang $Language -arch $Architecture -exclude $exclude -since $Since -customquery $CustomQuery
+                }
+
+                if ($Source -contains "Web") {
+                    $results += Get-KbItemFromWeb -kb $kb -exact $exact -exclude $exclude
+                }
+
+                $allkbs += $results
             }
-            $allkbs += $results
         }
     }
     end {
         # I'm not super awesome with the pipeline, and am open to suggestions if this is not the best way
         if ($Latest -and $allkbs) {
             $allkbs | Search-Kb @boundparams | Select-KbLatest | Select-DefaultView -Property $properties
-        } elseif ($Since -or $Query) {
-            $allkbs | Select-DefaultView -Property $properties
-        } else {
+        } elseif ($allkbs) {
             $allkbs | Search-Kb @boundparams | Select-DefaultView -Property $properties
         }
     }
