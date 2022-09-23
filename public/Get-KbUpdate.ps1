@@ -147,7 +147,6 @@ function Get-KbUpdate {
         [switch]$Latest,
         [switch]$Force,
         [switch]$Multithread,
-        [switch]$NoMultithreading,
         [ValidateSet("Wsus", "Web", "Database")]
         [string[]]$Source = @("Web", "Database"),
         [int]$MaxPages = 1,
