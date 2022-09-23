@@ -127,26 +127,27 @@ $null = $PSDefaultParameterValues["Start-Job:InitializationScript"] = {
     $null = Import-Module kbupdate 4>$null
 }
 
-Start-Import -ScriptBlock {
-    foreach ($result in (Invoke-SqliteQuery -DataSource $script:basedb -Query "select DISTINCT UpdateId, Link from Link")) {
-        $script:linkhash[$result.UpdateId] = $result.Link
+
+Start-Import -Name Link -ScriptBlock {
+    foreach ($linkresult in (Invoke-SqliteQuery -DataSource $script:basedb -Query "select DISTINCT UpdateId, Link from Link")) {
+        $script:linkhash[$linkresult.UpdateId] = $linkresult.Link
     }
 }
 
-Start-Import -ScriptBlock {
-    foreach ($result in (Invoke-SqliteQuery -DataSource $script:basedb -Query "select UpdateId, KB, Description, Description from SupersededBy")) {
-        $script:superbyhash[$result.UpdateId] = [pscustomobject]@{
-            KB          = $result.KB
-            Description = $result.Description
+Start-Import -Name Supersedes -ScriptBlock {
+    foreach ($superresult in (Invoke-SqliteQuery -DataSource $script:basedb -Query "select UpdateId, KB, Description from Supersedes")) {
+        $script:superhash[$superresult.UpdateId] = [pscustomobject]@{
+            KB          = $superresult.KB
+            Description = $superresult.Description
         }
     }
 }
 
-Start-Import -ScriptBlock {
-    foreach ($result in (Invoke-SqliteQuery -DataSource $script:basedb -Query "select UpdateId, KB, Description from Supersedes")) {
-        $script:superhash[$result.UpdateId] = [pscustomobject]@{
-            KB          = $result.KB
-            Description = $result.Description
+Start-Import -Name SupersededBy -ScriptBlock {
+    foreach ($superbyresult in (Invoke-SqliteQuery -DataSource $script:basedb -Query "select UpdateId, KB, Description, Description from SupersededBy")) {
+        $script:superbyhash[$superbyresult.UpdateId] = [pscustomobject]@{
+            KB          = $superbyresult.KB
+            Description = $superbyresult.Description
         }
     }
 }

@@ -157,22 +157,19 @@ function Get-KbUpdate {
     )
     begin {
         $script:MaxPages = $MaxPages
-        if ($script:runspaces) {
+
+        if ($global:runspaces) {
             # BLOCK 5: Wait for runspaces to finish
-            while ($script:runspaces.Status.IsCompleted -notcontains $true) {}
-
+            while ($global:runspaces.Status.IsCompleted -notcontains $true) {}
+            #return $global:runspaces
             # BLOCK 6: Clean up
-            foreach ($runspace1 in $script:runspaces) {
+            foreach ($rs in $global:runspaces) {
                 # EndInvoke method retrieves the results of the asynchronous call
-                $null = $runspace1.Pipe.EndInvoke($runspace1.Status)
-                $runspace1.Pipe.Dispose()
+                $null = $rs.Pipe.EndInvoke($rs.Status)
+                $null = $rs.Pipe.Dispose()
             }
-
-            $script:pool.Close()
-            $script:pool.Dispose()
-            Remove-Variable -Scope Script -Name runspaces
+            #Remove-Variable -Scope Script -Name runspaces
         }
-
         if ($NoMultithreading) {
             Write-PSFMessage -Level Warning -Message "Multithreading now disabled by default. This parameter will likely be removed in future versions."
         }
@@ -255,8 +252,14 @@ function Get-KbUpdate {
                 foreach ($item in $allitems) {
                     $script:allresults += $item.UpdateId
                     # I do wish my import didn't return empties but sometimes it does so check for length of 3
-                    $item.SupersededBy = $script:superbyhash[$item.UpdateId]
-                    $item.Supersedes = $script:superhash[$item.UpdateId]
+                    #$item.SupersededBy = $script:superbyhash[$item.UpdateId]
+                    #$item.Supersedes = $script:superhash[$item.UpdateId]
+                    # I do wish my import didn't return empties but sometimes it does so check for length of 3
+                    $item.SupersededBy = Invoke-SqliteQuery -DataSource $script:basedb -Query "select KB, Description from SupersededBy where UpdateId = '$($item.UpdateId)' COLLATE NOCASE"
+
+                    # I do wish my import didn't return empties but sometimes it does so check for length of 3
+                    $item.Supersedes = Invoke-SqliteQuery -DataSource $script:basedb -Query "select KB, Description from Supersedes where UpdateId = '$($item.UpdateId)' COLLATE NOCASE"
+
                     $item.Link = $script:linkhash[$item.UpdateId]
 
                     if ($item.SupportedProducts -match "\|") {

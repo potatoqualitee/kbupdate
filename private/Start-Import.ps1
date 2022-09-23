@@ -3,38 +3,36 @@ $script:imports = @{}
 function Start-Import {
     [CmdletBinding()]
     param (
+        [string]$Name,
         [scriptblock]$ScriptBlock
     )
     begin {
         if (-not $script:linkhash) {
-            write-warning Start-Import
+            Write-PSFMessage -Level Verbose -Message "Creating database hashtables"
             $script:linkhash = [hashtable]::Synchronized(@{})
             $script:superbyhash = [hashtable]::Synchronized(@{})
             $script:superhash = [hashtable]::Synchronized(@{})
-            $script:runspaces = @()
-
-            $script:pool = [RunspaceFactory]::CreateRunspacePool(1, [int]$env:NUMBER_OF_PROCESSORS + 1)
-            $pool.ApartmentState = "MTA"
-            $pool.Open()
-
-            $script:runspace = [runspacefactory]::CreateRunspace()
-            $runspace.Open()
-            $runspace.SessionStateProxy.SetVariable("linkhash", $script:linkhash)
-            $runspace.SessionStateProxy.SetVariable("basedb", $script:basedb)
-            $runspace.SessionStateProxy.SetVariable("superbyhash", $script:superbyhash)
-            $runspace.SessionStateProxy.SetVariable("superhash", $script:superhash)
+            $global:runspaces = @()
+            Write-PSFMessage -Level Verbose -Message "Done database hashtables"
         }
-    } process {
-        $powershell = [powershell]::Create()
-        #$powershell.RunspacePool = $pool
-        $powershell.Runspace = $runspace
-        $null = $powershell.AddScript($ScriptBlock)
-
-        $script:runspaces += [PSCustomObject]@{
-            Pipe   = $powershell
-            Status = $powershell.BeginInvoke()
+    }
+    process {
+        # Maybe I'll add this back later
+        if ($Name -ne "Link") { return }
+        Write-PSFMessage -Level Verbose -Message "Creating Link process"
+        $ps = [PowerShell]::Create()
+        $runspace = [runspacefactory]::CreateRunspace()
+        $runspace.Name = $Name
+        $runspace.Open()
+        $runspace.SessionStateProxy.SetVariable("linkhash", $script:linkhash)
+        $runspace.SessionStateProxy.SetVariable("basedb", $script:basedb)
+        $runspace.SessionStateProxy.SetVariable("superbyhash", $script:superbyhash)
+        $runspace.SessionStateProxy.SetVariable("superhash", $script:superhash)
+        $ps.Runspace = $runspace
+        $null = $ps.AddScript($ScriptBlock)
+        $global:runspaces += [PSCustomObject]@{
+            Pipe   = $ps
+            Status = $ps.BeginInvoke()
         }
-    } end {
-
     }
 }
