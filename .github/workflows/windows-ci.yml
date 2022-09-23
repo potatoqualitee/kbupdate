@@ -38,9 +38,10 @@ jobs:
       - name: Getting needed updates
         shell: powershell
         run: |
-          Write-Output "Getting needed updates"
+          Write-Output "Importing kbupdate module"
           Import-Module ./kbupdate.psd1 -ErrorAction Stop
-          Get-KbNeededUpdate -ScanFilePath C:\temp\wsusscn2.cab -OutVariable needed -ErrorAction Stop | Select-Object -First 1 -OutVariable saveit
+          Write-Output "Getting needed updates"
+          Get-KbNeededUpdate -ScanFilePath C:\temp\wsusscn2.cab -OutVariable needed -ErrorAction Stop -EnableException | Select-Object -First 1 -OutVariable saveit
           $null = mkdir C:\temp\xml
 
           Write-Output "Found $($needed.Count) needed updates"

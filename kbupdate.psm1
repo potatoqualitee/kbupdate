@@ -123,7 +123,6 @@ Set-Alias -Name Get-KbInstalledUpdate -Value Get-KbUpdateSoftware
 $null = $PSDefaultParameterValues["Start-Job:InitializationScript"] = {
     $null = Import-Module PSSQLite 4>$null
     $null = Import-Module PSFramework 4>$null
-    $null = Import-Module kbupdate 4>$null
 }
 
 # Links, supersedes abd supersededby was taking too long to populate
