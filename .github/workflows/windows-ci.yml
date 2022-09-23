@@ -29,7 +29,7 @@ jobs:
         shell: powershell
         run: |
           Write-Output "Downloading freshest library"
-          Install-Module kbupdate-library
+          Install-Module kbupdate-library -Confirm:$false -Force
           Import-Module ./kbupdate.psd1 -ErrorAction Stop
 
           Write-Output "Saving scanfile"
