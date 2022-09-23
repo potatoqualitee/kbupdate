@@ -9,7 +9,7 @@ jobs:
     steps:
       - uses: actions/checkout@v1
       - name: Install and cache PowerShell modules
-        uses: potatoqualitee/psmodulecache@v5
+        uses: potatoqualitee/psmodulecache@v5.0
         with:
           modules-to-cache: PSFramework, PSSQLite
           shell: powershell, pwsh
