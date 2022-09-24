@@ -7,8 +7,9 @@ function Start-Import {
         [scriptblock]$ScriptBlock
     )
     begin {
-        if (-not $global:kbupdate["linkhash"]) {
+        if (-not $global:kbupdate) {
             Write-PSFMessage -Level Verbose -Message "Creating database hashtables"
+            $global:kbupdate = @{}
             $global:kbupdate["linkhash"] = [hashtable]::Synchronized(@{})
             $global:kbupdate["superbyhash"] = [hashtable]::Synchronized(@{})
             $global:kbupdate["superhash"] = [hashtable]::Synchronized(@{})
@@ -28,7 +29,7 @@ function Start-Import {
         $runspace.SessionStateProxy.SetVariable("superhash", $global:kbupdate["superhash"])
         $ps.Runspace = $runspace
         $null = $ps.AddScript($ScriptBlock)
-        $global:runspaces += [PSCustomObject]@{
+        $script:runspaces += [PSCustomObject]@{
             Pipe   = $ps
             Status = $ps.BeginInvoke()
         }

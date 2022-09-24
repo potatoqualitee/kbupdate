@@ -85,7 +85,7 @@ function Get-KbNeededUpdate {
                     EnableException = $EnableException
                     Force           = $Force
                     ScriptBlock     = $remotescriptblock
-                    ModulePath      = (Join-Path -Path $script:ModuleRoot -ChildPath kbupdate.psm1)
+                    ModulePath      = $script:dependencies
                 }
 
                 $invokeblock = {
@@ -144,20 +144,46 @@ function Get-KbNeededUpdate {
                         $cabpath = $ScanFilePath
                     }
 
+                    function Test-ElevationRequirement {
+                        [CmdletBinding(DefaultParameterSetName = 'Stop')]
+                        param (
+                            [PSFComputer]$ComputerName,
+                            [Parameter(ParameterSetName = 'Stop')]
+                            [switch]$Continue,
+                            [Parameter(ParameterSetName = 'Stop')]
+                            [string]$ContinueLabel,
+                            [Parameter(ParameterSetName = 'Stop')]
+                            [switch]$SilentlyContinue,
+                            [Parameter(ParameterSetName = 'NoStop')]
+                            [switch]$NoStop,
+                            [bool]$EnableException = $EnableException
+                        )
+
+                        $isElevated = ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
+                        $testResult = $true
+                        if ($ComputerName.IsLocalHost -and (-not $isElevated)) { $testResult = $false }
+
+                        if ($PSCmdlet.ParameterSetName -like "NoStop") {
+                            return $testResult
+                        } elseif ($PSCmdlet.ParameterSetName -like "Stop") {
+                            if ($testResult) { return $testResult }
+
+                            $splatStopFunction = @{
+                                Message = "Console not elevated, but elevation is required to perform some actions on localhost for this command."
+                            }
+
+                            if ($PSBoundParameters.Continue) { $splatStopFunction["Continue"] = $Continue }
+                            if ($PSBoundParameters.ContinueLabel) { $splatStopFunction["ContinueLabel"] = $ContinueLabel }
+                            if ($PSBoundParameters.SilentlyContinue) { $splatStopFunction["SilentlyContinue"] = $SilentlyContinue }
+
+                            . Stop-PSFFunction @splatStopFunction -FunctionName (Get-PSCallStack)[1].Command
+                            return $testResult
+                        }
+                    }
                     if ($machine.IsLocalHost -and -not (Test-ElevationRequirement -ComputerName $computer)) {
                         continue
                     }
-
-                    foreach ($result in (Invoke-PSFCommand -Computer $computer -Credential $Credential -ErrorAction Stop -ScriptBlock $scriptblock -ArgumentList $computer, $cabpath, $VerbosePreference)) {
-                        if (-not $result.Link) {
-                            Write-PSFMessage -Level Verbose -Message "No link found for $($result.KBUpdate.Trim()). Looking it up."
-                            $link = (Get-KbUpdate -Pattern "$($result.KBUpdate.Trim())" -Simple -Computer $computer | Where-Object Title -match $result.KBUpdate).Link
-                            if ($link) {
-                                $result.Link = $link
-                            }
-                        }
-                        $result
-                    }
+                    Invoke-PSFCommand -Computer $computer -Credential $Credential -ErrorAction Stop -ScriptBlock $scriptblock -ArgumentList $computer, $cabpath, $VerbosePreference
                 }
 
                 $jobs += Start-Job -Name $computer -ScriptBlock $invokeblock -ArgumentList $arglist -ErrorAction Stop
@@ -167,7 +193,16 @@ function Get-KbNeededUpdate {
         }
         if ($jobs.Name) {
             try {
-                $jobs | Start-JobProcess -Activity "Getting needed updates" -Status "getting needed updates" | Select-Object -Property * -ExcludeProperty PSComputerName, RunspaceId | Select-DefaultView -ExcludeProperty InstallFile | Select-DefaultView -Property ComputerName, Title, KBUpdate, UpdateId, Description, LastModified, RebootBehavior, RequestsUserInput, NetworkRequired, Link
+                foreach ($result in ($jobs | Start-JobProcess -Activity "Getting needed updates" -Status "getting needed updates" | Select-Object -Property * -ExcludeProperty PSComputerName, RunspaceId | Select-DefaultView -ExcludeProperty InstallFile | Select-DefaultView -Property ComputerName, Title, KBUpdate, UpdateId, Description, LastModified, RebootBehavior, RequestsUserInput, NetworkRequired, Link)) {
+                    if (-not $result.Link) {
+                        Write-PSFMessage -Level Verbose -Message "No link found for $($result.KBUpdate.Trim()). Looking it up."
+                        $link = (Get-KbUpdate -Pattern "$($result.KBUpdate.Trim())" -Simple -Computer $computer | Where-Object Title -match $result.KBUpdate).Link
+                        if ($link) {
+                            $result.Link = $link
+                        }
+                    }
+                    $result
+                }
             } catch {
                 Stop-PSFFunction -Message "Failure" -ErrorRecord $PSItem -EnableException:$EnableException -Continue
             }

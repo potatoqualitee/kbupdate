@@ -27,7 +27,7 @@ function Start-WindowsUpdate {
         [bool]$IsLocalHost,
         [string]$VerbosePreference,
         [Parameter(Mandatory)]
-        [string]$ModulePath
+        [string[]]$ModulePath
     )
     try {
         # No idea why this happens sometimes

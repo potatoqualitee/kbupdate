@@ -496,9 +496,9 @@ function Update-KbDatabase {
 
         Write-ProgressHelper -StepNumber 7 -Activity "Setting up prerequisites" -Message "Processing $($recent.Count) kbs"
         Write-Progress -Activity "Setting up prerequisites" -Completed
-
+        Write-Warning "About to run Update-KbDb"
         $output = Update-KbDb $recent
-
+        Write-Warning "Just ran Update-KbDb"
         if ($output.UpdateId) {
             $output.UpdateId | Write-Warning "Trying to grab $PSItem again"
             foreach ($object in $output) {

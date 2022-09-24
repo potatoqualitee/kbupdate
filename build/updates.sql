@@ -59,6 +59,8 @@ WHERE EXISTS (
   AND Supersedes.rowid > p2.rowid
 );
 
+delete FROM kb where Id is null and Classification = 'Classification:</span>';
+
 /*
 select distinct(SupportedProducts) from kb where SupportedProducts like '%|%' order by SupportedProducts;
 select count(*) from kb where MSRCNumber is null;

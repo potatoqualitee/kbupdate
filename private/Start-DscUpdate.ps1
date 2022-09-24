@@ -25,7 +25,7 @@ function Start-DscUpdate {
         [bool]$IsLocalHost,
         [string]$VerbosePreference,
         [Parameter(Mandatory)]
-        [string]$ModulePath
+        [string[]]$ModulePath
     )
     begin {
         # load up if a job

@@ -82,7 +82,7 @@ function Get-KbInstalledSoftware {
                         Credential   = $Credential
                         ScriptBlock  = $swblock
                         ArgumentList = (@($Pattern), $IncludeHidden, $VerbosePreference)
-                        ModulePath   = (Join-Path -Path $script:ModuleRoot -ChildPath kbupdate.psm1)
+                        ModulePath   = $script:dependencies
                     }
 
                     $invokeblock = {
