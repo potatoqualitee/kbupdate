@@ -7,11 +7,11 @@ function Start-Import {
         [scriptblock]$ScriptBlock
     )
     begin {
-        if (-not $script:linkhash) {
+        if (-not $global:kbupdate["linkhash"]) {
             Write-PSFMessage -Level Verbose -Message "Creating database hashtables"
-            $script:linkhash = [hashtable]::Synchronized(@{})
-            $script:superbyhash = [hashtable]::Synchronized(@{})
-            $script:superhash = [hashtable]::Synchronized(@{})
+            $global:kbupdate["linkhash"] = [hashtable]::Synchronized(@{})
+            $global:kbupdate["superbyhash"] = [hashtable]::Synchronized(@{})
+            $global:kbupdate["superhash"] = [hashtable]::Synchronized(@{})
             $global:runspaces = @()
             Write-PSFMessage -Level Verbose -Message "Done database hashtables"
         }
@@ -22,10 +22,10 @@ function Start-Import {
         $runspace = [runspacefactory]::CreateRunspace()
         $runspace.Name = $Name
         $runspace.Open()
-        $runspace.SessionStateProxy.SetVariable("linkhash", $script:linkhash)
+        $runspace.SessionStateProxy.SetVariable("linkhash", $global:kbupdate["linkhash"])
         $runspace.SessionStateProxy.SetVariable("basedb", $script:basedb)
-        $runspace.SessionStateProxy.SetVariable("superbyhash", $script:superbyhash)
-        $runspace.SessionStateProxy.SetVariable("superhash", $script:superhash)
+        $runspace.SessionStateProxy.SetVariable("superbyhash", $global:kbupdate["superbyhash"])
+        $runspace.SessionStateProxy.SetVariable("superhash", $global:kbupdate["superhash"])
         $ps.Runspace = $runspace
         $null = $ps.AddScript($ScriptBlock)
         $global:runspaces += [PSCustomObject]@{

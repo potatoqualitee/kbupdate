@@ -237,9 +237,9 @@ function Get-KbUpdate {
 
                 foreach ($item in $allitems) {
                     $script:allresults += $item.UpdateId
-                    $item.SupersededBy = $script:superbyhash[$item.UpdateId]
-                    $item.Supersedes = $script:superhash[$item.UpdateId]
-                    $item.Link = $script:linkhash[$item.UpdateId]
+                    $item.SupersededBy = $global:kbupdate["superbyhash"][$item.UpdateId]
+                    $item.Supersedes = $global:kbupdate["superhash"][$item.UpdateId]
+                    $item.Link = $global:kbupdate["linkhash"][$item.UpdateId]
 
                     if ($item.SupportedProducts -match "\|") {
                         $item.SupportedProducts = $item.SupportedProducts -split "\|"
