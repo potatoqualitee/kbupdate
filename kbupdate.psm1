@@ -126,7 +126,6 @@ $null = $PSDefaultParameterValues["Start-Job:InitializationScript"] = {
 }
 
 if (-not $global:kbupdate) {
-    $global:kbupdate = @{ }
     # Links, supersedes abd supersededby was taking too long to populate
     $kblib = Join-Path -Path (Split-Path -Path (Get-Module -Name kbupdate-library | Select-Object -Last 1).Path) -ChildPath library
     $linklib = Join-Path -Path $kblib -ChildPath links.dat
@@ -134,9 +133,15 @@ if (-not $global:kbupdate) {
     $superbyhashlib = Join-Path -Path $kblib -ChildPath supersededby.dat
 
     if ((Test-Path -Path $linklib)) {
-        $global:kbupdate["linkhash"] = Import-PSFCliXml -Path $linklib
-        $global:kbupdate["superhash"] = Import-PSFCliXml -Path $superhashlib
-        $global:kbupdate["superbyhash"] = Import-PSFCliXml -Path $superbyhashlib
+        $script:importjob = Start-Job -Name kbupdateglobal -ScriptBlock {
+            $args | Export-CliXml C:\temp\args.xml
+            $kbupdate = @{ }
+            $kbupdate["linkhash"] = Import-PSFCliXml -Path $args[0]
+            $kbupdate["superhash"] = Import-PSFCliXml -Path $args[1]
+            $kbupdate["superbyhash"] = Import-PSFCliXml -Path $args[2]
+            $kbupdate
+        } -ArgumentList $linklib, $superhashlib, $superbyhashlib
+        #$global:kbupdate = $job | Wait-Job | Receive-Job
     } else {
         Write-PSFMessage -Level Warning -Message "Cache not found, rebuilding. This should take about 30 seconds."
 
