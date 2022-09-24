@@ -125,7 +125,9 @@ $null = $PSDefaultParameterValues["Start-Job:InitializationScript"] = {
     $null = Import-Module PSFramework 4>$null
 }
 
-if (-not $global:kbupdate) {
+$script:importjob = Get-Job | Where-Object Name -eq kbupdate_cache_import
+
+if (-not $global:kbupdate -and -not $script:importjob) {
     # Links, supersedes abd supersededby was taking too long to populate
     $kblib = Join-Path -Path (Split-Path -Path (Get-Module -Name kbupdate-library | Select-Object -Last 1).Path) -ChildPath library
     $linklib = Join-Path -Path $kblib -ChildPath links.dat
@@ -133,7 +135,7 @@ if (-not $global:kbupdate) {
     $superbyhashlib = Join-Path -Path $kblib -ChildPath supersededby.dat
 
     if ((Test-Path -Path $linklib)) {
-        $script:importjob = Start-Job -Name kbupdateglobal -ScriptBlock {
+        $script:importjob = Start-Job -Name kbupdate_cache_import -ScriptBlock {
             $args | Export-CliXml C:\temp\args.xml
             $kbupdate = @{ }
             $kbupdate["linkhash"] = Import-PSFCliXml -Path $args[0]

@@ -178,13 +178,11 @@ function Get-KbUpdate {
             $Source = "Database"
         }
 
-        if ($script:importjob) {
-            if ($script:importjob.State -eq "Completed") {
-                $global:kbupdate = $script:importjob | Receive-Job
-                $null = $script:importjob | Remove-Job
-                $null = Remove-Variable -Name importjob -Scope Script
-            }
+        if ($script:importjob.State -eq "Completed") {
+            $global:kbupdate = $script:importjob | Receive-Job -Wait -AutoRemoveJob
+            $null = Remove-Variable -Name importjob -Scope Script
         }
+
         Write-PSFMessage -Level Verbose -Message "Source set to $Source"
         if ($OperatingSystem) {
             Write-PSFMessage -Level Verbose -Message "Operating system set to $OperatingSystem"
