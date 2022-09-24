@@ -125,53 +125,63 @@ $null = $PSDefaultParameterValues["Start-Job:InitializationScript"] = {
     $null = Import-Module PSFramework 4>$null
 }
 
-# Links, supersedes abd supersededby was taking too long to populate
-$kblib = Join-Path -Path (Split-Path -Path (Get-Module -Name kbupdate-library | Select-Object -Last 1).Path) -ChildPath library
-$linklib = Join-Path -Path $kblib -ChildPath links.dat
-$superhashlib = Join-Path -Path $kblib -ChildPath supersedes.dat
-$superbyhashlib = Join-Path -Path $kblib -ChildPath supersededby.dat
+$script:importjob = Get-Job | Where-Object Name -eq kbupdate_cache_import
 
-if ((Test-Path -Path $linklib)) {
-    $script:linkhash = Import-PSFCliXml -Path $linklib
-    $script:superhash = Import-PSFCliXml -Path $superhashlib
-    $script:superbyhash = Import-PSFCliXml -Path $superbyhashlib
-} else {
-    Write-PSFMessage -Level Warning -Message "Cache not found, rebuilding. This should take about 30 seconds."
+if (-not $global:kbupdate -and -not $script:importjob) {
+    # Links, supersedes abd supersededby was taking too long to populate
+    $kblib = Join-Path -Path (Split-Path -Path (Get-Module -Name kbupdate-library | Select-Object -Last 1).Path) -ChildPath library
+    $linklib = Join-Path -Path $kblib -ChildPath links.dat
+    $superhashlib = Join-Path -Path $kblib -ChildPath supersedes.dat
+    $superbyhashlib = Join-Path -Path $kblib -ChildPath supersededby.dat
 
-    Start-Import -Name Link -ScriptBlock {
-        foreach ($linkresult in (Invoke-SqliteQuery -DataSource $script:basedb -Query "select DISTINCT UpdateId, Link from Link")) {
-            $script:linkhash[$linkresult.UpdateId] += @($linkresult.Link)
+    if ((Test-Path -Path $linklib)) {
+        $script:importjob = Start-Job -Name kbupdate_cache_import -ScriptBlock {
+            $args | Export-CliXml C:\temp\args.xml
+            $kbupdate = @{ }
+            $kbupdate["linkhash"] = Import-PSFCliXml -Path $args[0]
+            $kbupdate["superhash"] = Import-PSFCliXml -Path $args[1]
+            $kbupdate["superbyhash"] = Import-PSFCliXml -Path $args[2]
+            $kbupdate
+        } -ArgumentList $linklib, $superhashlib, $superbyhashlib
+        #$global:kbupdate = $job | Wait-Job | Receive-Job
+    } else {
+        Write-PSFMessage -Level Warning -Message "Cache not found, rebuilding. This should take about 30 seconds."
+
+        Start-Import -Name Link -ScriptBlock {
+            foreach ($linkresult in (Invoke-SqliteQuery -DataSource $script:basedb -Query "select DISTINCT UpdateId, Link from Link")) {
+                $global:kbupdate["linkhash"][$linkresult.UpdateId] += @($linkresult.Link)
+            }
         }
-    }
 
-    Start-Import -Name Supersedes -ScriptBlock {
-        foreach ($superresult in (Invoke-SqliteQuery -DataSource $script:basedb -Query "select UpdateId, KB, Description from Supersedes")) {
-            $script:superhash[$superresult.UpdateId] += @([pscustomobject]@{
-                    KB          = $superresult.KB
-                    Description = $superresult.Description
-                }
-            )
+        Start-Import -Name Supersedes -ScriptBlock {
+            foreach ($superresult in (Invoke-SqliteQuery -DataSource $script:basedb -Query "select UpdateId, KB, Description from Supersedes")) {
+                $global:kbupdate["superhash"][$superresult.UpdateId] += @([pscustomobject]@{
+                        KB          = $superresult.KB
+                        Description = $superresult.Description
+                    }
+                )
+            }
         }
-    }
 
-    Start-Import -Name SupersededBy -ScriptBlock {
-        foreach ($superbyresult in (Invoke-SqliteQuery -DataSource $script:basedb -Query "select UpdateId, KB, Description, Description from SupersededBy")) {
-            $script:superbyhash[$superbyresult.UpdateId] += @([pscustomobject]@{
-                    KB          = $superbyresult.KB
-                    Description = $superbyresult.Description
-                }
-            )
+        Start-Import -Name SupersededBy -ScriptBlock {
+            foreach ($superbyresult in (Invoke-SqliteQuery -DataSource $script:basedb -Query "select UpdateId, KB, Description, Description from SupersededBy")) {
+                $global:kbupdate["superbyhash"][$superbyresult.UpdateId] += @([pscustomobject]@{
+                        KB          = $superbyresult.KB
+                        Description = $superbyresult.Description
+                    }
+                )
+            }
         }
+
+        while ($runspaces.Status.IsCompleted -notcontains $true) {}
+
+        foreach ($rs in $runspaces) {
+            $null = $rs.Pipe.EndInvoke($rs.Status)
+            $null = $rs.Pipe.Dispose()
+        }
+
+        $null = $global:kbupdate["superbyhash"] | Export-PSFCliXml -Path $superbyhashlib -Depth 2
+        $null = $global:kbupdate["superhash"] | Export-PSFCliXml -Path $superhashlib -Depth 2
+        $null = $global:kbupdate["linkhash"] | Export-PSFCliXml -Path $linklib -Depth 2
     }
-
-    while ($runspaces.Status.IsCompleted -notcontains $true) {}
-
-    foreach ($rs in $runspaces) {
-        $null = $rs.Pipe.EndInvoke($rs.Status)
-        $null = $rs.Pipe.Dispose()
-    }
-
-    $null = $script:superbyhash | Export-PSFCliXml -Path $superbyhashlib -Depth 2
-    $null = $script:superhash | Export-PSFCliXml -Path $superhashlib -Depth 2
-    $null = $script:linkhash | Export-PSFCliXml -Path $linklib -Depth 2
 }

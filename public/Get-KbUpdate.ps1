@@ -178,6 +178,11 @@ function Get-KbUpdate {
             $Source = "Database"
         }
 
+        if ($script:importjob.State -eq "Completed") {
+            $global:kbupdate = $script:importjob | Receive-Job -Wait -AutoRemoveJob
+            $null = Remove-Variable -Name importjob -Scope Script
+        }
+
         Write-PSFMessage -Level Verbose -Message "Source set to $Source"
         if ($OperatingSystem) {
             Write-PSFMessage -Level Verbose -Message "Operating system set to $OperatingSystem"
@@ -237,9 +242,16 @@ function Get-KbUpdate {
 
                 foreach ($item in $allitems) {
                     $script:allresults += $item.UpdateId
-                    $item.SupersededBy = $script:superbyhash[$item.UpdateId]
-                    $item.Supersedes = $script:superhash[$item.UpdateId]
-                    $item.Link = $script:linkhash[$item.UpdateId]
+                    if ($global:kbupdate) {
+                        $item.SupersededBy = $global:kbupdate["superbyhash"][$item.UpdateId]
+                        $item.Supersedes = $global:kbupdate["superhash"][$item.UpdateId]
+                        $item.Link = $global:kbupdate["linkhash"][$item.UpdateId]
+                    } else {
+                        # I do wish my import didn't return empties but sometimes it does so check for length of 3
+                        $item.SupersededBy = Invoke-SqliteQuery -DataSource $script:basedb -Query "select KB, Description from SupersededBy where UpdateId = '$($item.UpdateId)' COLLATE NOCASE and LENGTH(kb) > 3"
+                        $item.Supersedes = Invoke-SqliteQuery -DataSource $script:basedb -Query "select KB, Description from Supersedes where UpdateId = '$($item.UpdateId)' COLLATE NOCASE and LENGTH(kb) > 3"
+                        $item.Link = (Invoke-SqliteQuery -DataSource $script:basedb -Query "select DISTINCT Link from Link where UpdateId = '$($item.UpdateId)' COLLATE NOCASE").Link
+                    }
 
                     if ($item.SupportedProducts -match "\|") {
                         $item.SupportedProducts = $item.SupportedProducts -split "\|"
