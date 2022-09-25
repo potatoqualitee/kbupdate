@@ -198,7 +198,7 @@ function Get-KbNeededUpdate {
                 foreach ($result in ($jobs | Start-JobProcess -Activity "Getting needed updates" -Status "getting needed updates" | Select-Object -Property * -ExcludeProperty PSComputerName, RunspaceId | Select-DefaultView -ExcludeProperty InstallFile | Select-DefaultView -Property ComputerName, Title, KBUpdate, UpdateId, Description, LastModified, RebootBehavior, RequestsUserInput, NetworkRequired, Link)) {
                     if (-not $result.Link -and $result.KBUpdate) {
                         Write-PSFMessage -Level Verbose -Message "No link found for $($result.KBUpdate.Trim()). Looking it up."
-                        $link = (Get-KbUpdate -Source $(Get-PSFConfigValue -FullName kbupdate.app.source) -Pattern "$($result.KBUpdate.Trim())" -Simple -Computer $computer | Where-Object Title -match $result.KBUpdate).Link
+                        $link = (Get-KbUpdate -Pattern "$($result.KBUpdate.Trim())" -Simple -Computer $computer | Where-Object Title -match $result.KBUpdate).Link
                         if ($link) {
                             $result.Link = $link
                         }

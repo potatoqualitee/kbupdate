@@ -148,7 +148,7 @@ function Get-KbUpdate {
         [switch]$Force,
         [switch]$Multithread,
         [ValidateSet("Wsus", "Web", "Database")]
-        [string[]]$Source,
+        [string[]]$Source = (Get-PSFConfigValue -FullName kbupdate.app.source),
         [int]$MaxPages = 1,
         [datetime]$Since,
         [string]$CustomQuery,
@@ -163,11 +163,6 @@ function Get-KbUpdate {
         if ($PSBoundParameters.Language) {
             Write-PSFMessage -Level Verbose -Message "Language specified, switching to web source only"
             $Source = "Web"
-        }
-
-        if (-not $Source) {
-            Write-PSFMessage -Level Verbose -Message "No source specified, using default source from configs"
-            $Source = Get-PSFConfigValue -FullName kbupdate.app.source
         }
 
         if ($script:ConnectedWsus -and -not $PSBoundParameters.Source) {

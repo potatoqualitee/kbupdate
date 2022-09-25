@@ -99,14 +99,11 @@ if ((Get-Command -Name Get-NetConnectionProfile -ErrorAction SilentlyContinue)) 
     }
 }
 
-if ($internet) {
-    Write-PSFMessage -Level Verbose -Message "Internet connection detected. Setting source for Get-KbUpdate to Web and Database."
-    $PSDefaultParameterValues['Get-KbUpdate:Source'] = @("Web", "Database")
-    $PSDefaultParameterValues['Save-KbUpdate:Source'] = @("Web", "Database")
-} else {
+if (-not $internet) {
     Write-PSFMessage -Level Verbose -Message "Internet connection not detected. Setting source for Get-KbUpdate to Database."
     $PSDefaultParameterValues['Get-KbUpdate:Source'] = "Database"
     $PSDefaultParameterValues['Save-KbUpdate:Source'] = "Database"
+    $null = Set-PSFConfig -FullName kbupdate.app.source -Value Database
 }
 
 # Source

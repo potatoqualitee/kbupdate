@@ -211,7 +211,7 @@ function Start-DscUpdate {
 
                     # try to automatically download it for them
                     if (-not $object -and $Pattern) {
-                        $object = Get-KbUpdate -Source $(Get-PSFConfigValue -FullName kbupdate.app.source) -ComputerName $ComputerName -Pattern $Pattern | Where-Object { $PSItem.Link -and $PSItem.Title -match $Pattern }
+                        $object = Get-KbUpdate -ComputerName $ComputerName -Pattern $Pattern | Where-Object { $PSItem.Link -and $PSItem.Title -match $Pattern }
                     }
 
                     # note to reader: if this picks the wrong one, please download the required file manually.
