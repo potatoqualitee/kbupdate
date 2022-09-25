@@ -243,6 +243,7 @@ function Get-KbUpdate {
                 foreach ($item in $allitems) {
                     $script:allresults += $item.UpdateId
                     if ($global:kbupdate) {
+                        # cache has finished importing
                         $item.SupersededBy = $global:kbupdate["superbyhash"][$item.UpdateId]
                         $item.Supersedes = $global:kbupdate["superhash"][$item.UpdateId]
                         $item.Link = $global:kbupdate["linkhash"][$item.UpdateId]
@@ -305,7 +306,14 @@ function Get-KbUpdate {
                     foreach ($superby in $item.SupersededBy) {
                         $null = $superby | Add-Member -MemberType ScriptMethod -Name ToString -Value { $this.Description } -Force
                     }
-                    $item
+                    if ($arch) {
+                        if ($item.Architecture -eq $arch) {
+                            $item
+                        }
+                    } else {
+                        $item
+                    }
+
                 }
 
                 if (-not $item -and $Source -eq "Database") {
