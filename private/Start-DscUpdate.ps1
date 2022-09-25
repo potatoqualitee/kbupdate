@@ -169,10 +169,19 @@ function Start-DscUpdate {
         }
         foreach ($object in $InputObject) {
             if ($object.Link -and $RepositoryPath) {
-                $filename = Split-Path -Path $object.Link -Leaf
-                Write-PSFMessage -Level Verbose -Message "Adding $filename"
-                $FilePath = Join-Path -Path $RepositoryPath -ChildPath $filename
-                $FilePath = Join-Path -Path $RepositoryPath -ChildPath $filename
+                try {
+                    $filename = Split-Path -Path $object.Link -Leaf
+                    Write-PSFMessage -Level Verbose -Message "Adding $filename to $RepositoryPath"
+                    $repofile = Join-Path -Path $RepositoryPath -ChildPath $filename
+                    if ($remotehome) {
+                        $null = Copy-Item -Path $repofile -Destination "$remotehome\Downloads\$filename" -ToSession $remotesession -Recurse -Force
+                    } else {
+                        $null = Copy-Item -Path $repofile -Destination "$home\Downloads" -Recurse -Force
+                    }
+                } catch {
+                    $hostname = $object.ComputerName
+                    Stop-PSFFunction -Message "Couldn't copy $filename from repo to $hostname." -Continue
+            }
                 Write-PSFMessage -Level Verbose -Message "Adding $($FilePath)"
             }
 
