@@ -199,13 +199,13 @@ function Install-KbUpdate {
                     VerbosePreference = $VerbosePreference
                     ModulePath        = $script:dependencies
                 }
-                $script:dependencies | Write-Warning
+
                 $null = $PSDefaultParameterValues["Start-Job:ArgumentList"] = $parms
                 $null = $PSDefaultParameterValues["Start-Job:Name"] = $hostname
 
                 if ($method -eq "WindowsUpdate" -and -not $FilePath) {
                     Write-PSFMessage -Level Verbose -Message "Method is WindowsUpdate"
-                    if ($ComputerName.Count -eq 1 -or $NoMultithreading) {
+                    if ($NoMultithreading) {
                         Write-PSFMessage -Level Verbose -Message "Not using jobs for update to $hostname"
                         Start-WindowsUpdate @parms
                     } else {

@@ -462,6 +462,7 @@ function Start-DscUpdate {
                     Import-Module xWindowsUpdate -RequiredVersion 3.0.0 4>$null
                     $PSDefaultParameterValues.Remove("Invoke-WebRequest:ErrorAction")
                     $PSDefaultParameterValues['*:ErrorAction'] = 'SilentlyContinue'
+                    $PSDefaultParameterValues['Invoke-DscResource:WarningAction'] = 'SilentlyContinue'
                     $ErrorActionPreference = "Stop"
                     $oldpref = $ProgressPreference
                     $ProgressPreference = "SilentlyContinue"
