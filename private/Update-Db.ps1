@@ -177,6 +177,7 @@ function Update-Db {
                         try {
                             Invoke-SQLiteBulkCopy -DataTable ($kb | ConvertTo-DbaDataTable) -DataSource $dailydb -Table Kb -Confirm:$false
                         } catch {
+                            $value = $file
                             if ($file.BaseName) {
                                 $value = $file.BaseName
                             } else {
