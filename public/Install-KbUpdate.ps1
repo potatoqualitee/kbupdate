@@ -197,6 +197,7 @@ function Install-KbUpdate {
                     IsLocalHost       = $computer.IsLocalHost
                     AllNeeded         = $AllNeeded
                     VerbosePreference = $VerbosePreference
+                    ScanFilePath      = $ScanFilePath
                     ModulePath        = $script:dependencies
                 }
 

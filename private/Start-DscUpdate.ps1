@@ -24,6 +24,7 @@ function Start-DscUpdate {
         [switch]$EnableException,
         [bool]$IsLocalHost,
         [string]$VerbosePreference,
+        [string]$ScanFilePath,
         [string[]]$ModulePath
     )
     begin {
@@ -57,7 +58,11 @@ function Start-DscUpdate {
         }
 
         if ($AllNeeded) {
-            $InputObject = Get-KbNeededUpdate -ComputerName $ComputerName
+            if ($ScanFilePath) {
+                $InputObject = Get-KbNeededUpdate -ComputerName $ComputerName -ScanFilePath $ScanFilePath -Force
+            } else {
+                $InputObject = Get-KbNeededUpdate -ComputerName $ComputerName
+            }
         }
         if ($FilePath) {
             $InputObject += Get-ChildItem -Path $FilePath
