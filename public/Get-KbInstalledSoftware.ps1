@@ -84,9 +84,10 @@ function Get-KbInstalledSoftware {
                         ArgumentList = (@($Pattern), $IncludeHidden, $VerbosePreference)
                         ModulePath   = $script:dependencies
                     }
-
                     $invokeblock = {
-                        Import-Module $args.ModulePath
+                        foreach ($path in $args.ModulePath) {
+                            $null = Import-Module $path 4>$null
+                        }
                         $sbjson = $args.ScriptBlock | ConvertFrom-Json
                         $sb = [scriptblock]::Create($sbjson)
                         $parms = @{

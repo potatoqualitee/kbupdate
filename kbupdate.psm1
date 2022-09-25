@@ -58,7 +58,8 @@ $kblib = Split-Path -Path (Get-Module -Name kbupdate-library | Select-Object -La
 $script:basedb = (Get-ChildItem -Path "$kblib\*.sqlite" -Recurse).FullName
 
 # This will help jobs + instances where kbupdate is not in the psmodulepath
-$script:dependencies = (Get-Module kbupdate, PSFramework, kbupdate-library, PSSQLite).Path
+$script:dependencies = @(Get-Module PSFramework, kbupdate-library, PSSQLite).Path
+$script:dependencies += "$ModuleRoot\kbupdate.psm1"
 
 if (-not $IsLinux -and -not $IsMacOs) {
     # for those of us who are loading the psm1 directly

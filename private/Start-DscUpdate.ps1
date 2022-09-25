@@ -29,11 +29,8 @@ function Start-DscUpdate {
     )
     begin {
         # load up if a job
-        if (-not (Get-Module kbupdate)) {
-            Import-Module -Name $ModulePath -Force
-            $null = Import-Module PSSQLite 4>$null
-            $null = Import-Module PSFramework 4>$null
-            $null = Import-Module kbupdate 4>$null
+        foreach ($path in $ModulePath) {
+            $null = Import-Module $path 4>$null
         }
         if ($PSVersionTable.PSVersion.Major -gt 5) {
             $null = Import-Module -UseWindowsPowerShell PSDesiredStateConfiguration -MaximumVersion 1.1 *>$null
@@ -65,7 +62,7 @@ function Start-DscUpdate {
             $InputObject += Get-ChildItem -Path $FilePath
         }
 
-        $script:ModuleRoot = Split-Path -Path ((Get-Module -ListAvailable -Name kbupdate | Sort-Object Version -Descending).Path | Select-Object -First 1)
+        $script:ModuleRoot = Split-Path -Path $($ModulePath | Select-Object -Last 1)
 
         # null out a couple things to be safe
         $remotefileexists = $programhome = $remotesession = $null

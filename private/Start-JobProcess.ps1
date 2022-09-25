@@ -123,6 +123,9 @@ function Start-JobProcess {
                     }
                     $null = $added++
                     $done = $kbjobs | Where-Object Name -ne $kbjob.Name
+                    if (-not $done) {
+                        $done = $kbjobs
+                    }
                     $progressparms = @{
                         Activity        = $Activity
                         Status          = "Still $Status on $($done.Name -join ', '). Please enjoy the progress bar."

@@ -26,7 +26,6 @@ function Start-WindowsUpdate {
         [switch]$AllNeeded,
         [bool]$IsLocalHost,
         [string]$VerbosePreference,
-        [Parameter(Mandatory)]
         [string[]]$ModulePath
     )
     try {
@@ -45,7 +44,16 @@ function Start-WindowsUpdate {
             $hostname = $ComputerName
         }
 
-        Import-Module $ModulePath
+        if ($Guid -and -not $InputObject) {
+            $InputObject = [pscustomobject]@{
+                UpdateId = $Guid
+            }
+        }
+
+        foreach ($path in $ModulePath) {
+            $null = Import-Module $path 4>$null
+        }
+
         Write-PSFMessage -Level Verbose -Message "Using the Windows Update method"
         $sessiontype = [type]::GetTypeFromProgID("Microsoft.Update.Session")
         $session = [activator]::CreateInstance($sessiontype)
