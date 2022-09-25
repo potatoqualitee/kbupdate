@@ -157,18 +157,20 @@ function Update-KbDatabase {
                                 $arch = "x64"
                             }
 
-                            if ($title -match '64-Bit' -and $title -notmatch '32-Bit' -and -not $arch) {
+                            if ($title -match '64-Bit' -and ($title -notmatch '32-Bit' -and $title -notmatch 'x86') -and -not $arch) {
                                 $arch = "x64"
                             }
-                            if ($title -notmatch '64-Bit' -and $title -match '32-Bit' -and -not $arch) {
+
+                            if (($title -notmatch 'x64' -and $title -notmatch '64-Bit') -and $title -match 'x86' -and -not $arch) {
                                 $arch = "x86"
                             }
 
-                            if ($title -match 'x64' -and $title -notmatch 'x86' -and -not $arch) {
-                                $arch = "x64"
-                            }
-                            if ($title -notmatch 'x64' -and $title -match 'x86' -and -not $arch) {
+                            if (($title -notmatch '64-Bit' -and $title -notmatch 'x64') -and $title -match '32-Bit' -and -not $arch) {
                                 $arch = "x86"
+                            }
+
+                            if ($title -match 'x64' -and ($title -notmatch 'x86' -and $title -notmatch '32-bit') -and -not $arch) {
+                                $arch = "x64"
                             }
 
                             if ($arch -eq "n/a") {
