@@ -197,7 +197,6 @@ function Get-KbUpdate {
                     continue
                 }
                 Write-PSFMessage -Level Verbose -Message "Processing $kb"
-                write-warning "$arch $since $customquery $os $kb"
                 # Join to dupe and check dupe
                 $kb = $kb.ToLower()
 

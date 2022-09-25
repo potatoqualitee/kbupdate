@@ -149,16 +149,25 @@ function Update-KbDatabase {
                             if ($longlang -eq "all") {
                                 $longlang = "All"
                             }
+
                             if ($arch -eq "") {
                                 $arch = $null
                             }
                             if ($arch -eq "AMD64") {
                                 $arch = "x64"
                             }
+
                             if ($title -match '64-Bit' -and $title -notmatch '32-Bit' -and -not $arch) {
                                 $arch = "x64"
                             }
                             if ($title -notmatch '64-Bit' -and $title -match '32-Bit' -and -not $arch) {
+                                $arch = "x86"
+                            }
+
+                            if ($title -match 'x64' -and $title -notmatch 'x86' -and -not $arch) {
+                                $arch = "x64"
+                            }
+                            if ($title -notmatch 'x64' -and $title -match 'x86' -and -not $arch) {
                                 $arch = "x86"
                             }
 
