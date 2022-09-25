@@ -24,14 +24,9 @@ function Start-DscUpdate {
         [switch]$EnableException,
         [bool]$IsLocalHost,
         [string]$VerbosePreference,
-        [Parameter(Mandatory)]
         [string[]]$ModulePath
     )
     begin {
-        # load up if a job
-        foreach ($path in $ModulePath) {
-            $null = Import-Module $path 4>$null
-        }
         if ($PSVersionTable.PSVersion.Major -gt 5) {
             $null = Import-Module -UseWindowsPowerShell PSDesiredStateConfiguration -MaximumVersion 1.1 *>$null
         }
@@ -43,6 +38,12 @@ function Start-DscUpdate {
                 Set-Variable -Name $key -Value $hashtable[$key]
             }
         }
+
+        # load up if a job
+        foreach ($path in $ModulePath) {
+            $null = Import-Module $path 4>$null
+        }
+
         if ($EnableException) {
             $PSDefaultParameterValues["*:EnableException"] = $true
         } else {
@@ -506,7 +507,6 @@ function Start-DscUpdate {
                                 $msgs = Invoke-DscResource @hotfix -Method Set -ErrorAction Stop 4>&1
 
                                 if ($msgs) {
-                                    write-warning HELLO
                                     foreach ($msg in $msgs) {
                                         # too many extra spaces, baw
                                         while ("$msg" -match "  ") {

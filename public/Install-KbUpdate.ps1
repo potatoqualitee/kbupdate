@@ -199,10 +199,11 @@ function Install-KbUpdate {
                     VerbosePreference = $VerbosePreference
                     ModulePath        = $script:dependencies
                 }
+                $script:dependencies | Write-Warning
                 $null = $PSDefaultParameterValues["Start-Job:ArgumentList"] = $parms
                 $null = $PSDefaultParameterValues["Start-Job:Name"] = $hostname
 
-                if ($method -eq "WindowsUpdate") {
+                if ($method -eq "WindowsUpdate" -and -not $FilePath) {
                     Write-PSFMessage -Level Verbose -Message "Method is WindowsUpdate"
                     if ($ComputerName.Count -eq 1 -or $NoMultithreading) {
                         Write-PSFMessage -Level Verbose -Message "Not using jobs for update to $hostname"
@@ -213,7 +214,7 @@ function Install-KbUpdate {
                     }
                 } else {
                     Write-PSFMessage -Level Verbose -Message "Method is DSC"
-                    if ($ComputerName.Count -eq 1 -or $NoMultithreading) {
+                    if ($NoMultithreading) {
                         Write-PSFMessage -Level Verbose -Message "Not using jobs for update to $hostname"
                         Start-DscUpdate @parms -ErrorAction Stop
                     } else {
