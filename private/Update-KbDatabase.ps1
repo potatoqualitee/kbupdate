@@ -156,6 +156,15 @@ function Update-KbDatabase {
                             if ($arch -eq "AMD64") {
                                 $arch = "x64"
                             }
+                            if ($arch -eq "n/a") {
+                                $arch = $null
+                            }
+                            if ($item.title -match "ia32") {
+                                $arch = "IA32"
+                            }
+                            if ($item.title -match "ia64") {
+                                $arch = "IA64"
+                            }
 
                             if ($title -match '64-Bit' -and ($title -notmatch '32-Bit' -and $title -notmatch 'x86') -and -not $arch) {
                                 $arch = "x64"

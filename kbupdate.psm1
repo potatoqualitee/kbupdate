@@ -109,6 +109,9 @@ if ($internet) {
     $PSDefaultParameterValues['Save-KbUpdate:Source'] = "Database"
 }
 
+# Source
+Set-PSFConfig -FullName kbupdate.app.source -Value @('Web', 'Database') -Initialize -Validation stringarray -Handler { } -Description 'Data source for Get-KbUpdate and Save-KbUpdate'
+
 # Disables session caching
 Set-PSFConfig -FullName PSRemoting.Sessions.Enable -Value $true -Initialize -Validation bool -Handler { } -Description 'Globally enables session caching for PowerShell remoting'
 
@@ -122,7 +125,7 @@ Set-PSFConfig -FullName PSRemoting.PsSessionOption.SkipRevocationCheck -Value $f
 Set-PSFConfig -FullName PSRemoting.PsSession.UseSSL -Value $false -Initialize -Validation bool -Description 'Changes the value of -UseSSL parameter used by New-PsSession which is used for kbupdate internally when working with PSRemoting.'
 Set-PSFConfig -FullName PSRemoting.PsSession.Port -Value $null -Initialize -Validation integerpositive -Description 'Changes the -Port parameter value used by New-PsSession which is used for kbupdate internally when working with PSRemoting. Use it when you don''t work with default port number. To reset, use Set-PSFConfig -FullName PSRemoting.PsSession.Port -Value $null'
 
-Set-Alias -Name Get-KbInstalledUpdate -Value Get-KbUpdateSoftware
+Set-Alias -Name Get-KbInstalledUpdate -Value Get-KbInstalledSoftware
 
 $null = $PSDefaultParameterValues["Start-Job:InitializationScript"] = {
     $null = Import-Module PSSQLite 4>$null
