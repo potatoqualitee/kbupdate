@@ -58,7 +58,8 @@ $kblib = Split-Path -Path (Get-Module -Name kbupdate-library | Select-Object -La
 $script:basedb = (Get-ChildItem -Path "$kblib\*.sqlite" -Recurse).FullName
 
 # This will help jobs + instances where kbupdate is not in the psmodulepath
-$script:dependencies = (Get-Module kbupdate, PSFramework, kbupdate-library, PSSQLite).Path
+$script:dependencies = @(Get-Module PSFramework, kbupdate-library, PSSQLite).Path
+$script:dependencies += "$ModuleRoot\kbupdate.psm1"
 
 if (-not $IsLinux -and -not $IsMacOs) {
     # for those of us who are loading the psm1 directly
@@ -98,15 +99,15 @@ if ((Get-Command -Name Get-NetConnectionProfile -ErrorAction SilentlyContinue)) 
     }
 }
 
-if ($internet) {
-    Write-PSFMessage -Level Verbose -Message "Internet connection detected. Setting source for Get-KbUpdate to Web and Database."
-    $PSDefaultParameterValues['Get-KbUpdate:Source'] = @("Web", "Database")
-    $PSDefaultParameterValues['Save-KbUpdate:Source'] = @("Web", "Database")
-} else {
+if (-not $internet) {
     Write-PSFMessage -Level Verbose -Message "Internet connection not detected. Setting source for Get-KbUpdate to Database."
     $PSDefaultParameterValues['Get-KbUpdate:Source'] = "Database"
     $PSDefaultParameterValues['Save-KbUpdate:Source'] = "Database"
+    $null = Set-PSFConfig -FullName kbupdate.app.source -Value Database
 }
+
+# Source
+Set-PSFConfig -FullName kbupdate.app.source -Value @('Web', 'Database') -Initialize -Validation stringarray -Handler { } -Description 'Data source for Get-KbUpdate and Save-KbUpdate'
 
 # Disables session caching
 Set-PSFConfig -FullName PSRemoting.Sessions.Enable -Value $true -Initialize -Validation bool -Handler { } -Description 'Globally enables session caching for PowerShell remoting'
@@ -121,7 +122,7 @@ Set-PSFConfig -FullName PSRemoting.PsSessionOption.SkipRevocationCheck -Value $f
 Set-PSFConfig -FullName PSRemoting.PsSession.UseSSL -Value $false -Initialize -Validation bool -Description 'Changes the value of -UseSSL parameter used by New-PsSession which is used for kbupdate internally when working with PSRemoting.'
 Set-PSFConfig -FullName PSRemoting.PsSession.Port -Value $null -Initialize -Validation integerpositive -Description 'Changes the -Port parameter value used by New-PsSession which is used for kbupdate internally when working with PSRemoting. Use it when you don''t work with default port number. To reset, use Set-PSFConfig -FullName PSRemoting.PsSession.Port -Value $null'
 
-Set-Alias -Name Get-KbInstalledUpdate -Value Get-KbUpdateSoftware
+Set-Alias -Name Get-KbInstalledUpdate -Value Get-KbInstalledSoftware
 
 $null = $PSDefaultParameterValues["Start-Job:InitializationScript"] = {
     $null = Import-Module PSSQLite 4>$null

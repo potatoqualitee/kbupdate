@@ -101,7 +101,7 @@ function Save-KbUpdate {
         [switch]$Latest,
         [switch]$AllowClobber,
         [ValidateSet("Wsus", "Web", "Database")]
-        [string[]]$Source,
+        [string[]]$Source = (Get-PSFConfigValue -FullName kbupdate.app.source),
         [switch]$EnableException
     )
     begin {

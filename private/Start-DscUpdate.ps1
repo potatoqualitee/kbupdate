@@ -24,17 +24,10 @@ function Start-DscUpdate {
         [switch]$EnableException,
         [bool]$IsLocalHost,
         [string]$VerbosePreference,
-        [Parameter(Mandatory)]
+        [string]$ScanFilePath,
         [string[]]$ModulePath
     )
     begin {
-        # load up if a job
-        if (-not (Get-Module kbupdate)) {
-            Import-Module -Name $ModulePath -Force
-            $null = Import-Module PSSQLite 4>$null
-            $null = Import-Module PSFramework 4>$null
-            $null = Import-Module kbupdate 4>$null
-        }
         if ($PSVersionTable.PSVersion.Major -gt 5) {
             $null = Import-Module -UseWindowsPowerShell PSDesiredStateConfiguration -MaximumVersion 1.1 *>$null
         }
@@ -46,6 +39,12 @@ function Start-DscUpdate {
                 Set-Variable -Name $key -Value $hashtable[$key]
             }
         }
+
+        # load up if a job
+        foreach ($path in $ModulePath) {
+            $null = Import-Module $path 4>$null
+        }
+
         if ($EnableException) {
             $PSDefaultParameterValues["*:EnableException"] = $true
         } else {
@@ -59,13 +58,17 @@ function Start-DscUpdate {
         }
 
         if ($AllNeeded) {
-            $InputObject = Get-KbNeededUpdate -ComputerName $ComputerName
+            if ($ScanFilePath) {
+                $InputObject = Get-KbNeededUpdate -ComputerName $ComputerName -ScanFilePath $ScanFilePath -Force
+            } else {
+                $InputObject = Get-KbNeededUpdate -ComputerName $ComputerName
+            }
         }
         if ($FilePath) {
             $InputObject += Get-ChildItem -Path $FilePath
         }
 
-        $script:ModuleRoot = Split-Path -Path ((Get-Module -ListAvailable -Name kbupdate | Sort-Object Version -Descending).Path | Select-Object -First 1)
+        $script:ModuleRoot = Split-Path -Path $($ModulePath | Select-Object -Last 1)
 
         # null out a couple things to be safe
         $remotefileexists = $programhome = $remotesession = $null
@@ -464,6 +467,7 @@ function Start-DscUpdate {
                     Import-Module xWindowsUpdate -RequiredVersion 3.0.0 4>$null
                     $PSDefaultParameterValues.Remove("Invoke-WebRequest:ErrorAction")
                     $PSDefaultParameterValues['*:ErrorAction'] = 'SilentlyContinue'
+                    $PSDefaultParameterValues['Invoke-DscResource:WarningAction'] = 'SilentlyContinue'
                     $ErrorActionPreference = "Stop"
                     $oldpref = $ProgressPreference
                     $ProgressPreference = "SilentlyContinue"
@@ -509,7 +513,6 @@ function Start-DscUpdate {
                                 $msgs = Invoke-DscResource @hotfix -Method Set -ErrorAction Stop 4>&1
 
                                 if ($msgs) {
-                                    write-warning HELLO
                                     foreach ($msg in $msgs) {
                                         # too many extra spaces, baw
                                         while ("$msg" -match "  ") {

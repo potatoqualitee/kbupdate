@@ -148,7 +148,7 @@ function Get-KbUpdate {
         [switch]$Force,
         [switch]$Multithread,
         [ValidateSet("Wsus", "Web", "Database")]
-        [string[]]$Source = @("Web", "Database"),
+        [string[]]$Source = (Get-PSFConfigValue -FullName kbupdate.app.source),
         [int]$MaxPages = 1,
         [datetime]$Since,
         [string]$CustomQuery,

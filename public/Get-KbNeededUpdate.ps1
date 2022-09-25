@@ -89,7 +89,9 @@ function Get-KbNeededUpdate {
                 }
 
                 $invokeblock = {
-                    Import-Module $args.ModulePath
+                    foreach ($path in $args.ModulePath) {
+                        $null = Import-Module $path 4>$null
+                    }
                     $sbjson = $args.ScriptBlock | ConvertFrom-Json
                     $sb = [scriptblock]::Create($sbjson)
                     $machine = $args.ComputerName
@@ -194,7 +196,7 @@ function Get-KbNeededUpdate {
         if ($jobs.Name) {
             try {
                 foreach ($result in ($jobs | Start-JobProcess -Activity "Getting needed updates" -Status "getting needed updates" | Select-Object -Property * -ExcludeProperty PSComputerName, RunspaceId | Select-DefaultView -ExcludeProperty InstallFile | Select-DefaultView -Property ComputerName, Title, KBUpdate, UpdateId, Description, LastModified, RebootBehavior, RequestsUserInput, NetworkRequired, Link)) {
-                    if (-not $result.Link) {
+                    if (-not $result.Link -and $result.KBUpdate) {
                         Write-PSFMessage -Level Verbose -Message "No link found for $($result.KBUpdate.Trim()). Looking it up."
                         $link = (Get-KbUpdate -Pattern "$($result.KBUpdate.Trim())" -Simple -Computer $computer | Where-Object Title -match $result.KBUpdate).Link
                         if ($link) {
