@@ -324,9 +324,42 @@ function Uninstall-KbUpdate {
             }
             if ($PSCmdlet.ShouldProcess($computer, "Uninstalling Hotfix $packagename by executing $exec")) {
                 try {
-                    Invoke-PSFCommand -ComputerName $computer -Credential $Credential -ScriptBlock $programscriptblock -ArgumentList $Program, $ArgumentList, $object.HotfixId, $packagename, $VerbosePreference -ErrorAction Stop | Select-Object -Property * -ExcludeProperty PSComputerName, RunspaceId
+                    $jobs = @()
+                    foreach ($computer in $ComputerName) {
+                        Write-PSFMessage -Level Verbose -Message "Adding job for $computer"
+                        $arglist = [pscustomobject]@{
+                            ComputerName = $computer
+                            Credential   = $Credential
+                            ScriptBlock  = $programscriptblock
+                            ArgumentList = $Program, $ArgumentList, $object.HotfixId, $packagename, $VerbosePreference
+                            ModulePath   = $script:dependencies
+                        }
+                        $invokeblock = {
+                            foreach ($path in $args.ModulePath) {
+                                $null = Import-Module $path 4>$null
+                            }
+                            $sb = [scriptblock]::Create($args.ScriptBlock)
+                            $parms = @{
+                                ComputerName = $args.ComputerName
+                                Credential   = $args.Credential
+                                ScriptBlock  = $sb
+                                ArgumentList = $args.ArgumentList
+                            }
+                            Invoke-KbCommand @parms -ErrorAction Stop
+                        }
+                        $jobs += Start-Job -Name $computer -ScriptBlock $invokeblock -ArgumentList $arglist -ErrorAction Stop
+                    }
                 } catch {
                     Stop-PSFFunction -Message "Failure on $computer while attempting to uninstall $packagename" -ErrorRecord $_ -EnableException:$EnableException
+                }
+
+                if ($jobs.Name) {
+                    try {
+                        $jobs | Start-JobProcess -Activity "Uninstalling updates" -Status "uninstalling updates" |
+                        Select-Object -Property * -ExcludeProperty PSComputerName, RunspaceId
+                    } catch {
+                        Stop-PSFFunction -Message "Failure" -ErrorRecord $PSItem -EnableException:$EnableException -Continue
+                    }
                 }
             }
         }

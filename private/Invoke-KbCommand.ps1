@@ -60,7 +60,7 @@ function Invoke-KbCommand {
     }
     $computer = [PSFComputer]$ComputerName
 
-    Write-PSFMessage -Level Verbose -Message "Adding ErrorActon Stop to Invoke-Command and Invoke-PSFCommand"
+    Write-PSFMessage -Level Debug -Message "Adding ErrorActon Stop to Invoke-Command and Invoke-PSFCommand"
     $PSDefaultParameterValues['*:ErrorAction'] = "Stop"
     $PSDefaultParameterValues['*:ErrorAction'] = "Stop"
 
@@ -96,7 +96,7 @@ function Invoke-KbCommand {
             }
 
             if (-not $session) {
-                Write-PSFMessage -Level Verbose -Message "Creating session objects"
+                Write-PSFMessage -Level Debug -Message "Creating session objects"
                 $sessionoptions = @{
                     IncludePortInSPN    = Get-PSFConfigValue -FullName PSRemoting.PsSessionOption.IncludePortInSPN
                     SkipCACheck         = Get-PSFConfigValue -FullName PSRemoting.PsSessionOption.SkipCACheck
@@ -118,7 +118,7 @@ function Invoke-KbCommand {
                     $null = $sessionparm.Add("Port", (Get-PSFConfigValue -FullName PSRemoting.PsSession.Port))
                 }
 
-                Write-PSFMessage -Level Verbose -Message "Creating new session"
+                Write-PSFMessage -Level Debug -Message "Creating new session"
                 $session = New-PSSession @sessionparm
             }
             Write-PSFMessage -Level Verbose -Message "Connecting to session using Invoke-PSFCommand"
