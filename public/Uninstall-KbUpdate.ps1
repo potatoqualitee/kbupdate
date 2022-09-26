@@ -183,13 +183,17 @@ function Uninstall-KbUpdate {
                         if ($exists.Summary -match "restart") {
                             Stop-PSFFunction -EnableException:$EnableException -Message "You must restart before you can uninstall $hotfix on $computer" -Continue
                         } else {
-                            $InputObject += $exists
+                            if ($exists.FastPackageReference -and $exists.FastPackageReference -notin $InputObject.FastPackageReference) {
+                                $InputObject += $exists
+                            } elseif ($exists.PackageObject -and $exists.PackageObject -notin $InputObject.PackageObject) {
+                                $InputObject += $exists
+                            }
                         }
                     }
                 }
             }
+            $InputObject | Sort-Object FastPackageReference -Unique
         }
-
         if ($IsLinux -or $IsMacOs) {
             Stop-PSFFunction -Message "This command uses remoting and only supports Windows at this time" -EnableException:$EnableException
             return
