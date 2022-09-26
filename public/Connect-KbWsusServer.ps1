@@ -69,7 +69,7 @@ function Connect-KbWsusServer {
             try {
                 Import-Module -Name PoshWSUS -ErrorAction Stop
             } catch {
-                Import-Module "$script:ModuleRoot\library\PoshWSUS"
+                Import-Module "$script:ModuleRoot\library\PoshWSUS" -ErrorAction Ignore
             }
         }
 
@@ -80,7 +80,7 @@ function Connect-KbWsusServer {
         if (Test-Path -Path $dir) {
             foreach ($file in Get-ChildItem -Path $dir) {
                 try {
-                    Add-Type -Path $file.Fullname -ErrorAction Stop
+                    Add-Type -Path $file.Fullname -ErrorAction Ignore
                 } catch {
                     # nbd
                 }

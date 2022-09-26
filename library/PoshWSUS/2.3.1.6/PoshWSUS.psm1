@@ -15,15 +15,15 @@ if (-not (Test-Path "HKLM:\SOFTWARE\Microsoft\Update Services\Server\Setup"))
 {
 	# Push to registry node, so New-ItemProperty has the correct PropertyTypes
 	Push-Location "HKLM:\"
-	
+
 	# Create Container
 	New-Item "HKLM:\SOFTWARE\Microsoft\Update Services\Server\Setup" -Force | Out-Null
-	
+
 	# Keys necessary for WSUS libraries to function
 	New-ItemProperty -Path "HKLM:\SOFTWARE\Microsoft\Update Services\Server\Setup" -Name "ConfigurationSource" -PropertyType "DWORD" -Value 0 -ErrorAction 'Stop' | Out-Null
 	New-ItemProperty -Path "HKLM:\SOFTWARE\Microsoft\Update Services\Server\Setup" -Name "EnableRemoting" -PropertyType "DWORD" -Value 1 -ErrorAction 'Stop' | Out-Null
 	New-ItemProperty -Path "HKLM:\SOFTWARE\Microsoft\Update Services\Server\Setup" -Name "TargetDir" -PropertyType "String" -Value "$($env:ProgramFiles)\Update Services\" -ErrorAction 'Stop' | Out-Null
-	
+
 	# Pop back to where you were
 	Pop-Location
 }
@@ -45,16 +45,7 @@ if ([System.IntPtr]::Size -eq 4)
 # Load libraries (64bit)
 else
 {
-	try
-	{
-		# Try loading properly installed Assemblies first
-		Add-Type -AssemblyName "Microsoft.UpdateServices.Administration" -ErrorAction Stop
-	}
-	catch
-	{
-		# Try loading brought along Assemblies second
-		Add-Type -Path "$ScriptPath\Libraries\x64\Microsoft.UpdateServices.Administration.dll" -ErrorAction 'SilentlyContinue'
-	}
+    Add-Type -Path "$ScriptPath\Libraries\x64\Microsoft.UpdateServices.Administration.dll" -ErrorAction 'SilentlyContinue'
 }
 
 # Validate Library

@@ -105,27 +105,36 @@ function Save-KbUpdate {
         [switch]$EnableException
     )
     begin {
-        $files = @()
+        $jobs = @()
     }
     process {
         switch ($PSCmdlet.ParameterSetName) {
             'link' {
                 $Link | Foreach-Object {
-                    $hyperlinklol = $_
+                    $hyperlinklol = $PSItem
                     $fileName = Split-Path $hyperlinklol -Leaf
-                    $file = Join-Path $Path -ChildPath $fileName
+                    if ($FilePath) {
+                        $filename = $FilePath
+                    }
+                    $file = Join-Path -Path $Path -ChildPath $filename
+                    if ((Test-Path -Path $file) -and -not $AllowClobber) {
+                        Get-ChildItem -Path $file
+                        continue
+                    }
+
                     if ((Get-Command Start-BitsTransfer -ErrorAction Ignore)) {
                         try {
-                            Start-BitsTransfer -Source $hyperlinklol -Destination $Path -ErrorAction Stop
-                            Get-ChildItem -Path $file
+                            Write-PSFMessage -Level Verbose -Message "Adding $filename to download queue"
+                            $jobs += Start-BitsTransfer -Asynchronous -Source $hyperlinklol -Destination $Path -ErrorAction Stop -Description kbupdate
                         } catch {
-                            Write-Host "Going to use uri: $hyperlinklol" -ForegroundColor Green
+                            Write-PSFMessage -Level Verbose -Message "Going to use uri: $hyperlinklol"
                             Write-Progress -Activity "Downloading $FilePath" -Id 1
                             Invoke-TlsWebRequest -OutFile $file -Uri $hyperlinklol
                             Write-Progress -Activity "Downloading $FilePath" -Id 1 -Completed
                         }
                     } else {
                         try {
+                            Write-PSFMessage -Level Verbose -Message "Transfer failed. Trying again."
                             # IWR is crazy slow for large downloads
                             Write-Progress -Activity "Downloading $FilePath" -Id 1
                             Invoke-TlsWebRequest -OutFile $file -Uri $hyperlinklol
@@ -203,7 +212,9 @@ function Save-KbUpdate {
                         }
                     }
 
-                    foreach ($hyperlinklol in $object.Link) {
+                    foreach ($dl in $object) {
+                        $title = $dl.Title
+                        $hyperlinklol = $object.Link
                         if (-not $PSBoundParameters.FilePath) {
                             $FilePath = Split-Path -Path $hyperlinklol -Leaf
                         } else {
@@ -214,20 +225,18 @@ function Save-KbUpdate {
 
                         if ((Test-Path -Path $file) -and -not $AllowClobber) {
                             Get-ChildItem -Path $file
-                            $lastfile = $file
-                            $files += $file
                             continue
                         }
 
-                        # could also Get-ChildItem for the path prior to download
-                        if ($file -in $files) { continue }
-
                         if ((Get-Command Start-BitsTransfer -ErrorAction Ignore)) {
                             try {
-                                $null = Start-BitsTransfer -Source $hyperlinklol -Destination $file -ErrorAction Stop
+                                $filename = Split-Path $hyperlinklol -Leaf
+                                Write-PSFMessage -Level Verbose -Message "Adding $filename to download queue"
+                                $jobs += Start-BitsTransfer -Asynchronous -Source $hyperlinklol -Destination $file -ErrorAction Stop -Description "kbupdate - $title"
                             } catch {
                                 foreach ($hyperlink in $hyperlinklol) {
                                     Write-Progress -Activity "Downloading $FilePath" -Id 1
+                                    Write-PSFMessage -Level Verbose -Message "That failed, trying Invoke-WebRequest"
                                     $null = Invoke-TlsWebRequest -OutFile $file -Uri "$hyperlink"
                                     Write-Progress -Activity "Downloading $FilePath" -Id 1 -Completed
                                 }
@@ -241,15 +250,20 @@ function Save-KbUpdate {
                             } catch {
                                 Stop-PSFFunction -EnableException:$EnableException -Message "Failure" -ErrorRecord $_ -Continue
                             }
-                        }
-
-                        if ((Test-Path -Path $file) -and $lastfile -ne $file) {
-                            Get-ChildItem -Path $file
-                            $files += $file
+write-warning $file
+                            if ((Test-Path -Path $file)) {
+                                Get-ChildItem -Path $file
+                            }
                         }
                     }
                 }
             }
+        }
+    }
+    end {
+        if ($jobs) {
+            Write-PSFMessage -Level Verbose -Message "Starting job process"
+            $jobs | Start-BitsJobProcess
         }
     }
 }
