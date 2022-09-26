@@ -31,7 +31,25 @@ update kb set Architecture = "ARM32" where Architecture LIKE '%ARM%based%';
 update kb set Architecture = "ARM32" where Architecture LIKE '%ARM32%';
 update kb set Architecture = "x86" where Architecture LIKE '%x86%';
 update kb set Architecture = "x86" where Architecture LIKE '%32%bit%';
-update kb set Architecture = null where architecture NOT IN ('x64','x86','IA64','ARM64','ARM','ARM32');
+update kb set Architecture = null where architecture NOT IN ('x64','x86','IA64','IA32','ARM64','ARM','ARM32');
+
+update kb set Architecture = 'x64' where Title like '%64-bit%' and title not like '%32-bit%' and title not like '%x86%';
+update kb set Architecture = 'x64' where Title like '%x64%' and title not like '%32-bit%' and title not like '%x86%';
+update kb set Architecture = 'x86' where Title like '%x86%' and title not like '%64-bit%' and title not like '%x64%';
+update kb set Architecture = 'x86' where Title like '%32-bit%' and title not like '%64-bit%' and title not like '%x64%';
+
+update kb set Architecture = 'x86' where EXISTS (SELECT link FROM link WHERE UpdateId = kb.UpdateId
+and (Link like '%32-bit%' or Link like '%x86%') and link not like '%64-bit%' and link not like '%x64%');
+
+update kb set Architecture = 'x64' where EXISTS (SELECT link FROM link WHERE UpdateId = kb.UpdateId
+and (Link like '%x64%' or Link like '%AMD64%') and link not like '%32-bit%' and link not like '%x86%');
+
+update kb set Architecture = 'x64' where EXISTS (SELECT link FROM link WHERE UpdateId = kb.UpdateId
+and (Link like '%x64%' or Link like '%AMD64%') and link not like '%32-bit%' and link not like '%x86%');
+
+update kb set Architecture = 'ARM64' where Architecture is null and EXISTS (SELECT link FROM link WHERE UpdateId = kb.UpdateId and Link like '%ARM64%');
+
+update kb set Architecture = 'ARM32' where Architecture is null and EXISTS (SELECT link FROM link WHERE UpdateId = kb.UpdateId and Link like '%ARM-based%');
 
 DELETE FROM Link
 WHERE EXISTS (
