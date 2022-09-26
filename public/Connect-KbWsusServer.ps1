@@ -109,6 +109,8 @@ function Connect-KbWsusServer {
                 $currenterror = (Get-Variable -Name Error -Scope 2 -ValueOnly) | Select-Object -First 1
                 throw $currenterror
             } else {
+                Write-PSFMessage -Level Verbose -Message "Success! Setting source to Wsus for this session."
+                $null = Set-PSFConfig -FullName kbupdate.app.source -Value Wsus
                 $script:ConnectedWsus
             }
         } catch {

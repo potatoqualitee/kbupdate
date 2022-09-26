@@ -6,7 +6,7 @@ kbupdate finds, downloads, installs and uninstalls Windows patches. This toolset
 
 kbupdate started as a command-line Windows Update Catalog but can now support a number of patching tasks. It can gather and list what's already installed on a system, it can check if any updates are needed on a system (either from Microsoft Update or from Microsoft's monthly catalog) and as previously mentioned, it can install and uninstall updates, on both local and remote systems.
 
-kbupdate can even install patches on remote systems from centralized repositories and it works on older and new versions of PowerShell. Many commands work on Linux and mac OS too.
+kbupdate can even install patches on remote systems on [offline networks](#offline-patching) from a centralized repository. Many commands work on Linux and mac OS too.
 
 ## Install
 
@@ -24,7 +24,7 @@ Save-Module kbupdate -Path C:\temp\copy_to_usb\
 
 ## Examples
 
-kbupdate has about 10 commands that help simplify your patching process.
+`kbupdate` has around 10 commands that help simplify your patching process. Check at the bottom of the readme for instructions on how to perform [offline patching](#offline-patching).
 
 ### Get-KbUpdate
 
@@ -169,6 +169,16 @@ Gets the latest patches from a batch of patches, based on Supersedes and Superse
 Get-KbUpdate -Pattern 'sql 2017' | Where-Object Classification -eq Updates | Select-KbLatest
 ```
 
+### Connect/Disconnect-KbWsusServer
+
+Connects to a local WSUS server and sets the datasource to that server.
+
+```powershell
+Connect-KbWsusServer -ComputerName server01
+Get-KbUpdate -Pattern powershell -Verbose
+Disconnect-KbWsusServer
+```
+
 ## Installation Methodolgy
 
 kbupdate uses [Invoke-DscResource](https://devblogs.microsoft.com/powershell/invoking-powershell-dsc-resources-directly/) to install patches on remote machines. `Invoke-DscResource` was introduced in the WMF 5.0 Preview in February 2015 and is included in Windows Server 2016+, and Windows 10+.
@@ -176,6 +186,36 @@ kbupdate uses [Invoke-DscResource](https://devblogs.microsoft.com/powershell/inv
 If you need it on older systems (going back to Windows Server 2008 R2 and Windows 7 SP1), you can find the binaries on [Microsoft's site](https://learn.microsoft.com/en-us/powershell/scripting/windows-powershell/wmf/setup/install-configure?view=powershell-7.2).
 
 If you can't update to WMF 5.0+, downloading patches using kbupdate then installing them using [PSWindowsUpdate](#PSWindowsUpdate) is probably your best bet.
+
+
+## Offline patching
+
+kbupdate makes it much easier to patch your offline servers, all without SCCM or WSUS.
+
+```
+# Download latest updates
+Get-KbUpdate -Since (Get-Date).AddDays(-30) -Architecture x64 |
+    Out-GridView -Passthru |
+    Save-KbUpdate -Path C:\temp\burn_to_dvd
+
+# Download Windows Update Client scan file
+Save-KbScanFile -Path C:\temp\burn_to_dvd
+
+### 💿💿💿         BURN TO DVD         💿💿💿 ###
+### 🏃🏃🏃 TRANSFER TO OFFLINE NETWORK 🏃🏃🏃 ###
+
+# Tell Install-KbUpdate to check for all needed updates
+# and point the RepositoryPath to a network server. The
+# servers will grab what they need.
+
+$params = @{
+    ComputerName   = "sql01", "sqlcs"
+    AllNeeded      = $true
+    ScanFilePath   = "\\san\share\updates\wsusscn2.cab"
+    RepositoryPath = "\\san\share\updates"
+}
+Install-KbUpdate @params
+```
 
 ## Screenshots
 

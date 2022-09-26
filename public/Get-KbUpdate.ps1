@@ -323,6 +323,7 @@ function Get-KbUpdate {
         }
 
         function Get-KbItemFromWsusApi ($kb) {
+            Write-PSFMessage -Level Verbose -Message "Executing 'Get-PSWSUSUpdate -Update $kb'"
             $results = Get-PSWSUSUpdate -Update $kb
             foreach ($wsuskb in $results) {
                 # cacher
@@ -379,7 +380,6 @@ function Get-KbUpdate {
                 if ($title -match "ARM-based") {
                     $arch = "ARM32"
                 }
-
                 if ($link -match "x64" -or $link -match "AMD64" -and -not $arch) {
                     $arch = "x64"
                 }
@@ -395,6 +395,30 @@ function Get-KbUpdate {
 
                 if ($wsuskb.ArrivalDate) {
                     $lastmod = Repair-Date $wsuskb.ArrivalDate
+                }
+
+                # reset values for the loop
+                $supersededby = $null
+                $supersedes = $null
+
+                if ($guid) {
+                    if ($global:kbupdate) {
+                        # cache has finished importing
+                        try {
+                            $supersededby = $global:kbupdate["superbyhash"][$guid]
+                            $supersedes = $global:kbupdate["superhash"][$guid]
+                            if (-not $link) {
+                                $link = $global:kbupdate["linkhash"][$guid]
+                            }
+                        } catch {
+                            #whatever
+                        }
+                    } else {
+                        # I do wish my import didn't return empties but sometimes it does so check for length of 3
+                        $supersededby = Invoke-SqliteQuery -DataSource $script:basedb -Query "select KB, Description from SupersededBy where UpdateId = '$($guid)' COLLATE NOCASE and LENGTH(kb) > 3"
+                        $supersedes = Invoke-SqliteQuery -DataSource $script:basedb -Query "select KB, Description from Supersedes where UpdateId = '$($guid)' COLLATE NOCASE and LENGTH(kb) > 3"
+                        $link = (Invoke-SqliteQuery -DataSource $script:basedb -Query "select DISTINCT Link from Link where UpdateId = '$($guid)' COLLATE NOCASE").Link
+                    }
                 }
 
                 $null = $script:kbcollection.Add($hashkey, (
@@ -418,8 +442,8 @@ function Get-KbUpdate {
                             UninstallNotes    = $null # $wsuskb.uninstallnotes
                             UninstallSteps    = $null # $wsuskb.uninstallsteps
                             UpdateId          = $guid
-                            Supersedes        = $null #TODO
-                            SupersededBy      = $null #TODO
+                            Supersedes        = $supersedes
+                            SupersededBy      = $supersededby
                             Link              = $link
                             InputObject       = $kb
                         }))

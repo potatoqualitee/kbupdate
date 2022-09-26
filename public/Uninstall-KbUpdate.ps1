@@ -359,7 +359,7 @@ function Uninstall-KbUpdate {
 
                 if ($jobs.Name) {
                     try {
-                        $jobs | Start-JobProcess -Activity "Uninstalling updates" -Status "uninstalling updates" |
+                        $jobs | Start-JobProcess -Activity "Uninstalling software" -Status "uninstalling software" |
                         Select-Object -Property * -ExcludeProperty PSComputerName, RunspaceId
                     } catch {
                         Stop-PSFFunction -Message "Failure" -ErrorRecord $PSItem -EnableException:$EnableException -Continue

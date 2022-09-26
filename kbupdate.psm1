@@ -54,7 +54,11 @@ if (-not $script:compcollection) {
 $script:languages = . "$ModuleRoot\library\languages.ps1"
 $script:languagescsv = Import-Csv -Path "$ModuleRoot\library\languages.tsv" -Delimiter `t
 
-$kblib = Split-Path -Path (Get-Module -Name kbupdate-library | Select-Object -Last 1).Path
+$kblibmod = Get-Module -Name kbupdate-library | Select-Object -Last 1
+if (-not $kblibmod) {
+    throw "Could not find kbupdate-library module"
+}
+$kblib = Split-Path -Path ($kblibmod).Path
 $script:basedb = (Get-ChildItem -Path "$kblib\*.sqlite" -Recurse).FullName
 
 # This will help jobs + instances where kbupdate is not in the psmodulepath
@@ -87,11 +91,11 @@ Register-PSFTeppArgumentCompleter -Command Get-KbUpdate, Save-KbUpdate -Paramete
 
 # set some defaults
 if ((Get-Command -Name Get-NetConnectionProfile -ErrorAction SilentlyContinue)) {
-    $internet = (Get-NetConnectionProfile).IPv4Connectivity -contains "Internet"
+    $script:internet = (Get-NetConnectionProfile).IPv4Connectivity -contains "Internet"
 } else {
     try {
         $network = [Type]::GetTypeFromCLSID([Guid]"{DCB00C01-570F-4A9B-8D69-199FDBA5723B}")
-        $internet = ([Activator]::CreateInstance($network)).GetNetworkConnections() | ForEach-Object {
+        $script:internet = ([Activator]::CreateInstance($network)).GetNetworkConnections() | ForEach-Object {
             $_.GetNetwork().GetConnectivity()
         } | Where-Object { ($_ -band 64) -eq 64 }
     } catch {

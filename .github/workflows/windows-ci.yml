@@ -33,7 +33,7 @@ jobs:
           Import-Module ./kbupdate.psd1 -ErrorAction Stop
 
           Write-Output "Saving scanfile"
-          $scanfile = Save-KbScanFile -Path C:\temp -AllowClobber
+          Save-KbScanFile -Path C:\temp -AllowClobber
 
       - name: Getting needed updates
         shell: powershell
