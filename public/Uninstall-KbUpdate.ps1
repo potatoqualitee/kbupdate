@@ -192,7 +192,7 @@ function Uninstall-KbUpdate {
                     }
                 }
             }
-            $InputObject | Sort-Object FastPackageReference -Unique
+            $InputObject = $InputObject | Sort-Object FastPackageReference -Unique
         }
         if ($IsLinux -or $IsMacOs) {
             Stop-PSFFunction -Message "This command uses remoting and only supports Windows at this time" -EnableException:$EnableException
