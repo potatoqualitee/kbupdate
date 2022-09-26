@@ -106,6 +106,7 @@ function Save-KbUpdate {
     )
     begin {
         $jobs = @()
+        $count = 0
     }
     process {
         switch ($PSCmdlet.ParameterSetName) {
@@ -116,11 +117,24 @@ function Save-KbUpdate {
                     if ($FilePath) {
                         $filename = $FilePath
                     }
+                    $count++
+                    if ($count -eq 300) {
+                        $count = 1
+                    }
                     $file = Join-Path -Path $Path -ChildPath $filename
                     if ((Test-Path -Path $file) -and -not $AllowClobber) {
                         Get-ChildItem -Path $file
                         continue
                     }
+
+                    # just show any progress since piping won't allow calculation of the total
+                    $progressparms = @{
+                        Activity        = "Queuing up downloads"
+                        Status          = "Adding files to download queue"
+                        PercentComplete = $(($count / 300) * 100)
+                    }
+
+                    Write-Progress @progressparms
 
                     if ((Get-Command Start-BitsTransfer -ErrorAction Ignore)) {
                         try {
@@ -250,7 +264,6 @@ function Save-KbUpdate {
                             } catch {
                                 Stop-PSFFunction -EnableException:$EnableException -Message "Failure" -ErrorRecord $_ -Continue
                             }
-write-warning $file
                             if ((Test-Path -Path $file)) {
                                 Get-ChildItem -Path $file
                             }
@@ -265,5 +278,6 @@ write-warning $file
             Write-PSFMessage -Level Verbose -Message "Starting job process"
             $jobs | Start-BitsJobProcess
         }
+        Write-Progress -Activity "Queuing up downloads" -Completed
     }
 }

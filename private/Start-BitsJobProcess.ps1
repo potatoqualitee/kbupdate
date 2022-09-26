@@ -23,8 +23,8 @@ function Start-BitsJobProcess {
         $bstotal = [math]::Round(($bytestotal / 1MB),2)
 
         while ($bitsjobs = (Get-BitsTransfer | Where-Object Description -match kbupdate)) {
-            $bjs = $bitsjobs | Where-Object BytesTotal -ne 18446744073709551615
-            $bjbytestotal = ($bjs.BytesTransferred | Measure-Object -Sum).Sum
+            $bytesjob = $bitsjobs | Where-Object BytesTotal -ne 18446744073709551615
+            $bjbytestotal = ($bytesjob.BytesTransferred | Measure-Object -Sum).Sum
             $mbjtotal = [math]::Round(($bjbytestotal / 1MB),2)
 
             $currentcount = $bitsjobs.FileList.Count
@@ -45,8 +45,9 @@ function Start-BitsJobProcess {
                 Write-PSFMessage -Level Debug -Message "$completed have been completed"
                 Write-PSFMessage -Level Debug -Message "$(($currentcount / $totalfiles) * 100) percent left"
                 $oldmbjtotal = $mbjtotal
-                $bs = $jobs | Where-Object BytesTotal -ne 18446744073709551615
+                $bs = $bitsjobs | Where-Object BytesTotal -ne 18446744073709551615
                 $bytestotal = ($bs.BytesTotal | Measure-Object -Sum).Sum
+                $mbjtotal = [math]::Round(($bytestotal / 1MB),2)
                 Write-Progress @progressparms
                 Start-Sleep -Seconds 1
             }
