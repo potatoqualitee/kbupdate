@@ -79,8 +79,8 @@ function Get-Needed {
                     NetworkRequired   = $wsuskb.InstallationBehavior.RequiresNetworkConnectivity
                     UninstallNotes    = $wsuskb.UninstallNotes
                     UninstallSteps    = $wsuskb.UninstallSteps
-                    Supersedes        = $null #TODO
-                    SupersededBy      = $null #TODO
+                    Supersedes        = $null # not needed because WUA already figures this out
+                    SupersededBy      = $null # not needed because WUA already figures this out
                     Link              = $links
                     InputObject       = $wsuskb
                 }
