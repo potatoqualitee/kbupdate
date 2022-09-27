@@ -245,8 +245,10 @@ function Save-KbUpdate {
                         if ((Get-Command Start-BitsTransfer -ErrorAction Ignore)) {
                             try {
                                 $filename = Split-Path $hyperlinklol -Leaf
-                                Write-PSFMessage -Level Verbose -Message "Adding $filename to download queue"
-                                $jobs += Start-BitsTransfer -Asynchronous -Source $hyperlinklol -Destination $file -ErrorAction Stop -Description "kbupdate - $title"
+                                if ((Get-BitsTransfer | Where-Object Description -match kbupdate).FileList.RemoteName -notcontains $hyperlinklol) {
+                                    Write-PSFMessage -Level Verbose -Message "Adding $filename to download queue"
+                                    $jobs += Start-BitsTransfer -Asynchronous -Source $hyperlinklol -Destination $file -ErrorAction Stop -Description "kbupdate - $title"
+                                }
                             } catch {
                                 foreach ($hyperlink in $hyperlinklol) {
                                     Write-Progress -Activity "Downloading $FilePath" -Id 1

@@ -306,14 +306,7 @@ function Get-KbUpdate {
                     foreach ($superby in $item.SupersededBy) {
                         $null = $superby | Add-Member -MemberType ScriptMethod -Name ToString -Value { $this.Description } -Force
                     }
-                    if ($arch) {
-                        if ($item.Architecture -eq $arch) {
-                            $item
-                        }
-                    } else {
-                        $item
-                    }
-
+                    $item
                 }
 
                 if (-not $item -and $Source -eq "Database") {
