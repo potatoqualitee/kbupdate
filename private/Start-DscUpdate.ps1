@@ -596,13 +596,10 @@ function Start-DscUpdate {
                 $exists = Get-KbInstalledSoftware -ComputerName $ComputerName -Pattern $hotfix.property.id -IncludeHidden
 
                 if ($exists.Summary -match "restart") {
-                    $status = "Install successful. This update requires a restart | $($exists.Summary)"
+                    # The summary is just too long
+                    $status = "Install successful. This update requires a restart."
                 } else {
-                    if ($exists.Summary) {
-                        $status = "Install successful"
-                    } else {
-                        $status = "Install successful | $($exists.Summary)"
-                    }
+                    $status = "Install successful"
                 }
                 if ($HotfixId) {
                     $id = $HotfixId
