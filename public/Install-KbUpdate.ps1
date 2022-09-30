@@ -166,7 +166,6 @@ function Install-KbUpdate {
             $hostname = $computer.ComputerName
             $null = $completed++
             $null = $added++
-            $method = $null
 
             if ($computer.IsLocalHost -and -not (Test-ElevationRequirement -ComputerName $hostname)) {
                 Stop-PSFFunction -EnableException:$EnableException -Message "You must be an administrator to run this command on the local host" -Continue
@@ -174,14 +173,7 @@ function Install-KbUpdate {
 
             Write-Progress -Activity "Installing updates" -Status "Added $($computer.ComputerName) to queue. Processing $added computers..." -PercentComplete ($added / 100 * 100)
 
-            Write-PSFMessage -Level Verbose -Message "Processing $($parms.ComputerName)"
-
-            if ($computer.IsLocalhost) {
-                if ((Get-Service wuauserv | Where-Object StartType -ne Disabled)) {
-                    Write-PSFMessage -Level Verbose -Message "Setting method to Windows Update $($parms.ComputerName)"
-                    $method = "WindowsUpdate"
-                }
-            }
+            Write-PSFMessage -Level Verbose -Message "Processing $hostname"
 
             try {
                 $parms = @{
@@ -204,24 +196,13 @@ function Install-KbUpdate {
                 $null = $PSDefaultParameterValues["Start-Job:ArgumentList"] = $parms
                 $null = $PSDefaultParameterValues["Start-Job:Name"] = $hostname
 
-                if ($method -eq "WindowsUpdate" -and -not $FilePath) {
-                    Write-PSFMessage -Level Verbose -Message "Method is WindowsUpdate"
-                    if ($NoMultithreading) {
-                        Write-PSFMessage -Level Verbose -Message "Not using jobs for update to $hostname"
-                        Start-WindowsUpdate @parms
-                    } else {
-                        Write-PSFMessage -Level Verbose -Message "Using jobs for update to $hostname"
-                        $jobs += Start-Job -ScriptBlock $wublock
-                    }
+                Write-PSFMessage -Level Verbose -Message "Installing using DSC"
+                if ($NoMultithreading) {
+                    Write-PSFMessage -Level Verbose -Message "Not using jobs for update to $hostname"
+                    Start-DscUpdate @parms -ErrorAction Stop
                 } else {
-                    Write-PSFMessage -Level Verbose -Message "Method is DSC"
-                    if ($NoMultithreading) {
-                        Write-PSFMessage -Level Verbose -Message "Not using jobs for update to $hostname"
-                        Start-DscUpdate @parms -ErrorAction Stop
-                    } else {
-                        Write-PSFMessage -Level Verbose -Message "Using jobs for update to $hostname"
-                        $jobs += Start-Job -ScriptBlock $dscblock -ErrorAction Stop
-                    }
+                    Write-PSFMessage -Level Verbose -Message "Using jobs for update to $hostname"
+                    $jobs += Start-Job -ScriptBlock $dscblock -ErrorAction Stop
                 }
             } catch {
                 Stop-PSFFunction -Message "Failure on $hostname" -ErrorRecord $PSItem -EnableException:$EnableException -Continue

@@ -180,14 +180,13 @@ function Uninstall-KbUpdate {
                     if (-not $exists) {
                         Write-PSFMessage -Level Warning -Message "$hotfix is not installed on $computer"
                     } else {
-                        if ($exists.Summary -match "restart") {
-                            Stop-PSFFunction -EnableException:$EnableException -Message "You must restart before you can uninstall $hotfix on $computer" -Continue
-                        } else {
-                            if ($exists.FastPackageReference -and $exists.FastPackageReference -notin $InputObject.FastPackageReference) {
-                                $InputObject += $exists
-                            } elseif ($exists.PackageObject -and $exists.PackageObject -notin $InputObject.PackageObject) {
-                                $InputObject += $exists
-                            }
+                        # turns out this is not true
+                        #    Stop-PSFFunction -EnableException:$EnableException -Message "You must restart before #you can uninstall $hotfix on $computer" -Continue
+                        #} else {
+                        if ($exists.FastPackageReference -and $exists.FastPackageReference -notin $InputObject.FastPackageReference) {
+                            $InputObject += $exists
+                        } elseif ($exists.PackageObject -and $exists.PackageObject -notin $InputObject.PackageObject) {
+                            $InputObject += $exists
                         }
                     }
                 }
@@ -322,9 +321,13 @@ function Uninstall-KbUpdate {
 
             # I tried to get this working using DSC but in end end, a Start-Process equivalent was it for the convenience of not having to specify a filename, tho that can be added as a backup
             if ($ArgumentList -match ".exe") {
-                $exec = "$program$ArgumentList"
+                $exec = "$program$ArgumentList".Trim()
             } else {
-                $exec = "$program $ArgumentList"
+                $exec = "$program $ArgumentList".Trim()
+            }
+
+            if ($exec.Length -lt 4) {
+                Stop-PSFFunction -Message "Failure on $computer while attempting to uninstall $packagename | Uninstaller cannot be found" -EnableException:$EnableException -Continue
             }
             if ($PSCmdlet.ShouldProcess($computer, "Uninstalling Hotfix $packagename by executing $exec")) {
                 try {

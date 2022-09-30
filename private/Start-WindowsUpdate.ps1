@@ -54,14 +54,22 @@ function Start-WindowsUpdate {
             $null = Import-Module $path 4>$null
         }
 
+
+        if ($HotfixId) {
+             Write-PSFMessage -Level Verbose -Message "Hotfix detected, getting info"
+            $InputObject += Get-KbUpdate -HotfixId $HotfixId -ComputerName $ComputerName
+        }
+
         Write-PSFMessage -Level Verbose -Message "Using the Windows Update method"
         $sessiontype = [type]::GetTypeFromProgID("Microsoft.Update.Session")
         $session = [activator]::CreateInstance($sessiontype)
         $session.ClientApplicationID = "kbupdate installer"
 
         if ($InputObject.UpdateId) {
-            Write-PSFMessage -Level Verbose -Message "Got an UpdateId"
-            $searchresult = $session.CreateUpdateSearcher().Search("UpdateId = '$($InputObject.UpdateId)'")
+            foreach ($uid in $InputObject.UpdateId) {
+                Write-PSFMessage -Level Verbose -Message "Got an UpdateId"
+                $searchresult = $session.CreateUpdateSearcher().Search("UpdateId = '$uid'")
+            }
         } else {
             Write-PSFMessage -Level Verbose -Message "Build needed updates"
             $searchresult = $session.CreateUpdateSearcher().Search("Type='Software' and IsInstalled=0 and IsHidden=0")

@@ -83,10 +83,10 @@ function Invoke-KbCommand {
 
     try {
         if (-not (Get-PSFConfigValue -Name PSRemoting.Sessions.Enable) -or $computer.IsLocalhost) {
-            Write-PSFMessage -Level Verbose -Message "Sessions disabled, just using Invoke-Command"
+            Write-PSFMessage -Level Debug -Message "Sessions disabled or computer is localhost, just using Invoke-Command"
             Invoke-Command -ScriptBlock $ScriptBlock -ArgumentList $ArgumentList
         } else {
-            Write-PSFMessage -Level Verbose -Message "Sessions enabled, using Invoke-PSFCommand"
+            Write-PSFMessage -Level Debug -Message "Sessions enabled, using Invoke-PSFCommand"
             $null = Get-PSSession | Where-Object { $PSItem.Name -eq "kbupdate-$ComputerName" -and $PSItem.State -eq "Broken" } | Remove-PSSession
             $session = Get-PSSession | Where-Object Name -eq "kbupdate-$ComputerName"
 
