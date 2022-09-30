@@ -64,6 +64,12 @@ function Start-DscUpdate {
                 $InputObject = Get-KbNeededUpdate -ComputerName $ComputerName
             }
         }
+
+        if ($HotfixId) {
+            Write-PSFMessage -Level Verbose -Message "Hotfix detected, getting info"
+            $InputObject += Get-KbUpdate -HotfixId $HotfixId -ComputerName $ComputerName
+        }
+
         if ($FilePath) {
             $InputObject += Get-ChildItem -Path $FilePath
         }
@@ -124,10 +130,10 @@ function Start-DscUpdate {
                 }
                 if ($IsLocalHost) {
                     Write-PSFMessage -Level Verbose -Message "Copying xWindowsUpdate to $hostname (local to $programfiles\WindowsPowerShell\Modules\xWindowsUpdate)"
-                    $null = Copy-Item -Path "$script:ModuleRoot\library\xWindowsUpdate" -Destination "$programfiles\WindowsPowerShell\Modules" -Recurse -Force
+                    $null = Copy-Item -Path "$script:ModuleRoot\library\xWindowsUpdate" -Destination "$programfiles\WindowsPowerShell\Modules" -Recurse -Force -ErrorAction Stop
                 } else {
                     Write-PSFMessage -Level Verbose -Message "Copying xWindowsUpdate to $hostname (remote to $programfiles\WindowsPowerShell\Modules\xWindowsUpdate)"
-                    $null = Copy-Item -Path "$script:ModuleRoot\library\xWindowsUpdate" -Destination "$programfiles\WindowsPowerShell\Modules" -ToSession $remotesession -Recurse -Force
+                    $null = Copy-Item -Path "$script:ModuleRoot\library\xWindowsUpdate" -Destination "$programfiles\WindowsPowerShell\Modules" -ToSession $remotesession -Recurse -Force -ErrorAction Stop
                 }
 
                 $ProgressPreference = $oldpref
@@ -151,10 +157,10 @@ function Start-DscUpdate {
                 }
                 if ($IsLocalHost) {
                     Write-PSFMessage -Level Verbose -Message "Copying xPSDesiredStateConfiguration to $hostname (local to $programfiles\WindowsPowerShell\Modules\xPSDesiredStateConfiguration)"
-                    $null = Copy-Item -Path "$script:ModuleRoot\library\xPSDesiredStateConfiguration" -Destination "$programfiles\WindowsPowerShell\Modules" -Recurse -Force
+                    $null = Copy-Item -Path "$script:ModuleRoot\library\xPSDesiredStateConfiguration" -Destination "$programfiles\WindowsPowerShell\Modules" -Recurse -Force -ErrorAction Stop
                 } else {
                     Write-PSFMessage -Level Verbose -Message "Copying xPSDesiredStateConfiguration to $hostname (remote)"
-                    $null = Copy-Item -Path "$script:ModuleRoot\library\xPSDesiredStateConfiguration" -Destination "$programfiles\WindowsPowerShell\Modules" -ToSession $remotesession -Recurse -Force
+                    $null = Copy-Item -Path "$script:ModuleRoot\library\xPSDesiredStateConfiguration" -Destination "$programfiles\WindowsPowerShell\Modules" -ToSession $remotesession -Recurse -Force -ErrorAction Stop
                 }
 
                 $ProgressPreference = $oldpref
@@ -174,18 +180,20 @@ function Start-DscUpdate {
                     Write-PSFMessage -Level Verbose -Message "Adding $filename to $RepositoryPath"
                     $repofile = Join-Path -Path $RepositoryPath -ChildPath $filename
                     if ($remotehome) {
-                        $null = Copy-Item -Path $repofile -Destination "$remotehome\Downloads\$filename" -ToSession $remotesession -Recurse -Force
+                        $null = Copy-Item -Path $repofile -Destination "$remotehome\Downloads\$filename" -ToSession $remotesession -Recurse -Force -ErrorAction Stop
                     } else {
-                        $null = Copy-Item -Path $repofile -Destination "$home\Downloads" -Recurse -Force
+                        $null = Copy-Item -Path $repofile -Destination "$home\Downloads" -Recurse -Force -ErrorAction Stop
                     }
                 } catch {
-                    $hostname = $object.ComputerName
-                    Stop-PSFFunction -Message "Couldn't copy $filename from repo to $hostname." -Continue
-            }
-                Write-PSFMessage -Level Verbose -Message "Adding $($FilePath)"
+                    if (-not $hostname) {
+                        $hostname = $object.ComputerName
+                    }
+                    Stop-PSFFunction -Message "Couldn't copy $filename from repo to $hostname." -ErrorRecord $PSItem -Continue
+                }
             }
 
             if ($FilePath) {
+                Write-PSFMessage -Level Verbose -Message "Adding $($FilePath)"
                 $remotefileexists = $updatefile = Invoke-KbCommand -ArgumentList $FilePath -ScriptBlock {
                     Get-ChildItem -Path $args -ErrorAction SilentlyContinue
                 }
@@ -203,7 +211,6 @@ function Start-DscUpdate {
                 }
 
                 if (-not $updatefile) {
-                    Write-PSFMessage -Level Verbose -Message "Update file not found, download it for them"
                     if ($HotfixId) {
                         $Pattern = $HotfixId
                     } elseif ($Guid) {
@@ -558,6 +565,9 @@ function Start-DscUpdate {
                             { $message -match "2147942402" } {
                                 throw "System can't find the file specified for some reason."
                             }
+                            { $message -match "2149842967" } {
+                                throw "Error 2149842967 - Update is probably not applicable or already installed. $message"
+                            }
                             default {
                                 throw $message
                             }
@@ -586,9 +596,13 @@ function Start-DscUpdate {
                 $exists = Get-KbInstalledSoftware -ComputerName $ComputerName -Pattern $hotfix.property.id -IncludeHidden
 
                 if ($exists.Summary -match "restart") {
-                    $status = "This update requires a restart"
+                    $status = "Install successful. This update requires a restart | $($exists.Summary)"
                 } else {
-                    $status = "Install successful"
+                    if ($exists.Summary) {
+                        $status = "Install successful"
+                    } else {
+                        $status = "Install successful | $($exists.Summary)"
+                    }
                 }
                 if ($HotfixId) {
                     $id = $HotfixId
