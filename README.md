@@ -8,6 +8,15 @@ kbupdate started as a command-line Windows Update Catalog but can now support a 
 
 kbupdate can even install patches on remote systems on [offline networks](#offline-patching) from a centralized repository. Many commands work on Linux and mac OS too.
 
+`kbupdate` can be used to install the following file types:
+
+* .exe
+* .cab
+* .msi
+* .msu
+
+And probably more. That's all I've tried with so far.
+
 ## Install
 
 You can install this module using the PowerShell Gallery.
@@ -80,11 +89,12 @@ Install-KbUpdate -ComputerName server01 -HotfixId kb4486129
 When more than one computer is supplied, background jobs will be used to speed up the process. If you use the `-AllNeeded` switch, all needed patches will be installed.
 
 ```powershell
-# Install all needed updates
+# Install all needed updates and use the computer's current source as the Windows Update database checker
 Install-KbUpdate -ComputerName localhost, sqlcs, sql01 -AllNeeded
 
-# Install all needed updates
-Install-KbUpdate -ComputerName localhost, sqlcs, sql01 -AllNeeded
+# Install all needed updates and use the offline Windows Update database checker
+$scanfile = Save-KbScanFile
+Install-KbUpdate -ComputerName localhost, sqlcs, sql01 -AllNeeded -ScanFilePath $scanfile
 ```
 
 ### Get-KbNeededUpdate
@@ -152,12 +162,22 @@ Get-KbInstalledSoftware -ComputerName server23 -ArgumentList "/S" | Uninstall-Kb
 
  Windows Update Agent (WUA) plus [the wsusscn2.cab catalog file](https://learn.microsoft.com/en-us/windows/win32/wua_sdk/using-wua-to-scan-for-updates-offline) can be used to scan computers for security updates without connecting to Windows Update or to a Windows Server Update Services (WSUS) server, which enables computers that are not connected to the Internet to be scanned for security updates.
 
+ This file is used by `Get-KbNeededUpdate` when the `-ScanFilePath` is used and `Install-KbUpdate` when the `-AllNeeded` and `-ScanFilePath` parameters are used.
+
 ```powershell
 # Saves the cab file to a temporary directory and returns the results of Get-ChildItem for the cab file
 Save-KbScanFile
 
 # Saves the cab file to C:\temp and overwrite file if it exists. Returns the results of Get-ChildItem for the cab file
 Save-KbScanFile -Path C:\temp -AllowClobber
+
+# Get all the updates needed on server01 using the locally saved cab file
+$scanfile = Save-KbScanFile -Path \\server01\c$\temp
+Get-KbNeededUpdate -ComputerName server01 -ScanFilePath $scanfile
+
+# Install all needed updates and use the offline Windows Update database checker
+$scanfile = Get-ChildItem -Path \\san\share\updates\wsusscn2.cab
+Install-KbUpdate -ComputerName localhost, sqlcs, sql01 -AllNeeded -ScanFilePath $scanfile
 ```
 
 ### Select-KbLatest
@@ -190,7 +210,15 @@ If you can't update to WMF 5.0+, downloading patches using kbupdate then install
 
 ## Offline patching
 
-kbupdate makes it much easier to patch your offline servers, all without SCCM or WSUS.
+kbupdate makes it much easier to patch your offline servers, all without SCCM or WSUS. It's basically a 5-step process.
+
+1. **Download** the needed patches from the Microsoft Update Catalog for the last 30 days
+1. **Download** the WUA database which enables computers to check for needed updates
+1. **Burn** to DVD, along with kbupdate + required modules
+1. **Check** each server for needed updates against the wsusscn2.cab WUA database (`Save-KbScanFile`)
+1. **Install** those updates from a centralized repo of patches
+
+This is what that looks like when using kbupdate:
 
 ```
 # Download latest updates
