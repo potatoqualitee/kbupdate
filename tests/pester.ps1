@@ -14,17 +14,12 @@ if ($env:BUILD_BUILDURI -like "vstfs*") {
     Install-Module PoshWSUS -Force -SkipPublisherCheck
     Write-Host "Installing kbupdate-library" -ForegroundColor Cyan
     Install-Module kbupdate-library -Force -SkipPublisherCheck
-    Write-Host "Installing xPSDesiredStateConfiguration" -ForegroundColor Cyan
-    Install-Module xPSDesiredStateConfiguration -Force -SkipPublisherCheck -RequiredVersion 9.2.0 -AllowPrerelease
     Write-Host "Installing xWindowsUpdate" -ForegroundColor Cyan
     Install-Module xWindowsUpdate -Force -SkipPublisherCheck -RequiredVersion 3.0.0 -AllowPrerelease
 }
 
 Write-Host "Loading constants"
 . "$PSScriptRoot\constants.ps1"
-
-Write-Host "Installing xPSDesiredStateConfiguration" -ForegroundColor Cyan
-Install-Module xPSDesiredStateConfiguration -Force -SkipPublisherCheck -RequiredVersion 9.2.0 -AllowPrerelease
 
 Write-Host "All modules"
 Get-Module -ListAvailable -ErrorAction Ignore | Where-Object Path -like "$env:ProgramFiles*" | Select-Object Name
