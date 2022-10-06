@@ -25,7 +25,7 @@ jobs:
           Set-Service WinRM -StartupType Disabled
           Get-Service WinRM | Stop-Service -ErrorAction Continue
           #Disable-PSRemoting -Force -ErrorAction Ignore
-          winrm delete winrm/config/Listener?Address=*+Transport=HTTP
+          #winrm delete winrm/config/Listener?Address=*+Transport=HTTP
           #winrm quickconfig -quiet
 
       - name: Run Test-WSMan
