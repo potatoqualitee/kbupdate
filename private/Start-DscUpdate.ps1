@@ -608,7 +608,7 @@ function Start-DscUpdate {
                             }
                             $testresource = Invoke-CimMethod @parms 4>$null
                         } else {
-                            $testresource = Invoke-DscResource -Property @hotfix -Method Test 4>$null
+                            $testresource = Invoke-DscResource @hotfix -Method Test 4>$null
                         }
 
                         if (-not $testresource) {
