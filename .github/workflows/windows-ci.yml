@@ -32,8 +32,10 @@ jobs:
           Install-Module kbupdate-library -Confirm:$false -Force
           Import-Module ./kbupdate.psd1 -ErrorAction Stop
 
-          Write-Output "Saving scanfile"
-          Save-KbScanFile -Path C:\temp -AllowClobber
+      - name: Run Test-WSMan
+        shell: powershell
+        run: |
+          Test-WSMan -ErrorAction Continue
 
       - name: Getting needed updates
         shell: powershell
