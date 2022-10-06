@@ -21,9 +21,16 @@ jobs:
           Set-Service wuauserv -StartupType Automatic
           Start-Service wuauserv
 
-          #Write-Output "Enabling WinRM" # No need anymore, woo!
-          #Set-Service WinRM -StartupType Automatic
+          Write-Output "Disabling WinRM"
+          Set-Service WinRM -StartupType Disabled
+          Get-Service WinRM | Stop-Service -ErrorAction Continue
+          Disable-PSRemoting -Force -ErrorAction Continue
           #winrm quickconfig -quiet
+
+      - name: Run Test-WSMan
+        shell: powershell
+        run: |
+          Test-WSMan -ErrorAction Continue
 
       - name: Downloading kbupdate-library and scanfile
         shell: powershell
@@ -31,12 +38,6 @@ jobs:
           Write-Output "Downloading freshest library"
           Install-Module kbupdate-library -Confirm:$false -Force
           Import-Module ./kbupdate.psd1 -ErrorAction Stop
-
-      - name: Run Test-WSMan
-        shell: powershell
-        run: |
-          Test-WSMan -ErrorAction Continue
-
       - name: Getting needed updates
         shell: powershell
         run: |
