@@ -39,6 +39,7 @@ jobs:
           Write-Output "Downloading freshest library"
           Install-Module kbupdate-library -Confirm:$false -Force
           Import-Module ./kbupdate.psd1 -ErrorAction Stop
+          Save-KbScanFile -Path C:\temp -ErrorAction Stop
       - name: Getting needed updates
         shell: powershell
         run: |
@@ -51,7 +52,14 @@ jobs:
           Write-Output "Found $($needed.Count) needed updates"
           Write-Output "Will try to install $($saveit.Count) update"
           $saveit | Export-CliXml -Path C:\temp\xml\results.xml
-          $null = $saveit | Save-KbUpdate -Path C:\temp
+          $saveit | Save-KbUpdate -Path C:\temp
+
+      - name: Clean defender so that KB2267602 installs
+        shell: powershell
+        run: |
+          Set-Location "$env:ProgramFiles\Windows Defender"
+          Start-Process -FilePath "$env:ProgramFiles\Windows Defender\MpCmdRun.exe" -ArgumentList "-removedefinitions -dynamicsignatures" -Wait -NoNewWindow -ErrorAction Ignore
+          Start-Process -FilePath "$env:ProgramFiles\Windows Defender\MpCmdRun.exe" -ArgumentList "-SignatureUpdate" -Wait -NoNewWindow -ErrorAction Ignore
 
       - name: Installing updates
         shell: powershell
@@ -60,13 +68,17 @@ jobs:
           $saveit = Import-CliXml -Path C:\temp\xml\results.xml
           Write-Output "Installing needed updates"
           try {
-            $saveit | Install-KbUpdate -RepositoryPath C:\temp -Verbose -ErrorAction Stop -EnableException
+            $saveit | Install-KbUpdate -RepositoryPath C:\temp -Verbose -EnableException
             if ($($saveit.Count) -gt 0) {
               Get-KbInstalledSoftware -Pattern $needed.KBUpdate
             }
           } catch {
             $error[0] | select *
-            throw $PSItem
+            if ("$PSItem" -notmatch "reboot") {
+              write-warning "$PSItem"
+            } else {
+              write-warning "Oh oops: $PSItem"
+            }
           }
 
 
@@ -107,6 +119,15 @@ jobs:
           Write-Output "Downloading freshest library"
           Install-Module kbupdate-library -Confirm:$false -Force
           Import-Module ./kbupdate.psd1 -ErrorAction Stop
+          Save-KbScanFile -Path C:\temp -ErrorAction Stop
+
+      - name: Clean defender so that KB2267602 installs
+        shell: powershell
+        run: |
+          Set-Location "$env:ProgramFiles\Windows Defender"
+          Start-Process -FilePath "$env:ProgramFiles\Windows Defender\MpCmdRun.exe" -ArgumentList "-removedefinitions -dynamicsignatures" -Wait -NoNewWindow -ErrorAction Ignore
+          Start-Process -FilePath "$env:ProgramFiles\Windows Defender\MpCmdRun.exe" -ArgumentList "-SignatureUpdate" -Wait -NoNewWindow -ErrorAction Ignore
+
       - name: Getting needed updates
         shell: powershell
         run: |
@@ -128,7 +149,7 @@ jobs:
           $saveit = Import-CliXml -Path C:\temp\xml\results.xml
           Write-Output "Installing needed updates"
           try {
-            $saveit | Install-KbUpdate -RepositoryPath C:\temp -Verbose -ErrorAction Stop -EnableException
+            $saveit | Install-KbUpdate -RepositoryPath C:\temp -Verbose -EnableException
             if ($($saveit.Count) -gt 0) {
               Get-KbInstalledSoftware -Pattern $needed.KBUpdate
             }
