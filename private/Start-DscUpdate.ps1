@@ -117,7 +117,7 @@ function Start-DscUpdate {
         }
 
         $hasxhotfix = Invoke-KbCommand -ScriptBlock {
-            Get-Module -ListAvailable xWindowsUpdate -ErrorAction Ignore | Where-Object Version -eq 3.0.0
+            Get-Module -Name xWindowsUpdate -ListAvailable -ErrorAction Ignore | Where-Object { $PSItem.Path -match "3.0.0" -and $PSItem.Path -like "$env:ProgramFiles*" }
         }
 
         if (-not $hasxhotfix) {
@@ -143,7 +143,7 @@ function Start-DscUpdate {
         }
 
         $hasxdsc = Invoke-KbCommand -ScriptBlock {
-            Get-Module -ListAvailable xPSDesiredStateConfiguration -ErrorAction Ignore | Where-Object Version -eq 9.2.0
+            Get-Module -Name xPSDesiredStateConfiguration -ListAvailable -ErrorAction Ignore | Where-Object { $PSItem.Path -match "9.2.0" -and $PSItem.Path -like "$env:ProgramFiles*" }
         }
 
         if (-not $hasxdsc) {
@@ -176,13 +176,15 @@ function Start-DscUpdate {
         foreach ($object in $InputObject) {
             if ($object.Link -and $RepositoryPath) {
                 try {
-                    $filename = Split-Path -Path $object.Link -Leaf
-                    Write-PSFMessage -Level Verbose -Message "Adding $filename to $RepositoryPath"
-                    $repofile = Join-Path -Path $RepositoryPath -ChildPath $filename
-                    if ($remotehome) {
-                        $null = Copy-Item -Path $repofile -Destination "$remotehome\Downloads\$filename" -ToSession $remotesession -Recurse -Force -ErrorAction Stop
-                    } else {
-                        $null = Copy-Item -Path $repofile -Destination "$home\Downloads" -Recurse -Force -ErrorAction Stop
+                    $filenames = Split-Path -Path $object.Link -Leaf
+                    foreach ($filename in $filenames) {
+                        Write-PSFMessage -Level Verbose -Message "Adding $filename to $RepositoryPath"
+                        $repofile = Join-Path -Path $RepositoryPath -ChildPath $filename
+                        if ($remotehome) {
+                            $null = Copy-Item -Path $repofile -Destination "$remotehome\Downloads\$filename" -ToSession $remotesession -Recurse -Force -ErrorAction Stop
+                        } else {
+                            $null = Copy-Item -Path $repofile -Destination "$home\Downloads" -Recurse -Force -ErrorAction Stop
+                        }
                     }
                 } catch {
                     if (-not $hostname) {
@@ -351,21 +353,21 @@ function Start-DscUpdate {
                             Write-PSFMessage -Level Verbose -Message "Trying to get GUID from $($updatefile.FullName)"
 
                             <#
-                        The reason you want to find the GUID is to save time, mostly, I guess?
+                            The reason you want to find the GUID is to save time, mostly, I guess?
 
-                        It saves time because it won't even attempt the install if there are GUID matches
-                        in the registry. If you pass a fake but compliant GUID, it attempts the install and
-                        fails, no big deal.
+                            It saves time because it won't even attempt the install if there are GUID matches
+                            in the registry. If you pass a fake but compliant GUID, it attempts the install and
+                            fails, no big deal.
 
-                        Overall, it just seems like a good idea to get a GUID if it's required.
-                    #>
+                            Overall, it just seems like a good idea to get a GUID if it's required.
+                            #>
 
                             <#
-                        It's better to just read from memory but I can't get this to work
-                        $cab = New-Object Microsoft.Deployment.Compression.Cab.Cabinfo "C:\path\path.exe"
-                        $file = New-Object Microsoft.Deployment.Compression.Cab.CabFileInfo($cab, "0")
-                        $content = $file.OpenRead()
-                    #>
+                            It's better to just read from memory but I can't get this to work
+                            $cab = New-Object Microsoft.Deployment.Compression.Cab.Cabinfo "C:\path\path.exe"
+                            $file = New-Object Microsoft.Deployment.Compression.Cab.CabFileInfo($cab, "0")
+                            $content = $file.OpenRead()
+                            #>
 
                             $cab = New-Object Microsoft.Deployment.Compression.Cab.Cabinfo $updatefile.FullName
                             $files = $cab.GetFiles("*")
@@ -409,13 +411,13 @@ function Start-DscUpdate {
 
                 # this takes care of things like SQL Server updates
                 $hotfix = @{
-                    Name       = 'xPackage'
+                    Name       = "xPackage"
                     ModuleName = @{
                         ModuleName    = "xPSDesiredStateConfiguration"
                         ModuleVersion = "9.2.0"
                     }
                     Property   = @{
-                        Ensure     = 'Present'
+                        Ensure     = "Present"
                         ProductId  = $Guid
                         Name       = $Title
                         Path       = $FilePath
@@ -423,41 +425,118 @@ function Start-DscUpdate {
                         ReturnCode = 0, 3010
                     }
                 }
+
+                $scriptblock = @"
+                    Configuration DscWithoutWinRm {
+                            Import-DscResource -ModuleName PSDesiredStateConfiguration
+                            Import-DscResource -ModuleName xPSDesiredStateConfiguration -ModuleVersion 9.2.0
+                            node localhost {
+                                xPackage "xPackage" {
+                                    Ensure     = "Present"
+                                    ProductId  = "$guid"
+                                    Name       = "$title"
+                                    Path       = "$FilePath"
+                                    Arguments  = "$ArgumentList"
+                                    ReturnCode = 0, 3010
+                                }
+                            }
+                        }
+                        DscWithoutWinRm
+"@
+                $dsc = [scriptblock]::Create($scriptblock)
+
+
             } elseif ("$FilePath".EndsWith("cab")) {
                 Write-PSFMessage -Level Verbose -Message "It's a cab file"
                 $basename = Split-Path -Path $FilePath -Leaf
                 $logfile = Join-Path -Path $env:windir -ChildPath ($basename + ".log")
 
                 $hotfix = @{
-                    Name       = 'xWindowsPackageCab'
+                    Name       = "xWindowsPackageCab"
                     ModuleName = @{
                         ModuleName    = "xPSDesiredStateConfiguration"
                         ModuleVersion = "9.2.0"
                     }
                     Property   = @{
-                        Ensure     = 'Present'
+                        Ensure     = "Present"
                         Name       = $basename
                         SourcePath = $FilePath # adding a directory will add other msus in the dir
                         LogPath    = $logfile
                     }
                 }
+
+                $scriptblock = @"
+                    Configuration DscWithoutWinRm {
+                        Import-DscResource -ModuleName PSDesiredStateConfiguration 4>$null
+                        Import-DscResource -ModuleName xPSDesiredStateConfiguration -ModuleVersion 9.2.0 4>$null
+                        node localhost {
+                            xWindowsPackageCab xWindowsPackageCab {
+                                Ensure     = "Present"
+                                Name       = "$basename"
+                                SourcePath = "$FilePath" # adding a directory will add other msus in the dir
+                                LogPath    = "$logfile"
+                            }
+                        }
+                    }
+                    DscWithoutWinRm
+"@
+
+                $dsc = [scriptblock]::Create($scriptblock)
             } else {
                 Write-PSFMessage -Level Verbose -Message "It's a WSU file"
                 # this takes care of WSU files
                 $hotfix = @{
-                    Name       = 'xHotFix'
+                    Name       = "xHotFix"
                     ModuleName = @{
                         ModuleName    = "xWindowsUpdate"
                         ModuleVersion = "3.0.0"
                     }
                     Property   = @{
-                        Ensure = 'Present'
+                        Ensure = "Present"
                         Id     = $HotfixId
                         Path   = $FilePath
                     }
                 }
+
                 if ($PSDscRunAsCredential) {
                     $hotfix.Property.PSDscRunAsCredential = $PSDscRunAsCredential
+
+                    $scriptblock = @"
+                        Configuration DscWithoutWinRm {
+                            Import-DscResource -ModuleName PSDesiredStateConfiguration 4>$null
+                            Import-DscResource -ModuleName xWindowsUpdate -ModuleVersion 3.0.0 4>$null
+
+                            node localhost {
+                                xHotFix xHotFix {
+                                    Ensure               = "Present"
+                                    Id                   = "$HotfixId"
+                                    Path                 = "$FilePath"
+                                    PSDscRunAsCredential = $PSDscRunAsCredential
+                                }
+                            }
+                        }
+                        DscWithoutWinRm
+"@
+
+                    $dsc = [scriptblock]::Create($scriptblock)
+                } else {
+                     $scriptblock = @"
+                            Configuration DscWithoutWinRm {
+                            Import-DscResource -ModuleName PSDesiredStateConfiguration 4>$null
+                            Import-DscResource -ModuleName xWindowsUpdate -ModuleVersion 3.0.0 4>$null
+
+                            node localhost {
+                                xHotFix xHotFix {
+                                    Ensure               = "Present"
+                                    Id                   = "$HotfixId"
+                                    Path                 = "$FilePath"
+                                }
+                            }
+                        }
+                        DscWithoutWinRm
+"@
+
+                    $dsc = [scriptblock]::Create($scriptblock)
                 }
             }
             try {
@@ -501,22 +580,66 @@ function Start-DscUpdate {
                         $hotfixnameid = $hotfix.property.id
                     }
 
-                    Write-Verbose -Message "Installing $hotfixnameid from $hotfixpath"
+                    Write-Verbose -Message "Installing $title from $hotfixpath"
+                    # https://martin77s.wordpress.com/2017/03/01/using-dsc-with-the-winrm-service-disabled/
+                    if (-not (Test-WSMan -ErrorAction Ignore)) {
+                        Write-Verbose -Message "DSC is not available on this system because remoting isn't enabled. Using Invoke-CimMethod."
+                        $workaround = $true
+                        Push-Location -Path $env:temp
+                        $null = Invoke-Command -ScriptBlock $dsc
+                        $mofpath = Resolve-Path -Path ".\DscWithoutWinRm\localhost.mof"
+                        $configData = [byte[]][System.IO.File]::ReadAllBytes($mofpath)
+                        Pop-Location
+                    } else {
+                         Write-Verbose -Message "DSC appearse to be available on this system. Using Invoke-DscResource."
+                        $workaround = $false
+                    }
+
                     try {
                         $ProgressPreference = "SilentlyContinue"
-                        if (-not (Invoke-DscResource @hotfix -Method Test 4>$null)) {
-                            $msgs = Invoke-DscResource @hotfix -Method Set -ErrorAction Stop 4>&1
 
-                            if ($msgs) {
-                                foreach ($msg in $msgs) {
-                                    # too many extra spaces, baw
-                                    while ("$msg" -match "  ") {
-                                        $msg = "$msg" -replace "  ", " "
-                                    }
-                                    $msg | Write-Verbose
+                        if ($workaround) {
+                            $parms = @{
+                                Namespace    = "root/Microsoft/Windows/DesiredStateConfiguration"
+                                ClassName    = "MSFT_DSCLocalConfigurationManager"
+                                Method       = "TestConfiguration"
+                                Arguments    = @{
+                                    ConfigurationData = $configData
+                                    Force             = $true
                                 }
                             }
+                            $testresource = Invoke-CimMethod @parms 4>$null
+                        } else {
+                            $testresource = Invoke-DscResource @hotfix -Method Test 4>$null
                         }
+
+                        if (-not $testresource) {
+                            if ($workaround) {
+                                $parms = @{
+                                    Namespace    = "root/Microsoft/Windows/DesiredStateConfiguration"
+                                    ClassName    = "MSFT_DSCLocalConfigurationManager"
+                                    Method       = "SendConfigurationApply"
+                                    Arguments    = @{
+                                        ConfigurationData = $configData
+                                        Force             = $true
+                                    }
+                                }
+                                $msgs = Invoke-CimMethod @parms 4>$null
+                            } else {
+                                $msgs = Invoke-DscResource @hotfix -Method Set -ErrorAction Stop 4>&1
+                            }
+                        }
+
+                        if ($msgs) {
+                            foreach ($msg in $msgs) {
+                                # too many extra spaces, baw
+                                while ("$msg" -match "  ") {
+                                    $msg = "$msg" -replace "  ", " "
+                                }
+                                $msg | Write-Verbose
+                            }
+                        }
+
                         $ProgressPreference = $oldpref
                     } catch {
                         $message = "$_".TrimStart().TrimEnd().Trim()
@@ -660,6 +783,7 @@ function Start-DscUpdate {
                         FileName     = $updatefile.Name
                     }
                 } else {
+                    Pop-Location
                     Stop-PSFFunction -Message "Failure on $hostname" -ErrorRecord $PSitem -Continue -EnableException:$EnableException
                 }
             }
