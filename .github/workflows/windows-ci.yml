@@ -68,3 +68,71 @@ jobs:
             $error[0] | select *
             throw $PSItem
           }
+
+
+  second:
+    name: Let's try another VM
+    runs-on: windows-latest
+
+    steps:
+      - uses: actions/checkout@v1
+      - name: Install and cache PowerShell modules
+        uses: potatoqualitee/psmodulecache@v5.0
+        with:
+          modules-to-cache: PSFramework, PSSQLite
+          shell: powershell, pwsh
+
+      - name: Starting services and disabling WinRM
+        shell: powershell
+        run: |
+          Write-Output "Starting services"
+          Set-Service wuauserv -StartupType Automatic
+          Start-Service wuauserv
+
+          Write-Output "Disabling WinRM"
+          Set-Service WinRM -StartupType Disabled
+          Get-Service WinRM | Stop-Service -ErrorAction Continue
+          #Disable-PSRemoting -Force -ErrorAction Ignore
+          #winrm delete winrm/config/Listener?Address=*+Transport=HTTP
+          #winrm quickconfig -quiet
+
+      - name: Run Test-WSMan
+        shell: powershell
+        run: |
+          Test-WSMan -ErrorAction Continue
+
+      - name: Downloading kbupdate-library and scanfile
+        shell: powershell
+        run: |
+          Write-Output "Downloading freshest library"
+          Install-Module kbupdate-library -Confirm:$false -Force
+          Import-Module ./kbupdate.psd1 -ErrorAction Stop
+      - name: Getting needed updates
+        shell: powershell
+        run: |
+          Write-Output "Importing kbupdate module"
+          Import-Module ./kbupdate.psd1 -ErrorAction Stop
+          Write-Output "Getting needed updates"
+          Get-KbNeededUpdate -ScanFilePath C:\temp\wsusscn2.cab -OutVariable needed -ErrorAction Stop -EnableException | Select-Object -First 1 -OutVariable saveit
+          $null = mkdir C:\temp\xml
+
+          Write-Output "Found $($needed.Count) needed updates"
+          Write-Output "Will try to install $($saveit.Count) update"
+          $saveit | Export-CliXml -Path C:\temp\xml\results.xml
+          $null = $saveit | Save-KbUpdate -Path C:\temp
+
+      - name: Installing updates
+        shell: powershell
+        run: |
+          Import-Module ./kbupdate.psd1 -ErrorAction Stop
+          $saveit = Import-CliXml -Path C:\temp\xml\results.xml
+          Write-Output "Installing needed updates"
+          try {
+            $saveit | Install-KbUpdate -RepositoryPath C:\temp -Verbose -ErrorAction Stop -EnableException
+            if ($($saveit.Count) -gt 0) {
+              Get-KbInstalledSoftware -Pattern $needed.KBUpdate
+            }
+          } catch {
+            $error[0] | select *
+            throw $PSItem
+          }
