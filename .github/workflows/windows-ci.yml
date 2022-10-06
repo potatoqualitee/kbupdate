@@ -14,7 +14,7 @@ jobs:
           modules-to-cache: PSFramework, PSSQLite
           shell: powershell, pwsh
 
-      - name: Starting services and enabling WinRM
+      - name: Starting services and disabling WinRM
         shell: powershell
         run: |
           Write-Output "Starting services"
@@ -24,7 +24,8 @@ jobs:
           Write-Output "Disabling WinRM"
           Set-Service WinRM -StartupType Disabled
           Get-Service WinRM | Stop-Service -ErrorAction Continue
-          Disable-PSRemoting -Force -ErrorAction Ignore
+          #Disable-PSRemoting -Force -ErrorAction Ignore
+          winrm delete winrm/config/Listener?Address=*+Transport=HTTP
           #winrm quickconfig -quiet
 
       - name: Run Test-WSMan
