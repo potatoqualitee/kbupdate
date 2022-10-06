@@ -419,7 +419,7 @@ function Start-DscUpdate {
                         ProductId  = $Guid
                         Name       = $Title
                         Path       = $FilePath
-                        Arguments  = "$ArgumentList"
+                        Arguments  = $ArgumentList
                         ReturnCode = 0, 3010
                     }
                 }
