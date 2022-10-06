@@ -22,7 +22,7 @@ Write-Host "Loading constants"
 . "$PSScriptRoot\constants.ps1"
 
 Write-Host "All modules"
-Get-Module -ListAvailable -ErrorAction Ignore | Where-Object Path -like "$env:ProgramFiles*"
+Get-Module -ListAvailable -ErrorAction Ignore | Where-Object Path -like "$env:ProgramFiles*" | Select-Object Name
 
 Write-Host "Importing Module"
 
