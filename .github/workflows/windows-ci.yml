@@ -24,7 +24,7 @@ jobs:
           Write-Output "Disabling WinRM"
           Set-Service WinRM -StartupType Disabled
           Get-Service WinRM | Stop-Service -ErrorAction Continue
-          Disable-PSRemoting -Force -ErrorAction Continue
+          Disable-PSRemoting -Force -ErrorAction Ignore
           #winrm quickconfig -quiet
 
       - name: Run Test-WSMan
