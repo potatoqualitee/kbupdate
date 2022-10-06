@@ -587,7 +587,6 @@ function Start-DscUpdate {
                         $workaround = $true
                         Push-Location -Path $env:temp
                         $null = Invoke-Command -ScriptBlock $dsc
-                        #$null = DscWithoutWinRm
                         $mofpath = Resolve-Path -Path ".\DscWithoutWinRm\localhost.mof"
                         $configData = [byte[]][System.IO.File]::ReadAllBytes($mofpath)
                         Pop-Location
