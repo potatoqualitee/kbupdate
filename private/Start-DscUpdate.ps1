@@ -590,6 +590,7 @@ function Start-DscUpdate {
                         $configData = [byte[]][System.IO.File]::ReadAllBytes($mofpath)
                         Pop-Location
                     } else {
+                         Write-Verbose -Message "DSC appearse to be available on this system. Using Invoke-DscResource."
                         $workaround = $false
                     }
 

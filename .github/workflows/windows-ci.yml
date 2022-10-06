@@ -19,10 +19,10 @@ jobs:
         run: |
           Write-Output "Starting services"
           Set-Service wuauserv -StartupType Automatic
-          #Set-Service WinRM -StartupType Automatic
           Start-Service wuauserv
 
           #Write-Output "Enabling WinRM" # No need anymore, woo!
+          #Set-Service WinRM -StartupType Automatic
           #winrm quickconfig -quiet
 
       - name: Downloading kbupdate-library and scanfile
@@ -55,7 +55,12 @@ jobs:
           Import-Module ./kbupdate.psd1 -ErrorAction Stop
           $saveit = Import-CliXml -Path C:\temp\xml\results.xml
           Write-Output "Installing needed updates"
-          $saveit | Install-KbUpdate -RepositoryPath C:\temp -Verbose
-          if ($($saveit.Count) -gt 0) {
-            Get-KbInstalledSoftware -Pattern $needed.KBUpdate
+          try {
+            $saveit | Install-KbUpdate -RepositoryPath C:\temp -Verbose -ErrorAction Stop -EnableException
+            if ($($saveit.Count) -gt 0) {
+              Get-KbInstalledSoftware -Pattern $needed.KBUpdate
+            }
+          } catch {
+            $error[0] | select *
+            throw $PSItem
           }
