@@ -23,6 +23,9 @@ if ($env:BUILD_BUILDURI -like "vstfs*") {
 Write-Host "Loading constants"
 . "$PSScriptRoot\constants.ps1"
 
+Write-Host "Installing xPSDesiredStateConfiguration" -ForegroundColor Cyan
+Install-Module xPSDesiredStateConfiguration -Force -SkipPublisherCheck -RequiredVersion 9.2.0
+
 Write-Host "All modules"
 Get-Module -ListAvailable -ErrorAction Ignore | Where-Object Path -like "$env:ProgramFiles*" | Select-Object Name
 
