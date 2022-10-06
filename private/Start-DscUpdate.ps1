@@ -351,21 +351,21 @@ function Start-DscUpdate {
                             Write-PSFMessage -Level Verbose -Message "Trying to get GUID from $($updatefile.FullName)"
 
                             <#
-                        The reason you want to find the GUID is to save time, mostly, I guess?
+                            The reason you want to find the GUID is to save time, mostly, I guess?
 
-                        It saves time because it won't even attempt the install if there are GUID matches
-                        in the registry. If you pass a fake but compliant GUID, it attempts the install and
-                        fails, no big deal.
+                            It saves time because it won't even attempt the install if there are GUID matches
+                            in the registry. If you pass a fake but compliant GUID, it attempts the install and
+                            fails, no big deal.
 
-                        Overall, it just seems like a good idea to get a GUID if it's required.
-                    #>
+                            Overall, it just seems like a good idea to get a GUID if it's required.
+                            #>
 
                             <#
-                        It's better to just read from memory but I can't get this to work
-                        $cab = New-Object Microsoft.Deployment.Compression.Cab.Cabinfo "C:\path\path.exe"
-                        $file = New-Object Microsoft.Deployment.Compression.Cab.CabFileInfo($cab, "0")
-                        $content = $file.OpenRead()
-                    #>
+                            It's better to just read from memory but I can't get this to work
+                            $cab = New-Object Microsoft.Deployment.Compression.Cab.Cabinfo "C:\path\path.exe"
+                            $file = New-Object Microsoft.Deployment.Compression.Cab.CabFileInfo($cab, "0")
+                            $content = $file.OpenRead()
+                            #>
 
                             $cab = New-Object Microsoft.Deployment.Compression.Cab.Cabinfo $updatefile.FullName
                             $files = $cab.GetFiles("*")
@@ -419,8 +419,23 @@ function Start-DscUpdate {
                         ProductId  = $Guid
                         Name       = $Title
                         Path       = $FilePath
-                        Arguments  = $ArgumentList
+                        Arguments  = "$ArgumentList"
                         ReturnCode = 0, 3010
+                    }
+                }
+
+                Configuration DscWithoutWinRm {
+                    Import-DscResource –ModuleName PSDesiredStateConfiguration
+                    Import-DscResource –ModuleName xPSDesiredStateConfiguration -ModuleVersion 9.2.0
+                    node localhost {
+                        xPackage xPackage {
+                            Ensure     = 'Present'
+                            ProductId  = $guid
+                            Name       = $title
+                            Path       = $FilePath
+                            Arguments  = "$ArgumentList"
+                            ReturnCode = 0, 3010
+                        }
                     }
                 }
             } elseif ("$FilePath".EndsWith("cab")) {
@@ -441,6 +456,19 @@ function Start-DscUpdate {
                         LogPath    = $logfile
                     }
                 }
+
+                Configuration DscWithoutWinRm {
+                    Import-DscResource –ModuleName PSDesiredStateConfiguration 4>$null
+                    Import-DscResource –ModuleName xPSDesiredStateConfiguration -ModuleVersion 9.2.0 4>$null
+                    node localhost {
+                        xWindowsPackageCab xWindowsPackageCab {
+                            Ensure     = 'Present'
+                            Name       = $basename
+                            SourcePath = $FilePath # adding a directory will add other msus in the dir
+                            LogPath    = $logfile
+                        }
+                    }
+                }
             } else {
                 Write-PSFMessage -Level Verbose -Message "It's a WSU file"
                 # this takes care of WSU files
@@ -456,8 +484,36 @@ function Start-DscUpdate {
                         Path   = $FilePath
                     }
                 }
+
                 if ($PSDscRunAsCredential) {
                     $hotfix.Property.PSDscRunAsCredential = $PSDscRunAsCredential
+
+                    Configuration DscWithoutWinRm {
+                        Import-DscResource –ModuleName PSDesiredStateConfiguration 4>$null
+                        Import-DscResource –ModuleName xWindowsUpdate -ModuleVersion 3.0.0 4>$null
+
+                        node localhost {
+                            xHotFix xHotFix {
+                                Ensure               = 'Present'
+                                Id                   = $HotfixId
+                                Path                 = $FilePath
+                                PSDscRunAsCredential = $PSDscRunAsCredential
+                            }
+                        }
+                    }
+                } else {
+                    Configuration DscWithoutWinRm {
+                        Import-DscResource –ModuleName PSDesiredStateConfiguration 4>$null
+                        Import-DscResource –ModuleName xWindowsUpdate -ModuleVersion 3.0.0 4>$null
+
+                        node localhost {
+                            xHotFix xHotFix {
+                                Ensure               = 'Present'
+                                Id                   = $HotfixId
+                                Path                 = $FilePath
+                            }
+                        }
+                    }
                 }
             }
             try {
@@ -502,21 +558,63 @@ function Start-DscUpdate {
                     }
 
                     Write-Verbose -Message "Installing $hotfixnameid from $hotfixpath"
+                    # https://martin77s.wordpress.com/2017/03/01/using-dsc-with-the-winrm-service-disabled/
+                    if (-not (Test-WSMan -ErrorAction Ignore)) {
+                        $workaround = $true
+                        Push-Location -Path $env:temp
+                        $null = DscWithoutWinRm
+                        $mofpath = Resolve-Path -Path '.\DscWithoutWinRm\localhost.mof'
+                        $configData = [byte[]][System.IO.File]::ReadAllBytes($mofpath)
+                        Pop-Location
+                    } else {
+                        $workaround = $false
+                    }
+
                     try {
                         $ProgressPreference = "SilentlyContinue"
-                        if (-not (Invoke-DscResource @hotfix -Method Test 4>$null)) {
-                            $msgs = Invoke-DscResource @hotfix -Method Set -ErrorAction Stop 4>&1
 
-                            if ($msgs) {
-                                foreach ($msg in $msgs) {
-                                    # too many extra spaces, baw
-                                    while ("$msg" -match "  ") {
-                                        $msg = "$msg" -replace "  ", " "
-                                    }
-                                    $msg | Write-Verbose
+                        if ($workaround) {
+                            $parms = @{
+                                Namespace    = "root/Microsoft/Windows/DesiredStateConfiguration"
+                                ClassName    = "MSFT_DSCLocalConfigurationManager"
+                                Method       = "TestConfiguration"
+                                Arguments    = @{
+                                    ConfigurationData = $configData
+                                    Force             = $true
                                 }
                             }
+                            $testresource = Invoke-CimMethod @parms 4>$null
+                        } else {
+                            $testresource = Invoke-DscResource -Property @hotfix -Method Test 4>$null
                         }
+
+                        if (-not $testresource) {
+                            if ($workaround) {
+                                $parms = @{
+                                    Namespace    = "root/Microsoft/Windows/DesiredStateConfiguration"
+                                    ClassName    = "MSFT_DSCLocalConfigurationManager"
+                                    Method       = "SendConfigurationApply"
+                                    Arguments    = @{
+                                        ConfigurationData = $configData
+                                        Force             = $true
+                                    }
+                                }
+                                $msgs = Invoke-CimMethod @parms 4>$null
+                            } else {
+                                $msgs = Invoke-DscResource @hotfix -Method Set -ErrorAction Stop 4>&1
+                            }
+                        }
+
+                        if ($msgs) {
+                            foreach ($msg in $msgs) {
+                                # too many extra spaces, baw
+                                while ("$msg" -match "  ") {
+                                    $msg = "$msg" -replace "  ", " "
+                                }
+                                $msg | Write-Verbose
+                            }
+                        }
+
                         $ProgressPreference = $oldpref
                     } catch {
                         $message = "$_".TrimStart().TrimEnd().Trim()
@@ -660,6 +758,7 @@ function Start-DscUpdate {
                         FileName     = $updatefile.Name
                     }
                 } else {
+                    Pop-Location
                     Stop-PSFFunction -Message "Failure on $hostname" -ErrorRecord $PSitem -Continue -EnableException:$EnableException
                 }
             }
