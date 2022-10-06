@@ -424,20 +424,26 @@ function Start-DscUpdate {
                     }
                 }
 
-                Configuration DscWithoutWinRm {
-                    Import-DscResource –ModuleName PSDesiredStateConfiguration
-                    Import-DscResource –ModuleName xPSDesiredStateConfiguration -ModuleVersion 9.2.0
-                    node localhost {
-                        xPackage xPackage {
-                            Ensure     = "Present"
-                            ProductId  = $guid
-                            Name       = $title
-                            Path       = $FilePath
-                            Arguments  = "$ArgumentList"
-                            ReturnCode = 0, 3010
+                $scriptblock = @"
+                    Configuration DscWithoutWinRm {
+                            Import-DscResource -ModuleName PSDesiredStateConfiguration
+                            Import-DscResource -ModuleName xPSDesiredStateConfiguration -ModuleVersion 9.2.0
+                            node localhost {
+                                xPackage "xPackage" {
+                                    Ensure     = "Present"
+                                    ProductId  = "$guid"
+                                    Name       = "$title"
+                                    Path       = "$FilePath"
+                                    Arguments  = "$ArgumentList"
+                                    ReturnCode = 0, 3010
+                                }
+                            }
                         }
-                    }
-                }
+                        DscWithoutWinRm
+"@
+                $dsc = [scriptblock]::Create($scriptblock)
+
+
             } elseif ("$FilePath".EndsWith("cab")) {
                 Write-PSFMessage -Level Verbose -Message "It's a cab file"
                 $basename = Split-Path -Path $FilePath -Leaf
@@ -457,18 +463,23 @@ function Start-DscUpdate {
                     }
                 }
 
-                Configuration DscWithoutWinRm {
-                    Import-DscResource –ModuleName PSDesiredStateConfiguration 4>$null
-                    Import-DscResource –ModuleName xPSDesiredStateConfiguration -ModuleVersion 9.2.0 4>$null
-                    node localhost {
-                        xWindowsPackageCab xWindowsPackageCab {
-                            Ensure     = "Present"
-                            Name       = $basename
-                            SourcePath = $FilePath # adding a directory will add other msus in the dir
-                            LogPath    = $logfile
+                $scriptblock = @"
+                    Configuration DscWithoutWinRm {
+                        Import-DscResource -ModuleName PSDesiredStateConfiguration 4>$null
+                        Import-DscResource -ModuleName xPSDesiredStateConfiguration -ModuleVersion 9.2.0 4>$null
+                        node localhost {
+                            xWindowsPackageCab xWindowsPackageCab {
+                                Ensure     = "Present"
+                                Name       = "$basename"
+                                SourcePath = "$FilePath" # adding a directory will add other msus in the dir
+                                LogPath    = "$logfile"
+                            }
                         }
                     }
-                }
+                    DscWithoutWinRm
+"@
+
+                $dsc = [scriptblock]::Create($scriptblock)
             } else {
                 Write-PSFMessage -Level Verbose -Message "It's a WSU file"
                 # this takes care of WSU files
@@ -488,32 +499,42 @@ function Start-DscUpdate {
                 if ($PSDscRunAsCredential) {
                     $hotfix.Property.PSDscRunAsCredential = $PSDscRunAsCredential
 
-                    Configuration DscWithoutWinRm {
-                        Import-DscResource –ModuleName PSDesiredStateConfiguration 4>$null
-                        Import-DscResource –ModuleName xWindowsUpdate -ModuleVersion 3.0.0 4>$null
+                    $scriptblock = @"
+                        Configuration DscWithoutWinRm {
+                            Import-DscResource -ModuleName PSDesiredStateConfiguration 4>$null
+                            Import-DscResource -ModuleName xWindowsUpdate -ModuleVersion 3.0.0 4>$null
 
-                        node localhost {
-                            xHotFix xHotFix {
-                                Ensure               = "Present"
-                                Id                   = $HotfixId
-                                Path                 = $FilePath
-                                PSDscRunAsCredential = $PSDscRunAsCredential
+                            node localhost {
+                                xHotFix xHotFix {
+                                    Ensure               = "Present"
+                                    Id                   = "$HotfixId"
+                                    Path                 = "$FilePath"
+                                    PSDscRunAsCredential = $PSDscRunAsCredential
+                                }
                             }
                         }
-                    }
+                        DscWithoutWinRm
+"@
+
+                    $dsc = [scriptblock]::Create($scriptblock)
                 } else {
-                    Configuration DscWithoutWinRm {
-                        Import-DscResource –ModuleName PSDesiredStateConfiguration 4>$null
-                        Import-DscResource –ModuleName xWindowsUpdate -ModuleVersion 3.0.0 4>$null
+                     $scriptblock = @"
+                            Configuration DscWithoutWinRm {
+                            Import-DscResource -ModuleName PSDesiredStateConfiguration 4>$null
+                            Import-DscResource -ModuleName xWindowsUpdate -ModuleVersion 3.0.0 4>$null
 
-                        node localhost {
-                            xHotFix xHotFix {
-                                Ensure               = "Present"
-                                Id                   = $HotfixId
-                                Path                 = $FilePath
+                            node localhost {
+                                xHotFix xHotFix {
+                                    Ensure               = "Present"
+                                    Id                   = "$HotfixId"
+                                    Path                 = "$FilePath"
+                                }
                             }
                         }
-                    }
+                        DscWithoutWinRm
+"@
+
+                    $dsc = [scriptblock]::Create($scriptblock)
                 }
             }
             try {
@@ -563,7 +584,8 @@ function Start-DscUpdate {
                         Write-Verbose -Message "DSC is not available on this system because remoting isn't enabled. Using Invoke-CimMethod."
                         $workaround = $true
                         Push-Location -Path $env:temp
-                        $null = DscWithoutWinRm
+                        $null = Invoke-Command -ScriptBlock $dsc
+                        #$null = DscWithoutWinRm
                         $mofpath = Resolve-Path -Path ".\DscWithoutWinRm\localhost.mof"
                         $configData = [byte[]][System.IO.File]::ReadAllBytes($mofpath)
                         Pop-Location
