@@ -117,7 +117,7 @@ function Start-DscUpdate {
         }
 
         $hasxhotfix = Invoke-KbCommand -ScriptBlock {
-            Get-Module -ListAvailable xWindowsUpdate -ErrorAction Ignore | Where-Object Version -eq 3.0.0
+            Get-Module -Name xWindowsUpdate -ListAvailable -ErrorAction Ignore | Where-Object { $PSItem.Path -match "3.0.0" -and $PSItem.Path -like "$env:ProgramFiles*" }
         }
 
         if (-not $hasxhotfix) {
@@ -143,7 +143,7 @@ function Start-DscUpdate {
         }
 
         $hasxdsc = Invoke-KbCommand -ScriptBlock {
-            Get-Module -ListAvailable xPSDesiredStateConfiguration -ErrorAction Ignore | Where-Object Version -eq 9.2.0
+            Get-Module -Name xPSDesiredStateConfiguration -ListAvailable -ErrorAction Ignore | Where-Object { $PSItem.Path -match "9.2.0" -and $PSItem.Path -like "$env:ProgramFiles*" }
         }
 
         if (-not $hasxdsc) {
@@ -409,13 +409,13 @@ function Start-DscUpdate {
 
                 # this takes care of things like SQL Server updates
                 $hotfix = @{
-                    Name       = 'xPackage'
+                    Name       = "xPackage"
                     ModuleName = @{
                         ModuleName    = "xPSDesiredStateConfiguration"
                         ModuleVersion = "9.2.0"
                     }
                     Property   = @{
-                        Ensure     = 'Present'
+                        Ensure     = "Present"
                         ProductId  = $Guid
                         Name       = $Title
                         Path       = $FilePath
@@ -429,7 +429,7 @@ function Start-DscUpdate {
                     Import-DscResource –ModuleName xPSDesiredStateConfiguration -ModuleVersion 9.2.0
                     node localhost {
                         xPackage xPackage {
-                            Ensure     = 'Present'
+                            Ensure     = "Present"
                             ProductId  = $guid
                             Name       = $title
                             Path       = $FilePath
@@ -444,13 +444,13 @@ function Start-DscUpdate {
                 $logfile = Join-Path -Path $env:windir -ChildPath ($basename + ".log")
 
                 $hotfix = @{
-                    Name       = 'xWindowsPackageCab'
+                    Name       = "xWindowsPackageCab"
                     ModuleName = @{
                         ModuleName    = "xPSDesiredStateConfiguration"
                         ModuleVersion = "9.2.0"
                     }
                     Property   = @{
-                        Ensure     = 'Present'
+                        Ensure     = "Present"
                         Name       = $basename
                         SourcePath = $FilePath # adding a directory will add other msus in the dir
                         LogPath    = $logfile
@@ -462,7 +462,7 @@ function Start-DscUpdate {
                     Import-DscResource –ModuleName xPSDesiredStateConfiguration -ModuleVersion 9.2.0 4>$null
                     node localhost {
                         xWindowsPackageCab xWindowsPackageCab {
-                            Ensure     = 'Present'
+                            Ensure     = "Present"
                             Name       = $basename
                             SourcePath = $FilePath # adding a directory will add other msus in the dir
                             LogPath    = $logfile
@@ -473,13 +473,13 @@ function Start-DscUpdate {
                 Write-PSFMessage -Level Verbose -Message "It's a WSU file"
                 # this takes care of WSU files
                 $hotfix = @{
-                    Name       = 'xHotFix'
+                    Name       = "xHotFix"
                     ModuleName = @{
                         ModuleName    = "xWindowsUpdate"
                         ModuleVersion = "3.0.0"
                     }
                     Property   = @{
-                        Ensure = 'Present'
+                        Ensure = "Present"
                         Id     = $HotfixId
                         Path   = $FilePath
                     }
@@ -494,7 +494,7 @@ function Start-DscUpdate {
 
                         node localhost {
                             xHotFix xHotFix {
-                                Ensure               = 'Present'
+                                Ensure               = "Present"
                                 Id                   = $HotfixId
                                 Path                 = $FilePath
                                 PSDscRunAsCredential = $PSDscRunAsCredential
@@ -508,7 +508,7 @@ function Start-DscUpdate {
 
                         node localhost {
                             xHotFix xHotFix {
-                                Ensure               = 'Present'
+                                Ensure               = "Present"
                                 Id                   = $HotfixId
                                 Path                 = $FilePath
                             }
@@ -557,13 +557,14 @@ function Start-DscUpdate {
                         $hotfixnameid = $hotfix.property.id
                     }
 
-                    Write-Verbose -Message "Installing $hotfixnameid from $hotfixpath"
+                    Write-Verbose -Message "Installing $title from $hotfixpath"
                     # https://martin77s.wordpress.com/2017/03/01/using-dsc-with-the-winrm-service-disabled/
                     if (-not (Test-WSMan -ErrorAction Ignore)) {
+                        Write-Verbose -Message "DSC is not available on this system because remoting isn't enabled. Using Invoke-CimMethod."
                         $workaround = $true
                         Push-Location -Path $env:temp
                         $null = DscWithoutWinRm
-                        $mofpath = Resolve-Path -Path '.\DscWithoutWinRm\localhost.mof'
+                        $mofpath = Resolve-Path -Path ".\DscWithoutWinRm\localhost.mof"
                         $configData = [byte[]][System.IO.File]::ReadAllBytes($mofpath)
                         Pop-Location
                     } else {
