@@ -19,11 +19,11 @@ jobs:
         run: |
           Write-Output "Starting services"
           Set-Service wuauserv -StartupType Automatic
-          Set-Service WinRM -StartupType Automatic
+          #Set-Service WinRM -StartupType Automatic
           Start-Service wuauserv
 
-          Write-Output "Enabling WinRM"
-          winrm quickconfig -quiet
+          #Write-Output "Enabling WinRM" # No need anymore, woo!
+          #winrm quickconfig -quiet
 
       - name: Downloading kbupdate-library and scanfile
         shell: powershell
