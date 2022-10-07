@@ -331,11 +331,12 @@ function Start-DscUpdate {
                 Write-PSFMessage -Level Verbose -Message "It's an exe"
                 if (-not $ArgumentList -and $FilePath -match "sql") {
                     $ArgumentList = "/action=patch /AllInstances /quiet /IAcceptSQLServerLicenseTerms"
-                } else {
+                } elseif (-not $ArgumentList) {
                     # Setting a default argumentlist that hopefully works for most things?
                     $ArgumentList = "/install /quiet /notrestart"
                 }
 
+                Write-PSFMessage -Level Verbose -Message "ArgumentList is $ArgumentList"
                 if (-not $Guid) {
                     if ($object) {
                         if ($object.UpdateId) {
@@ -405,6 +406,7 @@ function Start-DscUpdate {
                         }
 
                         Write-PSFMessage -Level Verbose -Message "GUID is $guid"
+                        Write-PSFMessage -Level Verbose -Message "Title is $title"
 
                     }
                 }
@@ -467,8 +469,8 @@ function Start-DscUpdate {
 
                 $scriptblock = @"
                     Configuration DscWithoutWinRm {
-                        Import-DscResource -ModuleName PSDesiredStateConfiguration 4>$null
-                        Import-DscResource -ModuleName xPSDesiredStateConfiguration -ModuleVersion 9.2.0 4>$null
+                        Import-DscResource -ModuleName PSDesiredStateConfiguration
+                        Import-DscResource -ModuleName xPSDesiredStateConfiguration -ModuleVersion 9.2.0
                         node localhost {
                             xWindowsPackageCab xWindowsPackageCab {
                                 Ensure     = "Present"
@@ -503,8 +505,8 @@ function Start-DscUpdate {
 
                     $scriptblock = @"
                         Configuration DscWithoutWinRm {
-                            Import-DscResource -ModuleName PSDesiredStateConfiguration 4>$null
-                            Import-DscResource -ModuleName xWindowsUpdate -ModuleVersion 3.0.0 4>$null
+                            Import-DscResource -ModuleName PSDesiredStateConfiguration
+                            Import-DscResource -ModuleName xWindowsUpdate -ModuleVersion 3.0.0
 
                             node localhost {
                                 xHotFix xHotFix {
@@ -522,8 +524,8 @@ function Start-DscUpdate {
                 } else {
                      $scriptblock = @"
                             Configuration DscWithoutWinRm {
-                            Import-DscResource -ModuleName PSDesiredStateConfiguration 4>$null
-                            Import-DscResource -ModuleName xWindowsUpdate -ModuleVersion 3.0.0 4>$null
+                            Import-DscResource -ModuleName PSDesiredStateConfiguration
+                            Import-DscResource -ModuleName xWindowsUpdate -ModuleVersion 3.0.0
 
                             node localhost {
                                 xHotFix xHotFix {

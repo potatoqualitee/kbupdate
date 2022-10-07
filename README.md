@@ -275,12 +275,31 @@ It's possible you'll end up using `PSWindowsUpdate` and `kbudpate` together.
 
 The `Install-KbUpdate` command uses the `Invoke-DscResource` to run a method of the `Package` or `xHotFix` resource against the target node. Using `Invoke-DscResource` bypasses the Local Configuration Manager (LCM) on the target node so should not affect your current configuration.  However, if you are currently using DSC to control the desired state of your target node and you contradict the call to `Invoke-DscResource` you could sees issues. For example if the LCM has a `Package` resource saying that KB4527376 should not be installed, and then you install it with `Install-KbUpdate` after the install finishes the LCM will report it is not in the desired state, and depending on your LCM settings could uninstall the KB.
 
-## Dependencies
+## Module Dependencies
 
 - kbupdate-library - a sqlite db
 - PSFramework - for PowerShell goodness
 - PSSQLite - to query the included db
 - PoshWSUS - to query the WSUS server when `-Source WSUS` is specified
+
+## Other dependencies
+
+You no longer need to have remoting enabled to install updates via `Invoke-DscResource`. If you do not have remoting enabled locally, it will use `Invoke-CimMethod` instead.
+
+## Can I install other applications using Install-KbUpdate
+
+Yes, but. Yes, I've done it before but there's limited support because this module is intended for kb updates which are somewhat predictable. But if you'd like to try, ensure that you know the silent switch for the application. Otherwise, kbupdate will probably guess wrong and wait infinitely for a hidden prompt.
+
+```
+# successfully install notepad++, for example
+$parms = @{
+    ComputerName = "localhost"
+    FilePath = "$home\Downloads\npp.8.4.6.Installer.x64.exe"
+    ArgumentList = "/S"
+    Verbose = $true
+}
+Install-KbUpdate @parms
+```
 
 ## Thank you!
 
