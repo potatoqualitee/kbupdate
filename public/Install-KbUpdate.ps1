@@ -171,7 +171,9 @@ function Install-KbUpdate {
                 Stop-PSFFunction -EnableException:$EnableException -Message "You must be an administrator to run this command on the local host" -Continue
             }
 
-            Write-Progress -Activity "Installing updates" -Status "Added $($computer.ComputerName) to queue. Processing $added computers..." -PercentComplete ($added / 100 * 100)
+            if (-not $NoMultithreading) {
+                Write-Progress -Activity "Installing updates" -Status "Added $($computer.ComputerName) to queue. Processing $added computers..." -PercentComplete ($added / 100 * 100)
+            }
 
             Write-PSFMessage -Level Verbose -Message "Processing $hostname"
 
