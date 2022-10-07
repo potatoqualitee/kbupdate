@@ -70,10 +70,6 @@ function Start-DscUpdate {
             $InputObject += Get-KbUpdate -HotfixId $HotfixId -ComputerName $ComputerName
         }
 
-        if ($FilePath) {
-            $InputObject += Get-ChildItem -Path $FilePath
-        }
-
         $script:ModuleRoot = Split-Path -Path $($ModulePath | Select-Object -Last 1)
 
         # null out a couple things to be safe
@@ -83,6 +79,18 @@ function Start-DscUpdate {
             $null = $PSDefaultParameterValues.Remove("Invoke-KbCommand:ComputerName")
         }
         $PSDefaultParameterValues["Invoke-KbCommand:ComputerName"] = $ComputerName
+
+        if ($Credential) {
+            $PSDefaultParameterValues["Invoke-KbCommand:Credential"] = $Credential
+        }
+
+        if ($FilePath) {
+            if ($ComputerName.IsLocalHost) {
+                $InputObject += Get-ChildItem -Path $FilePath
+            } else {
+                $InputObject += Invoke-KbCommand -ScriptBlock { Get-ChildItem -Path $FilePath }
+            }
+        }
 
         if ($IsLocalHost) {
             # a lot of the file copy work will be done in the $home dir
@@ -327,8 +335,42 @@ function Start-DscUpdate {
                 $FilePath = $remotefile
             }
 
-            if ("$FilePath".EndsWith("exe")) {
-                Write-PSFMessage -Level Verbose -Message "It's an exe"
+
+            if ("$FilePath".EndsWith("msi")) {
+                Write-PSFMessage -Level Verbose -Message "It's an msi"
+                if ($ComputerName.IsLocalhost) {
+                    try {
+                        $msi = New-Object -ComObject WindowsInstaller.Installer
+                        $info = $msi.SummaryInformation($FilePath)
+                        $title = $info.Property(2)
+                        $guid = "$guid".TrimStart("{").TrimEnd("}")
+                    } catch {
+                        # don't care
+                    }
+                } else {
+                    $installerinfo = Invoke-KbCommand -ScriptBlock {
+                            $FilePath = $args[0]
+                            $msi = New-Object -ComObject WindowsInstaller.Installer
+                            $info = $msi.SummaryInformation($FilePath)
+                            [pscustombject]@{
+                                Title = $info.Property(2)
+                            }
+                      } -ArgumentList $FilePath -ErrorAction Ignore
+                      $title = $installerinfo.Title
+                }
+                Write-PSFMessage -Level Verbose -Message "FilePath $FilePath"
+                Write-PSFMessage -Level Verbose -Message "Guid $guid"
+                Write-PSFMessage -Level Verbose -Message "Title $title"
+            }
+
+            if ("$FilePath".EndsWith("exe") -or $PSBoundParameters.ArgumentList) {
+                if ($PSBoundParameters.ArgumentList) {
+                    Write-PSFMessage -Level Verbose -Message "ArgumentList is $ArgumentList"
+                }
+                if ("$FilePath".EndsWith("exe")) {
+                    Write-PSFMessage -Level Verbose -Message "It's an exe"
+                }
+
                 if (-not $ArgumentList -and $FilePath -match "sql") {
                     $ArgumentList = "/action=patch /AllInstances /quiet /IAcceptSQLServerLicenseTerms"
                 } elseif (-not $ArgumentList) {
@@ -336,7 +378,6 @@ function Start-DscUpdate {
                     $ArgumentList = "/install /quiet /notrestart"
                 }
 
-                Write-PSFMessage -Level Verbose -Message "ArgumentList is $ArgumentList"
                 if (-not $Guid) {
                     if ($object) {
                         if ($object.UpdateId) {
@@ -344,13 +385,17 @@ function Start-DscUpdate {
                         } else {
                             $Guid = $object.Guid
                         }
-                        $Title = $object.Title
+                        if (-not $Title) {
+                            $Title = $object.Title
+                        }
                     } else {
                         try {
                             $hotfixid = $guid = $null
                             Write-PSFMessage -Level Verbose -Message "Trying to get Title from $($updatefile.FullName)"
                             $updatefile = Get-ChildItem -Path $updatefile.FullName -ErrorAction SilentlyContinue
-                            $Title = $updatefile.VersionInfo.ProductName
+                            if (-not $Title) {
+                                $Title = $updatefile.VersionInfo.ProductName
+                            }
                             Write-PSFMessage -Level Verbose -Message "Trying to get GUID from $($updatefile.FullName)"
 
                             <#
@@ -450,6 +495,7 @@ function Start-DscUpdate {
 
             } elseif ("$FilePath".EndsWith("cab")) {
                 Write-PSFMessage -Level Verbose -Message "It's a cab file"
+                Write-PSFMessage -Level Verbose -Message "ArgumentList is $ArgumentList"
                 $basename = Split-Path -Path $FilePath -Leaf
                 $logfile = Join-Path -Path $env:windir -ChildPath ($basename + ".log")
 
@@ -486,6 +532,8 @@ function Start-DscUpdate {
                 $dsc = [scriptblock]::Create($scriptblock)
             } else {
                 Write-PSFMessage -Level Verbose -Message "It's a WSU file"
+                Write-PSFMessage -Level Verbose -Message "ArgumentList is $ArgumentList"
+
                 # this takes care of WSU files
                 $hotfix = @{
                     Name       = "xHotFix"
@@ -582,10 +630,10 @@ function Start-DscUpdate {
                         $hotfixnameid = $hotfix.property.id
                     }
 
-                    Write-Verbose -Message "Installing $title from $hotfixpath"
+                    Write-Verbose -Message "Installing $hotfixpath"
                     # https://martin77s.wordpress.com/2017/03/01/using-dsc-with-the-winrm-service-disabled/
                     if (-not (Test-WSMan -ErrorAction Ignore)) {
-                        Write-Verbose -Message "DSC is not available on this system because remoting isn't enabled. Using Invoke-CimMethod."
+                        Write-Verbose -Message "Invoke-DscResource is not available on this system because remoting isn't enabled. Using Invoke-CimMethod."
                         $workaround = $true
                         Push-Location -Path $env:temp
                         $null = Invoke-Command -ScriptBlock $dsc
@@ -593,7 +641,7 @@ function Start-DscUpdate {
                         $configData = [byte[]][System.IO.File]::ReadAllBytes($mofpath)
                         Pop-Location
                     } else {
-                         Write-Verbose -Message "DSC appearse to be available on this system. Using Invoke-DscResource."
+                         Write-Verbose -Message "DSC appears to be available on this system. Using Invoke-DscResource."
                         $workaround = $false
                     }
 
@@ -626,7 +674,7 @@ function Start-DscUpdate {
                                         Force             = $true
                                     }
                                 }
-                                $msgs = Invoke-CimMethod @parms 4>$null
+                                $msgs = Invoke-CimMethod @parms 4>&1
                             } else {
                                 $msgs = Invoke-DscResource @hotfix -Method Set -ErrorAction Stop 4>&1
                             }
@@ -649,9 +697,11 @@ function Start-DscUpdate {
                         # Unsure how to figure out params, try another way
                         if ($message -match "The return code 1 was not expected.") {
                             try {
-                                Write-Verbose -Message "Retrying install with /quit parameter"
-                                $hotfix.Property.Arguments = "/quiet"
-                                $msgs = Invoke-DscResource @hotfix -Method Set -ErrorAction Stop 4>&1
+                                if (-not $workaround) {
+                                    Write-Verbose -Message "Retrying install with /quit parameter"
+                                    $hotfix.Property.Arguments = "/quiet"
+                                    $msgs = Invoke-DscResource @hotfix -Method Set -ErrorAction Stop 4>&1
+                                }
 
                                 if ($msgs) {
                                     foreach ($msg in $msgs) {
@@ -718,7 +768,9 @@ function Start-DscUpdate {
                 }
 
                 Write-PSFMessage -Level Verbose -Message "Finished installing, checking status"
-                $exists = Get-KbInstalledSoftware -ComputerName $ComputerName -Pattern $hotfix.property.id -IncludeHidden
+                if ($hotfix.property.id) {
+                    $exists = Get-KbInstalledSoftware -ComputerName $ComputerName -Pattern $hotfix.property.id -IncludeHidden
+                }
 
                 if ($exists.Summary -match "restart") {
                     # The summary is just too long
@@ -741,6 +793,10 @@ function Start-DscUpdate {
                     $filetitle = $updatefile.VersionInfo.ProductName
                 }
 
+                if (-not $filetitle) {
+                    $filetitle = $Title
+                }
+
                 if ($message) {
                     $status = "sucks"
                 }
@@ -754,7 +810,10 @@ function Start-DscUpdate {
             } catch {
                 if ("$PSItem" -match "Serialized XML is nested too deeply") {
                     Write-PSFMessage -Level Verbose -Message "Serialized XML is nested too deeply. Forcing output."
-                    $exists = Get-KbInstalledSoftware -ComputerName $ComputerName -HotfixId $hotfix.property.id
+
+                    if ($hotfix.property.id) {
+                        $exists = Get-KbInstalledSoftware -ComputerName $ComputerName -Pattern $hotfix.property.id -IncludeHidden
+                    }
 
                     if ($exists.Summary -match "restart") {
                         $status = "This update requires a restart"
@@ -775,6 +834,10 @@ function Start-DscUpdate {
                         $filetitle = $object.Title
                     } else {
                         $filetitle = $updatefile.VersionInfo.ProductName
+                    }
+
+                    if (-not $filetitle) {
+                        $filetitle = $Title
                     }
 
                     [pscustomobject]@{
