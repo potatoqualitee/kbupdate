@@ -37,8 +37,15 @@ function Get-Needed {
                     throw $PSItem
                 }
             }
+
+            Write-Verbose -Message "Creating update searcher"
+            $searcher = $wua.CreateUpdateSearcher()
+            $searcher.ServerSelection = 3
+            $searcher.ServiceID = $packageservice.ServiceID.ToString()
+        } else {
+            Write-Verbose -Message "Creating update searcher"
+            $searcher = $wua.CreateUpdateSearcher()
         }
-        $searcher = $wua.CreateUpdateSearcher()
         Write-Verbose -Message "Searching for needed updates"
         $wsuskbs = $searcher.Search("Type='Software' and IsHidden=0")
         Write-Verbose -Message "Found $($wsuskbs.Updates.Count) updates"
