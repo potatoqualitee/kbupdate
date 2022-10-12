@@ -65,8 +65,8 @@ function Start-DscUpdate {
             }
         }
 
-        if ($HotfixId) {
-            Write-PSFMessage -Level Verbose -Message "Hotfix detected, getting info"
+        if ($HotfixId -and -not $InputObject.Link) {
+            Write-PSFMessage -Level Verbose -Message "Hotfix detected without InputObject, getting info"
             $InputObject += Get-KbUpdate -HotfixId $HotfixId -ComputerName $ComputerName
         }
 
@@ -184,10 +184,14 @@ function Start-DscUpdate {
         foreach ($object in $InputObject) {
             if ($object.Link -and $RepositoryPath) {
                 try {
-                    $filenames = Split-Path -Path $object.Link -Leaf
-                    foreach ($filename in $filenames) {
+                    foreach ($item in $object.Link) {
+                        $filename = Split-Path -Path $item -Leaf
                         Write-PSFMessage -Level Verbose -Message "Adding $filename to $RepositoryPath"
                         $repofile = Join-Path -Path $RepositoryPath -ChildPath $filename
+                        if (-not (Test-Path -Path $repofile)) {
+                            Write-PSFMessage -Level Verbose -Message "File does not exist, trying to download $item to $repofile"
+                            $null = Save-KbUpdate -Link $item -Path $RepositoryPath
+                        }
                         if ($remotehome) {
                             $null = Copy-Item -Path $repofile -Destination "$remotehome\Downloads\$filename" -ToSession $remotesession -Recurse -Force -ErrorAction Stop
                         } else {
@@ -243,6 +247,7 @@ function Start-DscUpdate {
 
                     # try to automatically download it for them
                     if (-not $object -and $Pattern) {
+                        Write-Message -Level Verbose -Message "No object and a pattern"
                         $object = Get-KbUpdate -ComputerName $ComputerName -Pattern $Pattern | Where-Object { $PSItem.Link -and $PSItem.Title -match $Pattern }
                     }
 

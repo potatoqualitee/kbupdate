@@ -46,13 +46,16 @@ jobs:
           Write-Output "Importing kbupdate module"
           Import-Module ./kbupdate.psd1 -ErrorAction Stop
           Write-Output "Getting needed updates"
-          Get-KbNeededUpdate -ScanFilePath C:\temp\wsusscn2.cab -OutVariable needed -ErrorAction Stop -EnableException | Select-Object -First 1 -OutVariable saveit
+          Get-KbNeededUpdate -ScanFilePath C:\temp\wsusscn2.cab -ErrorAction Stop -EnableException -OutVariable saveit
+          $needed = $saveit
           $null = mkdir C:\temp\xml
 
           Write-Output "Found $($needed.Count) needed updates"
           Write-Output "Will try to install $($saveit.Count) update"
           $saveit | Export-CliXml -Path C:\temp\xml\results.xml
-          $saveit | Save-KbUpdate -Path C:\temp
+          $saveit.Title
+          $saveit.Link
+          $null = $saveit | Save-KbUpdate -Path C:\temp
 
       - name: Clean defender so that KB2267602 installs
         shell: powershell
@@ -134,13 +137,20 @@ jobs:
           Write-Output "Importing kbupdate module"
           Import-Module ./kbupdate.psd1 -ErrorAction Stop
           Write-Output "Getting needed updates"
-          Get-KbNeededUpdate -ScanFilePath C:\temp\wsusscn2.cab -OutVariable needed -ErrorAction Stop -EnableException | Select-Object -First 1 -OutVariable saveit
+          Get-KbNeededUpdate -ScanFilePath C:\temp\wsusscn2.cab -ErrorAction Stop -EnableException -OutVariable saveit
+          $needed = $saveit
           $null = mkdir C:\temp\xml
 
           Write-Output "Found $($needed.Count) needed updates"
           Write-Output "Will try to install $($saveit.Count) update"
           $saveit | Export-CliXml -Path C:\temp\xml\results.xml
+          $saveit.Title
+          $saveit.Link
           $null = $saveit | Save-KbUpdate -Path C:\temp
+
+      - name: Show all files in C:\temp
+        shell: powershell
+        run: Get-ChildItem C:\temp
 
       - name: Installing updates
         shell: powershell
