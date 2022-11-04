@@ -40,10 +40,14 @@ function Start-JobProcess {
                     $added = 0
                 }
                 $added++
+                $percentcomplete = ($added / 100 * 100)
+                if ($percentcomplete -lt 0 -or $percentcomplete -gt 100) {
+                    $percentcomplete = 0
+                }
                 $progressparms = @{
                     Activity        = $Activity
                     Status          = "Still $Status on $($kbjobs.Name -join ', '). Please enjoy the progress bar."
-                    PercentComplete = ($added / 100 * 100)
+                    PercentComplete = $percentcomplete
                 }
                 Write-Progress @progressparms
                 foreach ($item in $kbjobs) {
@@ -126,10 +130,16 @@ function Start-JobProcess {
                     if (-not $done) {
                         $done = $kbjobs
                     }
+
+                $percentcomplete = ($added / 100 * 100)
+                if ($percentcomplete -lt 0 -or $percentcomplete -gt 100) {
+                    $percentcomplete = 0
+                }
+
                     $progressparms = @{
                         Activity        = $Activity
                         Status          = "Still $Status on $($done.Name -join ', '). Please enjoy the progress bar."
-                        PercentComplete = ($added / 100 * 100)
+                        PercentComplete = $percentcomplete
                     }
 
                     Write-Progress @progressparms
