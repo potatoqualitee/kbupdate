@@ -130,7 +130,7 @@ function Install-KbUpdate {
     )
     begin {
         # create code blocks for  jobs
-        $wublock = [scriptblock]::Create($((Get-Command Start-WindowsUpdate).Definition))
+        # $wublock = [scriptblock]::Create($((Get-Command Start-WindowsUpdate).Definition))
         $dscblock = [scriptblock]::Create($((Get-Command Start-DscUpdate).Definition))
         # cleanup
         $null = Get-Job -ChildJobState Completed | Where-Object Name -in $ComputerName.ComputerName | Remove-Job -Force

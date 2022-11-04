@@ -72,7 +72,7 @@ function Invoke-KbCommand {
         $PSDefaultParameterValues['*:EnableException'] = $false
     }
     if (-not $computer.IsLocalhost) {
-        Write-PSFMessage -Level Verbose -Message "Computer is not localhost, adding $ComputerName to PSDefaultParameterValues"
+        Write-PSFMessage -Level Debug -Message "Computer is not localhost, adding $ComputerName to PSDefaultParameterValues"
         $PSDefaultParameterValues['Invoke-Command:ComputerName'] = $ComputerName
     }
     if ($Credential) {

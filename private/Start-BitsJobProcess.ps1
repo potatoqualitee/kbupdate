@@ -18,6 +18,7 @@ function Start-BitsJobProcess {
     }
     end {
         $totalfiles = $jobs.FileList.Count
+        $localnames = $jobs.FileList.LocalName
         $bs = $jobs | Where-Object BytesTotal -ne 18446744073709551615
         $bytestotal = ($bs.BytesTotal | Measure-Object -Sum).Sum
         $bstotal = [math]::Round(($bytestotal / 1MB),2)
@@ -34,10 +35,11 @@ function Start-BitsJobProcess {
             if ($percentcomplete -gt 100 -or $percentcomplete -lt 0) {
                 $percentcomplete = 0
             }
+
             $progressparms = @{
                 Activity        = "Downloaded $mbjtotal MB of at least $bstotal MB total from $($bs.count) files in this batch."
                 Status          = "$completed of $totalfiles files completed"
-                PercentComplete = 100 - $(($currentcount / $totalfiles) * 100)
+                PercentComplete = $percentcomplete
             }
             if ($oldmbjtotal -ne $mbjtotal) {
                 Write-PSFMessage -Level Debug -Message "Current count: $currentcount files"
@@ -57,8 +59,8 @@ function Start-BitsJobProcess {
                     $title = $bitsjob.Description.Replace("kbupdate - ", "")
                     switch ($bitsjob.JobState) {
                         "Transferred" {
+                            $null = Complete-BitsTransfer -BitsJob $bitsjob
                             foreach ($filename in $bitsjob.FileList.LocalName) {
-                                $null = Complete-BitsTransfer -BitsJob $bitsjob
                                 Write-PSFMessage -Level Verbose -Message "Sweet, $filename is done."
                                 do {
                                     Start-Sleep -Milliseconds 200
@@ -74,17 +76,18 @@ function Start-BitsJobProcess {
                         }
                         "Error" {
                             foreach ($file in $bitsjob.FileList.LocalName) {
-                                Write-PSFMessage -Level Verbose -Message "Oh no, $filename has errored."
+                                Write-PSFMessage -Level Verbose -Message "Oh no, $file has errored."
                                 Stop-PSFFunction -Message "Failure downloading $title (file) | $($bitsjob.ErrorDescription)" -Continue
                             }
                             $null = $bitsjob | Complete-BitsTransfer -ErrorAction Ignore
                         }
                     }
                 } catch {
-                    Stop-PSFFunction -Message "Failure on $hostname" -Continue
+                    Stop-PSFFunction -Message "Failure for $title | $PSItem" -Continue
                 }
             }
         }
         Write-Progress -Activity "Downloading $totalfiles total files" -Completed
+        Get-ChildItem -Path $localnames -ErrorAction Ignore
     }
 }

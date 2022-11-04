@@ -105,13 +105,26 @@ function Save-KbUpdate {
         [switch]$EnableException
     )
     begin {
-        $jobs = @()
+        $jobs = $inputobjects = $uniquelinks = @()
         $count = 0
     }
     process {
+        if ($InputObject) {
+            $inputobjects += $InputObject
+        }
+
+        if ($Link) {
+            $uniquelinks += $Link
+        }
+    }
+    end {
+        if ($uniquelinks) {
+            $uniquelinks = $uniquelinks | Select-Object -Unique
+        }
         switch ($PSCmdlet.ParameterSetName) {
             'link' {
-                $Link | Foreach-Object {
+                Write-PSFMessage -Level Verbose -Message "Processing link parameter set"
+                $uniquelinks | Foreach-Object {
                     $hyperlinklol = $PSItem
                     $fileName = Split-Path $hyperlinklol -Leaf
                     if ($FilePath) {
@@ -126,12 +139,25 @@ function Save-KbUpdate {
                         Get-ChildItem -Path $file
                         continue
                     }
+                    if (-not $filePath) {
+                        $FilePath = $file
+                    }
+
+                    Write-PSFMessage -Level Verbose -Message "Link: $PSItem"
+                    Write-PSFMessage -Level Verbose -Message "FilePath: $FilePath"
+                    Write-PSFMessage -Level Verbose -Message "File: $file"
 
                     # just show any progress since piping won't allow calculation of the total
+                    $percentcomplete = $(($count / 300) * 100)
+
+                    if ($percentcomplete -lt 0 -or $percentcomplete -gt 100) {
+                        $percentcomplete = 0
+                    }
+
                     $progressparms = @{
                         Activity        = "Queuing up downloads"
                         Status          = "Adding files to download queue"
-                        PercentComplete = $(($count / 300) * 100)
+                        PercentComplete = $percentcomplete
                     }
 
                     Write-Progress @progressparms
@@ -163,6 +189,7 @@ function Save-KbUpdate {
             }
 
             default {
+                Write-PSFMessage -Level Verbose -Message "Processing default parameter set"
                 if ($Pattern.Count -gt 1 -and $PSBoundParameters.FilePath) {
                     Stop-PSFFunction -EnableException:$EnableException -Message "You can only specify one KB when using FilePath"
                     return
@@ -201,12 +228,12 @@ function Save-KbUpdate {
                         $params.Source = $Source
                     }
 
-                    $InputObject += Get-KbUpdate @params
+                    $inputobjects += Get-KbUpdate @params
                 }
 
-                $InputObject = $InputObject | Sort-Object -Unique
+                $inputobjects = $inputobjects | Sort-Object -Unique
 
-                foreach ($object in $InputObject) {
+                foreach ($object in $inputobjects) {
                     if ($Architecture) {
                         $templinks = @()
                         foreach ($arch in $Architecture) {
@@ -234,7 +261,9 @@ function Save-KbUpdate {
                         if (-not $PSBoundParameters.FilePath) {
                             $FilePath = Split-Path -Path $hyperlinklol -Leaf
                         } else {
-                            $Path = Split-Path -Path $FilePath
+                            if (-not $Path) {
+                                $Path = Split-Path -Path $FilePath
+                            }
                         }
 
                         $file = Join-Path -Path $Path -ChildPath $FilePath
@@ -276,8 +305,7 @@ function Save-KbUpdate {
                 }
             }
         }
-    }
-    end {
+
         if ($jobs) {
             Write-PSFMessage -Level Verbose -Message "Starting job process"
             $jobs | Start-BitsJobProcess

@@ -178,6 +178,10 @@ function Start-DscUpdate {
         }
     }
     process {
+        if ($FilePath -and -not $InputObject) {
+            Write-PSFMessage -Level Verbose -Message "Setting InputObject to $FilePath"
+            $InputObject = $FilePath
+        }
         if (-not $InputObject) {
             Write-PSFMessage -Level Verbose -Message "Nothing to install on $hostname, moving on"
         }
@@ -203,13 +207,6 @@ function Start-DscUpdate {
                         $hostname = $object.ComputerName
                     }
                     Stop-PSFFunction -Message "Couldn't copy $filename from repo to $hostname." -ErrorRecord $PSItem -Continue
-                }
-            }
-
-            if ($FilePath) {
-                Write-PSFMessage -Level Verbose -Message "Adding $($FilePath)"
-                $remotefileexists = $updatefile = Invoke-KbCommand -ArgumentList $FilePath -ScriptBlock {
-                    Get-ChildItem -Path $args -ErrorAction SilentlyContinue
                 }
             }
 
