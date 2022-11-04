@@ -780,6 +780,7 @@ function Start-DscUpdate {
                 } else {
                     $status = "Install successful"
                 }
+
                 if ($HotfixId) {
                     $id = $HotfixId
                 } else {
@@ -791,6 +792,8 @@ function Start-DscUpdate {
 
                 if ($object.Title) {
                     $filetitle = $object.Title
+                } elseif ($exists.Title) {
+                    $filetitle = $exists.Title
                 } else {
                     $filetitle = $updatefile.VersionInfo.ProductName
                 }
@@ -822,6 +825,48 @@ function Start-DscUpdate {
                     } else {
                         $status = "Install successful"
                     }
+                    if ($HotfixId) {
+                        $id = $HotfixId
+                    } else {
+                        $id = $guid
+                    }
+
+                    if ($id -eq "DAADB00F-DAAD-B00F-B00F-DAADB00FB00F") {
+                        $id = $null
+                    }
+
+                    if ($object.Title) {
+                        $filetitle = $object.Title
+                    } elseif ($exists.Title) {
+                        $filetitle = $exists.Title
+                    } else {
+                        $filetitle = $updatefile.VersionInfo.ProductName
+                    }
+
+                    if (-not $filetitle) {
+                        $filetitle = $Title
+                    }
+
+                    [pscustomobject]@{
+                        ComputerName = $hostname
+                        Title        = $filetitle
+                        ID           = $id
+                        Status       = $Status
+                        FileName     = $updatefile.Name
+                    }
+                } elseif ("$PSItem" -match "find message text") {
+                    Write-PSFMessage -Level Verbose -Message "The system cannot find message text for message number 0x%1 in the message file for %2. Checking to see if it was actually installed."
+
+                    if ($hotfix.property.id) {
+                        $exists = Get-KbInstalledSoftware -ComputerName $ComputerName -Pattern $hotfix.property.id -IncludeHidden
+                    }
+
+                    if (-not $exists) {
+                        Stop-PSFFunction -Message "Failure on $hostname" -ErrorRecord $PSitem -Continue -EnableException:$EnableException
+                    } else {
+                        $status = "This update requires a restart"
+                    }
+
                     if ($HotfixId) {
                         $id = $HotfixId
                     } else {
