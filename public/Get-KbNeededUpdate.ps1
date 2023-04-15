@@ -12,6 +12,11 @@ function Get-KbNeededUpdate {
     .PARAMETER Credential
         The optional alternative credential to be used when connecting to ComputerName
 
+    .PARAMETER UseWindowsUpdate
+        By default if Windows is configured to report to a WSUS server, Get-KbNeededUpdate will scan a WSUS server for approved updates.
+
+        Use this parameter if you want to scan against Windows Update instead of WSUS.
+
     .PARAMETER ScanFilePath
         If Windows Update does not have access to WSUS or Microsoft's update catalog, a local copy of the catalog can be provided.
 
@@ -56,9 +61,12 @@ function Get-KbNeededUpdate {
     param(
         [PSFComputer[]]$ComputerName = $env:COMPUTERNAME,
         [pscredential]$Credential,
-        [parameter(ValueFromPipeline)]
+        [parameter(ParameterSetName='UseWindowsUpdate')]
+        [switch]$UseWindowsUpdate,
+        [parameter(ParameterSetName='UseScanFile', ValueFromPipeline)]
         [Alias("FullName")]
         [string]$ScanFilePath,
+        [parameter(ParameterSetName='UseScanFile')]
         [switch]$Force,
         [switch]$EnableException
     )
@@ -79,32 +87,34 @@ function Get-KbNeededUpdate {
             try {
                 Write-PSFMessage -Level Verbose -Message "Adding job for $computer"
                 $arglist = [pscustomobject]@{
-                    ComputerName    = $computer
-                    Credential      = $Credential
-                    ScanFilePath    = $ScanFilePath
-                    EnableException = $EnableException
-                    Force           = $Force
-                    ScriptBlock     = $remotescriptblock
-                    ModulePath      = $script:dependencies
+                    ComputerName     = $computer
+                    Credential       = $Credential
+                    UseWindowsUpdate = $UseWindowsUpdate
+                    ScanFilePath     = $ScanFilePath
+                    EnableException  = $EnableException
+                    Force            = $Force
+                    ScriptBlock      = $remotescriptblock
+                    ModulePath       = $script:dependencies
                 }
 
                 $invokeblock = {
                     foreach ($path in $args.ModulePath) {
                         $null = Import-Module $path 4>$null
                     }
-                    $sbjson = $args.ScriptBlock | ConvertFrom-Json
-                    $sb = [scriptblock]::Create($sbjson)
-                    $machine = $args.ComputerName
-                    $Credential = $args.Credential
-                    $ScanFilePath = $args.ScanFilePath
-                    $EnableException = $args.EnableException
-                    $Force = $args.Force
-                    $ScriptBlock = $sb
+                    $sbjson           = $args.ScriptBlock | ConvertFrom-Json
+                    $sb               = [scriptblock]::Create($sbjson)
+                    $machine          = $args.ComputerName
+                    $Credential       = $args.Credential
+                    $UseWindowsUpdate = $args.UseWindowsUpdate
+                    $ScanFilePath     = $args.ScanFilePath
+                    $EnableException  = $args.EnableException
+                    $Force            = $args.Force
+                    $ScriptBlock      = $sb
 
                     $computer = $machine.ComputerName
                     $null = $completed++
 
-                    if ($ScanFilePath -and $Force -and -not $machine.IsLocalhost) {
+                    if ($ScanFilePath -and $Force -and -not $machine.IsLocalhost -and -not $UseWindowsUpdate) {
                         Write-PSFMessage -Level Verbose -Message "Initializing remote session to $computer and getting the path to the temp directory"
 
                         $scanfile = Get-ChildItem -Path $ScanFilePath
@@ -185,7 +195,7 @@ function Get-KbNeededUpdate {
                     if ($machine.IsLocalHost -and -not (Test-ElevationRequirement -ComputerName $computer)) {
                         continue
                     }
-                    Invoke-PSFCommand -Computer $computer -Credential $Credential -ErrorAction Stop -ScriptBlock $scriptblock -ArgumentList $computer, $cabpath, $VerbosePreference
+                    Invoke-PSFCommand -Computer $computer -Credential $Credential -ErrorAction Stop -ScriptBlock $scriptblock -ArgumentList $computer, $cabpath, $UseWindowsUpdate, $VerbosePreference
                 }
 
                 $jobs += Start-Job -Name $computer -ScriptBlock $invokeblock -ArgumentList $arglist -ErrorAction Stop
