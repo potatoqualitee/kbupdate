@@ -1,10 +1,16 @@
 function Get-KbNeededUpdate {
     <#
     .SYNOPSIS
-         Checks for needed updates.
+        Scan for missing Windows updates.
 
     .DESCRIPTION
-         Checks for needed updates.
+        This cmdlet scans for missing Windows updates. It can scan against:
+
+        - Windows Server Update Service (WSUS) server
+        - Windows Update (cloud service)
+        - Windows Update offline scan file (wsusscn2.cab - see https://learn.microsoft.com/windows/win32/wua_sdk/using-wua-to-scan-for-updates-offline)
+
+        The offline scan file can be downloaded using Save-KbScanFile from an internet-connected computer.
 
     .PARAMETER ComputerName
         Used to connect to a remote host. Connects to localhost by default -- if scanning the local computer, the command must be run as administrator.
@@ -13,14 +19,14 @@ function Get-KbNeededUpdate {
         The optional alternative credential to be used when connecting to ComputerName
 
     .PARAMETER UseWindowsUpdate
-        By default if Windows is configured to report to a WSUS server, Get-KbNeededUpdate will scan a WSUS server for approved updates.
-
-        Use this parameter if you want to scan against Windows Update instead of WSUS.
+        This optional parameter will force the Windows Update Agent (WUA) to scan for needed updates against Windows Update (cloud service) instead of WSUS, regardless if the device is configured to use a WSUS server.
 
     .PARAMETER ScanFilePath
-        If Windows Update does not have access to WSUS or Microsoft's update catalog, a local copy of the catalog can be provided.
+        If the Windows Update Agent (WUA) does not have access to WSUS or Windows Update a local copy of the catalog can be provided.
 
-        This optional parameter will force the command to use a local update database instead of WSUS or Microsoft's online update catalog.
+        The local copy of the catalog is the Windows Update offline scan file (wsusscn2.cab - see https://learn.microsoft.com/windows/win32/wua_sdk/using-wua-to-scan-for-updates-offline).
+
+        This optional parameter will force the command to use a local update database instead of WSUS or Windows Update.
 
         The scan file catalog/database can be downloaded using Save-KbScanFile from an internet-connected computer.
 
@@ -57,16 +63,16 @@ function Get-KbNeededUpdate {
 
         Saves all the updates needed on the local machine to C:\temp
 #>
-    [CmdletBinding()]
+    [CmdletBinding(DefaultParameterSetName = 'UseWUA')]
     param(
         [PSFComputer[]]$ComputerName = $env:COMPUTERNAME,
         [pscredential]$Credential,
-        [parameter(ParameterSetName='UseWindowsUpdate')]
+        [parameter(ParameterSetName = 'UseWUA')]
         [switch]$UseWindowsUpdate,
-        [parameter(ParameterSetName='UseScanFile', ValueFromPipeline)]
+        [parameter(ParameterSetName = 'UseScanFile', ValueFromPipeline)]
         [Alias("FullName")]
         [string]$ScanFilePath,
-        [parameter(ParameterSetName='UseScanFile')]
+        [parameter(ParameterSetName = 'UseScanFile')]
         [switch]$Force,
         [switch]$EnableException
     )

@@ -38,7 +38,9 @@ function Install-KbUpdate {
         Installs all needed updates
 
     .PARAMETER ScanFilePath
-        This optional parameter can be passed along with AllNeeded to use a local update database instead of WSUS or Microsoft's online update catalog.
+        This optional parameter can be passed along with AllNeeded to use a local copy of the catalogue instead of WSUS or Windows Update (cloud service.)
+
+        The local copy of the catalog is the Windows Update offline scan file (wsusscn2.cab - see https://learn.microsoft.com/windows/win32/wua_sdk/using-wua-to-scan-for-updates-offline).
 
         The local copy can be downloaded using Save-KbScanFile from an internet-connected computer.
 
