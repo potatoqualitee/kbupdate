@@ -20,6 +20,7 @@ function Start-DscUpdate {
         [Parameter(ValueFromPipeline)]
         [pscustomobject[]]$InputObject,
         [switch]$AllNeeded,
+        [switch]$UseWindowsUpdate,
         [switch]$NoMultithreading,
         [switch]$EnableException,
         [bool]$IsLocalHost,
@@ -58,11 +59,17 @@ function Start-DscUpdate {
         }
 
         if ($AllNeeded) {
-            if ($ScanFilePath) {
-                $InputObject = Get-KbNeededUpdate -ComputerName $ComputerName -ScanFilePath $ScanFilePath -Force
-            } else {
-                $InputObject = Get-KbNeededUpdate -ComputerName $ComputerName
+            $GetKbNeededUpdate = @{
+                ComputerName = $ComputerName
             }
+            if ($ScanFilePath) {
+                $GetKbNeededUpdate['ScanFilePath'] = $ScanFilePath
+                $GetKbNeededUpdate['Force']        = $true
+                
+            } elseif ($UseWindowsUpdate) {
+                $GetKbNeededUpdate['UseWindowsUpdate'] = $true
+            }
+            $InputObject = Get-KbNeededUpdate @GetKbNeededUpdate
         }
 
         if ($HotfixId -and -not $InputObject.Link) {

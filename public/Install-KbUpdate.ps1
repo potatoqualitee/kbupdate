@@ -37,6 +37,9 @@ function Install-KbUpdate {
     .PARAMETER AllNeeded
         Installs all needed updates
 
+    .PARAMETER UseWindowsUpdate
+        This optional parameter will force the Windows Update Agent (WUA) to scan for needed updates against Windows Update (cloud service) instead of WSUS, regardless if the device is configured to use a WSUS server.
+
     .PARAMETER ScanFilePath
         This optional parameter can be passed along with AllNeeded to use a local copy of the catalogue instead of WSUS or Windows Update (cloud service.)
 
@@ -124,6 +127,7 @@ function Install-KbUpdate {
         [Parameter(ValueFromPipeline)]
         [pscustomobject[]]$InputObject,
         [switch]$AllNeeded,
+        [switch]$UseWindowsUpdate,
         [parameter(ValueFromPipeline)]
         [Alias("FullName")]
         [string]$ScanFilePath,
@@ -140,6 +144,11 @@ function Install-KbUpdate {
     process {
         if (-not $PSBoundParameters.HotfixId -and -not $PSBoundParameters.FilePath -and -not $PSBoundParameters.InputObject -and -not $AllNeeded) {
             Stop-PSFFunction -EnableException:$EnableException -Message "You must specify either HotfixId or FilePath or AllNeeded or pipe in the results from Get-KbUpdate"
+            return
+        }
+
+        if ($ScanFilePath -and $UseWindowsUpdate) {
+            Stop-PSFFunction -EnableException:$EnableException -Message "You can not use -ScanFilePath and -UseWindowsUpdate together"
             return
         }
 
