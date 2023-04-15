@@ -139,7 +139,7 @@ function Install-KbUpdate {
         # $wublock = [scriptblock]::Create($((Get-Command Start-WindowsUpdate).Definition))
         $dscblock = [scriptblock]::Create($((Get-Command Start-DscUpdate).Definition))
         # cleanup
-        $null = Get-Job -ChildJobState Completed | Where-Object Name -in $ComputerName.ComputerName | Remove-Job -Force
+        $null = Get-Job -ChildJobState Completed | Where-Object Name -In $ComputerName.ComputerName | Remove-Job -Force
     }
     process {
         if (-not $PSBoundParameters.HotfixId -and -not $PSBoundParameters.FilePath -and -not $PSBoundParameters.InputObject -and -not $AllNeeded) {
@@ -201,6 +201,7 @@ function Install-KbUpdate {
                     EnableException   = $EnableException
                     IsLocalHost       = $computer.IsLocalHost
                     AllNeeded         = $AllNeeded
+                    UseWindowsUpdate  = $UseWindowsUpdate
                     VerbosePreference = $VerbosePreference
                     ScanFilePath      = $ScanFilePath
                     ModulePath        = $script:dependencies
