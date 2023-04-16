@@ -15,9 +15,6 @@ function Connect-KbWsusServer {
     .PARAMETER Port
         Port number to connect to. Default is Port "443" and "8530" if using HTTP. Accepted values are "80","443","8350" and "8351"
 
-    .PARAMETER Credential
-        The optional alternative credential to be used when connecting to ComputerName.
-
     .PARAMETER EnableException
         By default, when something goes wrong we try to catch it, interpret it and give you a friendly warning message.
         This avoids overwhelming you with "sea of red" exceptions, but is inconvenient because it basically disables advanced scripting.
@@ -51,7 +48,6 @@ function Connect-KbWsusServer {
         [Parameter(ValueFromPipeline)]
         [Alias("WsusServer")]
         [PSFComputer]$ComputerName,
-        [pscredential]$Credential,
         [switch]$ForceInsecureConnection,
         [ValidateSet("80", "443", "8530", "8531" )]
         [int]$Port = 443,

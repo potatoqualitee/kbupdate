@@ -89,22 +89,26 @@ Install-KbUpdate -ComputerName server01 -HotfixId kb4486129
 When more than one computer is supplied, background jobs will be used to speed up the process. If you use the `-AllNeeded` switch, all needed patches will be installed.
 
 ```powershell
-# Install all needed updates and use the computer's current source as the Windows Update database checker
+# Install all needed updates and use the computer's Windows Update Agent configured source to scan against
 Install-KbUpdate -ComputerName localhost, sqlcs, sql01 -AllNeeded
 
-# Install all needed updates and use the offline Windows Update database checker
+# Install all needed updates and use the Windows Update offline scan file to scan against
 $scanfile = Save-KbScanFile
 Install-KbUpdate -ComputerName localhost, sqlcs, sql01 -AllNeeded -ScanFilePath $scanfile
 ```
 
 ### Get-KbNeededUpdate
 
-Checks the target machines for needed updates.  If Windows Update does not have access to WSUS or Microsoft's update catalog, a [local copy of the catalog](#Save-KbScanFile) can be provided.
+Checks the target machines for needed updates. If the Windows Update Agent (WUA) does not have access to WSUS or Windows Update (cloud service), a [local copy of the catalog](#Save-KbScanFile) can be provided.
 
+The local catalog is the Windows Update offline scan file, `wsusscn2.cab` - [see Microsoft documentation for more information](https://learn.microsoft.com/en-us/windows/win32/wua_sdk/using-wua-to-scan-for-updates-offline).
 
 ```powershell
-# Get all the updates needed on the local machine using whatever upstream is set by Windows Update
+# Get all the updates needed on the local machine using whatever upstream is set by the Windows Update Agent (WUA)
 Get-KbNeededUpdate
+
+# Same as above, but instead the upstream is Windows Update (cloud service) regardless if the device is configured to use a WSUS server
+Get-KbNeededUpdate -UseWindowsUpdate
 
 # Get all the updates needed on server01 using the locally saved cab file
 $scanfile = Save-KbScanFile -Path \\server01\c$\temp
@@ -160,9 +164,11 @@ Get-KbInstalledSoftware -ComputerName server23 -ArgumentList "/S" | Uninstall-Kb
 
 ### Save-KbScanFile
 
- Windows Update Agent (WUA) plus [the wsusscn2.cab catalog file](https://learn.microsoft.com/en-us/windows/win32/wua_sdk/using-wua-to-scan-for-updates-offline) can be used to scan computers for security updates without connecting to Windows Update or to a Windows Server Update Services (WSUS) server, which enables computers that are not connected to the Internet to be scanned for security updates.
+This downloads the [Windows Update offline scan file](https://learn.microsoft.com/en-us/windows/win32/wua_sdk/using-wua-to-scan-for-updates-offline), `wsusscn2.cab`.
 
- This file is used by `Get-KbNeededUpdate` when the `-ScanFilePath` is used and `Install-KbUpdate` when the `-AllNeeded` and `-ScanFilePath` parameters are used.
+The scan file `wsusscn2.cab` can be used to scan for missing updates without connecting to Windows Update or a Windows Server Update Services (WSUS). This is especially helpful for devices which are not connected to the Internet.
+
+This file is used by `Get-KbNeededUpdate` when the `-ScanFilePath` is used and `Install-KbUpdate` when the `-AllNeeded` and `-ScanFilePath` parameters are used.
 
 ```powershell
 # Saves the cab file to a temporary directory and returns the results of Get-ChildItem for the cab file
@@ -175,7 +181,7 @@ Save-KbScanFile -Path C:\temp -AllowClobber
 $scanfile = Save-KbScanFile -Path \\server01\c$\temp
 Get-KbNeededUpdate -ComputerName server01 -ScanFilePath $scanfile
 
-# Install all needed updates and use the offline Windows Update database checker
+# Install all needed updates and use the Windows Update offline scan file
 $scanfile = Get-ChildItem -Path \\san\share\updates\wsusscn2.cab
 Install-KbUpdate -ComputerName localhost, sqlcs, sql01 -AllNeeded -ScanFilePath $scanfile
 ```
@@ -226,7 +232,7 @@ Get-KbUpdate -Since (Get-Date).AddDays(-30) -Architecture x64 |
     Out-GridView -Passthru |
     Save-KbUpdate -Path C:\temp\burn_to_dvd
 
-# Download Windows Update Client scan file
+# Download Windows Update offline scan file
 Save-KbScanFile -Path C:\temp\burn_to_dvd
 
 ### 💿💿💿         BURN TO DVD         💿💿💿 ###

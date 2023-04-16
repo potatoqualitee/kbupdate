@@ -1,10 +1,16 @@
 function Get-KbNeededUpdate {
     <#
     .SYNOPSIS
-         Checks for needed updates.
+        Scan for missing Windows updates.
 
     .DESCRIPTION
-         Checks for needed updates.
+        This cmdlet scans for missing Windows updates. It can scan against:
+
+        - Windows Server Update Service (WSUS) server
+        - Windows Update (cloud service)
+        - Windows Update offline scan file (wsusscn2.cab - see https://learn.microsoft.com/windows/win32/wua_sdk/using-wua-to-scan-for-updates-offline)
+
+        The offline scan file can be downloaded using Save-KbScanFile from an internet-connected computer.
 
     .PARAMETER ComputerName
         Used to connect to a remote host. Connects to localhost by default -- if scanning the local computer, the command must be run as administrator.
@@ -12,10 +18,15 @@ function Get-KbNeededUpdate {
     .PARAMETER Credential
         The optional alternative credential to be used when connecting to ComputerName
 
-    .PARAMETER ScanFilePath
-        If Windows Update does not have access to WSUS or Microsoft's update catalog, a local copy of the catalog can be provided.
+    .PARAMETER UseWindowsUpdate
+        This optional parameter will force the Windows Update Agent (WUA) to scan for needed updates against Windows Update (cloud service) instead of WSUS, regardless if the device is configured to use a WSUS server.
 
-        This optional parameter will force the command to use a local update database instead of WSUS or Microsoft's online update catalog.
+    .PARAMETER ScanFilePath
+        If the Windows Update Agent (WUA) does not have access to WSUS or Windows Update a local copy of the catalog can be provided.
+
+        The local copy of the catalog is the Windows Update offline scan file (wsusscn2.cab - see https://learn.microsoft.com/windows/win32/wua_sdk/using-wua-to-scan-for-updates-offline).
+
+        This optional parameter will force the command to use a local update database instead of WSUS or Windows Update.
 
         The scan file catalog/database can be downloaded using Save-KbScanFile from an internet-connected computer.
 
@@ -52,13 +63,16 @@ function Get-KbNeededUpdate {
 
         Saves all the updates needed on the local machine to C:\temp
 #>
-    [CmdletBinding()]
+    [CmdletBinding(DefaultParameterSetName = 'UseWUA')]
     param(
         [PSFComputer[]]$ComputerName = $env:COMPUTERNAME,
         [pscredential]$Credential,
-        [parameter(ValueFromPipeline)]
+        [parameter(ParameterSetName = 'UseWUA')]
+        [switch]$UseWindowsUpdate,
+        [parameter(ParameterSetName = 'UseScanFile', ValueFromPipeline)]
         [Alias("FullName")]
         [string]$ScanFilePath,
+        [parameter(ParameterSetName = 'UseScanFile')]
         [switch]$Force,
         [switch]$EnableException
     )
@@ -79,32 +93,34 @@ function Get-KbNeededUpdate {
             try {
                 Write-PSFMessage -Level Verbose -Message "Adding job for $computer"
                 $arglist = [pscustomobject]@{
-                    ComputerName    = $computer
-                    Credential      = $Credential
-                    ScanFilePath    = $ScanFilePath
-                    EnableException = $EnableException
-                    Force           = $Force
-                    ScriptBlock     = $remotescriptblock
-                    ModulePath      = $script:dependencies
+                    ComputerName     = $computer
+                    Credential       = $Credential
+                    UseWindowsUpdate = $UseWindowsUpdate
+                    ScanFilePath     = $ScanFilePath
+                    EnableException  = $EnableException
+                    Force            = $Force
+                    ScriptBlock      = $remotescriptblock
+                    ModulePath       = $script:dependencies
                 }
 
                 $invokeblock = {
                     foreach ($path in $args.ModulePath) {
                         $null = Import-Module $path 4>$null
                     }
-                    $sbjson = $args.ScriptBlock | ConvertFrom-Json
-                    $sb = [scriptblock]::Create($sbjson)
-                    $machine = $args.ComputerName
-                    $Credential = $args.Credential
-                    $ScanFilePath = $args.ScanFilePath
-                    $EnableException = $args.EnableException
-                    $Force = $args.Force
-                    $ScriptBlock = $sb
+                    $sbjson           = $args.ScriptBlock | ConvertFrom-Json
+                    $sb               = [scriptblock]::Create($sbjson)
+                    $machine          = $args.ComputerName
+                    $Credential       = $args.Credential
+                    $UseWindowsUpdate = $args.UseWindowsUpdate
+                    $ScanFilePath     = $args.ScanFilePath
+                    $EnableException  = $args.EnableException
+                    $Force            = $args.Force
+                    $ScriptBlock      = $sb
 
                     $computer = $machine.ComputerName
                     $null = $completed++
 
-                    if ($ScanFilePath -and $Force -and -not $machine.IsLocalhost) {
+                    if ($ScanFilePath -and $Force -and -not $machine.IsLocalhost -and -not $UseWindowsUpdate) {
                         Write-PSFMessage -Level Verbose -Message "Initializing remote session to $computer and getting the path to the temp directory"
 
                         $scanfile = Get-ChildItem -Path $ScanFilePath
@@ -185,7 +201,7 @@ function Get-KbNeededUpdate {
                     if ($machine.IsLocalHost -and -not (Test-ElevationRequirement -ComputerName $computer)) {
                         continue
                     }
-                    Invoke-PSFCommand -Computer $computer -Credential $Credential -ErrorAction Stop -ScriptBlock $scriptblock -ArgumentList $computer, $cabpath, $VerbosePreference
+                    Invoke-PSFCommand -Computer $computer -Credential $Credential -ErrorAction Stop -ScriptBlock $scriptblock -ArgumentList $computer, $cabpath, $UseWindowsUpdate, $VerbosePreference
                 }
 
                 $jobs += Start-Job -Name $computer -ScriptBlock $invokeblock -ArgumentList $arglist -ErrorAction Stop

@@ -2,10 +2,11 @@ function Get-Needed {
     param (
         $Computer,
         $ScanFilePath,
+        $UseWindowsUpdate,
         $VerbosePreference
     )
 
-    if ($ScanFilePath) {
+    if ($ScanFilePath -and -not $UseWindowsUpdate) {
         try {
             If (-not (Test-Path $ScanFilePath -ErrorAction Stop)) {
                 Write-Warning "Windows Update offline scan file, $ScanFilePath, cannot be found on $Computer"
@@ -24,7 +25,7 @@ function Get-Needed {
         Write-Verbose -Message "Processing $computer"
         $session = [type]::GetTypeFromProgID("Microsoft.Update.Session")
         $wua = [activator]::CreateInstance($session)
-        if ($ScanFilePath) {
+        if ($ScanFilePath -and -not $UseWindowsUpdate) {
             Write-Verbose -Message "Registering $ScanFilePath on $computer"
             try {
                 $progid = [type]::GetTypeFromProgID("Microsoft.Update.ServiceManager")
@@ -45,6 +46,11 @@ function Get-Needed {
         } else {
             Write-Verbose -Message "Creating update searcher"
             $searcher = $wua.CreateUpdateSearcher()
+
+            if ($UseWindowsUpdate) {
+                Write-Verbose -Message "Setting update searcher to use Windows Update cloud service"
+                $searcher.ServerSelection = 2
+            }
         }
         Write-Verbose -Message "Searching for needed updates"
         $wsuskbs = $searcher.Search("Type='Software' and IsHidden=0")
