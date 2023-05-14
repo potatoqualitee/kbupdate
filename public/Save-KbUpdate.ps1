@@ -4,7 +4,7 @@ function Save-KbUpdate {
         Downloads patches from Microsoft
 
     .DESCRIPTION
-         Downloads patches from Microsoft
+        Downloads patches from Microsoft
 
     .PARAMETER Pattern
         Any pattern. Can be the KB name, number or even MSRC numbrer. For example, KB4057119, 4057119, or MS15-101.
@@ -185,6 +185,10 @@ function Save-KbUpdate {
                             Stop-PSFFunction -EnableException:$EnableException -Message "Failure" -ErrorRecord $_ -Continue
                         }
                     }
+
+                    if ((Test-Path -Path $file)) {
+                        Get-ChildItem -Path $file
+                    }
                 }
             }
 
@@ -300,6 +304,10 @@ function Save-KbUpdate {
                             if ((Test-Path -Path $file)) {
                                 Get-ChildItem -Path $file
                             }
+                        }
+
+                        if ((Test-Path -Path $file)) {
+                            Get-ChildItem -Path $file
                         }
                     }
                 }
