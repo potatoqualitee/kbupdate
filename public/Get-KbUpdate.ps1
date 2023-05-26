@@ -332,42 +332,14 @@ function Get-KbUpdate {
                 if ($link -eq "") {
                     $link = $null
                 }
-
-                if ($title -match "ia32") {
-                    $arch = "IA32"
-                }
-                if ($title -match "ia64") {
-                    $arch = "IA64"
-                }
-                if ($title -match "64-Bit" -and $title -notmatch "32-Bit" -and -not $arch) {
-                    $arch = "x64"
-                }
-                if ($title -notmatch "64-Bit" -and $title -match "32-Bit" -and -not $arch) {
-                    $arch = "x86"
-                }
-                if ($title -match "x64" -or $title -match "AMD64") {
-                    $arch = "x64"
-                }
-                if ($title -match "x86") {
-                    $arch = "x86"
-                }
-                if ($title -match "ARM64") {
-                    $arch = "ARM64"
-                }
-                if ($title -match "ARM-based") {
-                    $arch = "ARM32"
-                }
-                if ($link -match "x64" -or $link -match "AMD64" -and -not $arch) {
-                    $arch = "x64"
-                }
-                if ($link -match "x86" -and -not $arch) {
-                    $arch = "x86"
-                }
-                if ($link -match "ARM64" -and -not $arch) {
-                    $arch = "ARM64"
-                }
-                if ($link -match "ARM-based" -and -not $arch) {
-                    $arch = "ARM32"
+                $arch = switch -regex ($title) {
+                    ".*ia32.*" { "IA32" }
+                    ".*ia64.*" { "IA64" }
+                    ".*(32-Bit|x86).*" { "x86" }
+                    ".*(x64|AMD64|64-Bit).*" { "x64" }
+                    ".*ARM64.*" { "ARM64" }
+                    ".*ARM-based.*" { "ARM32" }
+                    default { $null } # Handle the case if no matching architecture is found
                 }
 
                 if ($wsuskb.ArrivalDate) {
@@ -615,29 +587,14 @@ function Get-KbUpdate {
                     if ($longlang -eq "all") {
                         $longlang = "All"
                     }
-                    if ($title -match "ia32") {
-                        $arch = "IA32"
-                    }
-                    if ($title -match "ia64") {
-                        $arch = "IA64"
-                    }
-                    if ($title -match "64-Bit" -and $title -notmatch "32-Bit" -and -not $arch) {
-                        $arch = "x64"
-                    }
-                    if ($title -notmatch "64-Bit" -and $title -match "32-Bit" -and -not $arch) {
-                        $arch = "x86"
-                    }
-                    if ($title -match "x64" -or $title -match "AMD64") {
-                        $arch = "x64"
-                    }
-                    if ($title -match "x86") {
-                        $arch = "x86"
-                    }
-                    if ($title -match "ARM64") {
-                        $arch = "ARM64"
-                    }
-                    if ($title -match "ARM-based") {
-                        $arch = "ARM32"
+                    $arch = switch -regex ($title) {
+                        ".*ia32.*" { "IA32" }
+                        ".*ia64.*" { "IA64" }
+                        ".*(32-Bit|x86).*" { "x86" }
+                        ".*(x64|AMD64|64-Bit).*" { "x64" }
+                        ".*ARM64.*" { "ARM64" }
+                        ".*ARM-based.*" { "ARM32" }
+                        default { $null } # Handle the case if no matching architecture is found
                     }
 
                     if (-not $Simple) {
@@ -680,17 +637,14 @@ function Get-KbUpdate {
                         if ($arch -eq "n/a") {
                             $arch = $null
                         }
-                        if ($link -match "x64" -or $link -match "AMD64") {
-                            $arch = "x64"
-                        }
-                        if ($link -match "x86") {
-                            $arch = "x86"
-                        }
-                        if ($link -match "ARM64") {
-                            $arch = "ARM64"
-                        }
-                        if ($link -match "ARM-based") {
-                            $arch = "ARM32"
+                        $arch = switch -regex ($link) {
+                            ".*ia32.*" { "IA32" }
+                            ".*ia64.*" { "IA64" }
+                            ".*(32-Bit|x86).*" { "x86" }
+                            ".*(x64|AMD64|64-Bit).*" { "x64" }
+                            ".*ARM64.*" { "ARM64" }
+                            ".*ARM-based.*" { "ARM32" }
+                            default { $null } # Handle the case if no matching architecture is found
                         }
 
                         if ($kbnumbers -eq "n/a") {
