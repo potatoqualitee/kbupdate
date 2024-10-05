@@ -231,7 +231,7 @@ function Save-KbUpdate {
                     $inputobjects += Get-KbUpdate @params
                 }
 
-                $inputobjects = $inputobjects | Sort-Object -Unique
+                $inputobjects = $inputobjects | Sort-Object -Property UpdateId -Unique
 
                 foreach ($object in $inputobjects) {
                     if ($Architecture) {
