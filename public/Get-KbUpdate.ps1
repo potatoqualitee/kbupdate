@@ -689,8 +689,8 @@ function Get-KbUpdate {
                         }
                     }
 
-                    $downloaddialog = $downloaddialog.Replace('www.download.windowsupdate', 'download.windowsupdate')
-                    $links = $downloaddialog | Select-String -AllMatches -Pattern "(http[s]?\://.*download\.windowsupdate\.com\/[^\'\""]*)" | Select-Object -Unique
+                    $links = Get-KbDownloadLink -Content $downloaddialog
+                    $linkResults = @()
 
                     foreach ($link in $links) {
                         if ($arch -eq "n/a") {
@@ -750,36 +750,37 @@ function Get-KbUpdate {
 
                         $lastmod = Repair-Date $lastmodified
 
-                        if (-not $script:kbcollection[$hashkey]) {
-                            $null = $script:kbcollection.Add($hashkey, (
-                                    [pscustomobject]@{
-                                        Title             = $title
-                                        Id                = $kbnumbers
-                                        Architecture      = $arch
-                                        Language          = $Language
-                                        Hotfix            = $ishotfix
-                                        Description       = $description
-                                        LastModified      = $lastmod
-                                        Size              = $size
-                                        Classification    = $classification
-                                        SupportedProducts = $supportedproducts
-                                        MSRCNumber        = $msrcnumber
-                                        MSRCSeverity      = $msrcseverity
-                                        RebootBehavior    = $rebootbehavior
-                                        RequestsUserInput = $requestuserinput
-                                        ExclusiveInstall  = $exclusiveinstall
-                                        NetworkRequired   = $networkrequired
-                                        UninstallNotes    = $uninstallnotes
-                                        UninstallSteps    = $uninstallsteps
-                                        UpdateId          = $updateid
-                                        Supersedes        = $supersedes
-                                        SupersededBy      = $supersededby
-                                        Link              = $link.matches.value
-                                        InputObject       = $kb
-                                    }))
+                        $linkResults += [pscustomobject]@{
+                            Title             = $title
+                            Id                = $kbnumbers
+                            Architecture      = $arch
+                            Language          = $Language
+                            Hotfix            = $ishotfix
+                            Description       = $description
+                            LastModified      = $lastmod
+                            Size              = $size
+                            Classification    = $classification
+                            SupportedProducts = $supportedproducts
+                            MSRCNumber        = $msrcnumber
+                            MSRCSeverity      = $msrcseverity
+                            RebootBehavior    = $rebootbehavior
+                            RequestsUserInput = $requestuserinput
+                            ExclusiveInstall  = $exclusiveinstall
+                            NetworkRequired   = $networkrequired
+                            UninstallNotes    = $uninstallnotes
+                            UninstallSteps    = $uninstallsteps
+                            UpdateId          = $updateid
+                            Supersedes        = $supersedes
+                            SupersededBy      = $supersededby
+                            Link              = $link
+                            InputObject       = $kb
                         }
-                        $script:kbcollection[$hashkey]
                     }
+
+                    if (-not $script:kbcollection[$hashkey]) {
+                        $null = $script:kbcollection.Add($hashkey, $linkResults)
+                    }
+                    $script:kbcollection[$hashkey]
                 }
             } catch {
                 Stop-PSFFunction -EnableException:$EnableException -Message "Failure" -ErrorRecord $_ -Continue

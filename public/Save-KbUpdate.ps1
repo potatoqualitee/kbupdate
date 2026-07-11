@@ -83,7 +83,7 @@ function Save-KbUpdate {
 
         Downloads all files from $downloadLink to C:\temp
     #>
-    [CmdletBinding(DefaultParameterSetName = 'default')]
+    [CmdletBinding(DefaultParameterSetName = 'default', SupportsShouldProcess, ConfirmImpact = 'Low')]
     param(
         [Parameter(ValueFromPipelineByPropertyName, Mandatory, ParameterSetName = 'link')]
         [string[]]$Link,
@@ -123,6 +123,11 @@ function Save-KbUpdate {
         }
         switch ($PSCmdlet.ParameterSetName) {
             'link' {
+                if ($PSBoundParameters.FilePath -and $uniquelinks.Count -gt 1) {
+                    Stop-PSFFunction -EnableException:$EnableException -Message 'You can only specify FilePath when downloading one unique link'
+                    return
+                }
+
                 Write-PSFMessage -Level Verbose -Message "Processing link parameter set"
                 $uniquelinks | Foreach-Object {
                     $hyperlinklol = $PSItem
@@ -139,12 +144,13 @@ function Save-KbUpdate {
                         Get-ChildItem -Path $file
                         continue
                     }
-                    if (-not $filePath) {
-                        $FilePath = $file
+
+                    if (-not $PSCmdlet.ShouldProcess($file, "Download $hyperlinklol")) {
+                        continue
                     }
 
                     Write-PSFMessage -Level Verbose -Message "Link: $PSItem"
-                    Write-PSFMessage -Level Verbose -Message "FilePath: $FilePath"
+                    Write-PSFMessage -Level Verbose -Message "FilePath: $file"
                     Write-PSFMessage -Level Verbose -Message "File: $file"
 
                     # just show any progress since piping won't allow calculation of the total
@@ -166,23 +172,25 @@ function Save-KbUpdate {
                         try {
                             if ((Get-BitsTransfer | Where-Object Description -match kbupdate).FileList.RemoteName -notcontains $hyperlinklol) {
                                 Write-PSFMessage -Level Verbose -Message "Adding $filename to download queue"
-                                $jobs += Start-BitsTransfer -Asynchronous -Source $hyperlinklol -Destination $Path -ErrorAction Stop -Description kbupdate
+                                $jobs += Start-BitsTransfer -Asynchronous -Source $hyperlinklol -Destination $file -ErrorAction Stop -Description kbupdate
                             }
                         } catch {
                             Write-PSFMessage -Level Verbose -Message "Going to use uri: $hyperlinklol"
-                            Write-Progress -Activity "Downloading $FilePath" -Id 1
+                            Write-Progress -Activity "Downloading $file" -Id 1
                             Invoke-TlsWebRequest -OutFile $file -Uri $hyperlinklol
-                            Write-Progress -Activity "Downloading $FilePath" -Id 1 -Completed
+                            Write-Progress -Activity "Downloading $file" -Id 1 -Completed
+                            Get-ChildItem -Path $file -ErrorAction Ignore
                         }
                     } else {
                         try {
                             Write-PSFMessage -Level Verbose -Message "Transfer failed. Trying again."
                             # IWR is crazy slow for large downloads
-                            Write-Progress -Activity "Downloading $FilePath" -Id 1
+                            Write-Progress -Activity "Downloading $file" -Id 1
                             Invoke-TlsWebRequest -OutFile $file -Uri $hyperlinklol
-                            Write-Progress -Activity "Downloading $FilePath" -Id 1 -Completed
+                            Write-Progress -Activity "Downloading $file" -Id 1 -Completed
+                            Get-ChildItem -Path $file -ErrorAction Ignore
                         } catch {
-                            Stop-PSFFunction -EnableException:$EnableException -Message "Failure" -ErrorRecord $_ -Continue
+                            Stop-PSFFunction -EnableException:$EnableException -Message "Failure" -ErrorRecord $PSItem -Continue
                         }
                     }
                 }
@@ -233,6 +241,17 @@ function Save-KbUpdate {
 
                 $inputobjects = $inputobjects | Sort-Object -Unique
 
+                $allDownloadLinks = @(
+                    $inputobjects |
+                        ForEach-Object { $PSItem.Link } |
+                        Where-Object { $PSItem } |
+                        Select-Object -Unique
+                )
+                if ($PSBoundParameters.FilePath -and $allDownloadLinks.Count -gt 1) {
+                    Stop-PSFFunction -EnableException:$EnableException -Message 'You can only specify FilePath when downloading one unique link'
+                    return
+                }
+
                 foreach ($object in $inputobjects) {
                     if ($Architecture) {
                         $templinks = @()
@@ -255,21 +274,22 @@ function Save-KbUpdate {
                         }
                     }
 
-                    foreach ($dl in $object) {
-                        $title = $dl.Title
-                        $hyperlinklol = $object.Link
+                    foreach ($hyperlinklol in @($object.Link)) {
+                        $title = $object.Title
                         if (-not $PSBoundParameters.FilePath) {
-                            $FilePath = Split-Path -Path $hyperlinklol -Leaf
+                            $downloadFileName = Split-Path -Path $hyperlinklol -Leaf
                         } else {
-                            if (-not $Path) {
-                                $Path = Split-Path -Path $FilePath
-                            }
+                            $downloadFileName = $FilePath
                         }
 
-                        $file = Join-Path -Path $Path -ChildPath $FilePath
+                        $file = Join-Path -Path $Path -ChildPath $downloadFileName
 
                         if ((Test-Path -Path $file) -and -not $AllowClobber) {
                             Get-ChildItem -Path $file
+                            continue
+                        }
+
+                        if (-not $PSCmdlet.ShouldProcess($file, "Download $hyperlinklol")) {
                             continue
                         }
 
@@ -282,20 +302,21 @@ function Save-KbUpdate {
                                 }
                             } catch {
                                 foreach ($hyperlink in $hyperlinklol) {
-                                    Write-Progress -Activity "Downloading $FilePath" -Id 1
+                                    Write-Progress -Activity "Downloading $downloadFileName" -Id 1
                                     Write-PSFMessage -Level Verbose -Message "That failed, trying Invoke-WebRequest"
                                     $null = Invoke-TlsWebRequest -OutFile $file -Uri "$hyperlink"
-                                    Write-Progress -Activity "Downloading $FilePath" -Id 1 -Completed
+                                    Write-Progress -Activity "Downloading $downloadFileName" -Id 1 -Completed
+                                    Get-ChildItem -Path $file -ErrorAction Ignore
                                 }
                             }
                         } else {
                             try {
                                 # IWR is crazy slow for large downloads
-                                Write-Progress -Activity "Downloading $FilePath" -Id 1
+                                Write-Progress -Activity "Downloading $downloadFileName" -Id 1
                                 $null = Invoke-TlsWebRequest -OutFile $file -Uri "$hyperlinklol"
-                                Write-Progress -Activity "Downloading $FilePath" -Id 1 -Completed
+                                Write-Progress -Activity "Downloading $downloadFileName" -Id 1 -Completed
                             } catch {
-                                Stop-PSFFunction -EnableException:$EnableException -Message "Failure" -ErrorRecord $_ -Continue
+                                Stop-PSFFunction -EnableException:$EnableException -Message "Failure" -ErrorRecord $PSItem -Continue
                             }
                             if ((Test-Path -Path $file)) {
                                 Get-ChildItem -Path $file

@@ -258,10 +258,7 @@ function Update-KbDatabase {
                             if ('n/a' -eq $uninstallnotes) { $uninstallnotes = $null }
                             if ('n/a' -eq $uninstallsteps) { $uninstallsteps = $null }
 
-                            # find links that contain windowsupdate.com using regex
-
-                            $downloaddialog = $downloaddialog.Replace('www.download.windowsupdate', 'download.windowsupdate')
-                            $links = $downloaddialog | Select-String -AllMatches -Pattern "(http[s]?\://.*download\.windowsupdate\.com\/[^\'\""]*)" | Select-Object -Unique
+                            $links = Get-KbDownloadLink -Content $downloaddialog
 
                             [pscustomobject]@{
                                 Title             = $title
@@ -285,7 +282,7 @@ function Update-KbDatabase {
                                 UpdateId          = $updateid
                                 Supersedes        = $supersedes
                                 SupersededBy      = $supersededby
-                                Link              = $links.matches.value -join "|"
+                                Link              = $links -join "|"
                                 InputObject       = $kb
                             }
                         }

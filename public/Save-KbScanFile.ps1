@@ -33,7 +33,7 @@ function Save-KbScanFile {
     Saves the cab file to C:\temp and overwrite file if it exists
 
     #>
-    [CmdletBinding()]
+    [CmdletBinding(SupportsShouldProcess, ConfirmImpact = 'Low')]
     param (
         [Parameter()]
         [string]$Path,
@@ -56,7 +56,9 @@ function Save-KbScanFile {
             $temp = Get-PSFPath -Name Temp
             $Path = Join-PSFPath -Path $temp wsus
             if (-not (Test-Path -Path $Path)) {
-                $null = New-Item -Type Directory -Path $Path
+                if ($PSCmdlet.ShouldProcess($Path, 'Create download directory')) {
+                    $null = New-Item -Type Directory -Path $Path
+                }
             }
         }
 
@@ -64,7 +66,9 @@ function Save-KbScanFile {
         # Download WSUS database
         if (-not (Test-Path -Path $outfile) -or $AllowClobber) {
             Write-PSFMessage -Level Verbose -Message "Downloading $filename from $Source"
-            Invoke-TlsWebRequest -Uri $Source -OutFile $outfile
+            if ($PSCmdlet.ShouldProcess($outfile, "Download $Source")) {
+                Invoke-TlsWebRequest -Uri $Source -OutFile $outfile
+            }
         }
 
         Get-ChildItem -Path $outfile -ErrorAction SilentlyContinue
