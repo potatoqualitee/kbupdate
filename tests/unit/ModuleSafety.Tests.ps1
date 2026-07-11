@@ -43,5 +43,19 @@ Describe 'AI-safe command metadata' {
 
         $dscWorker | Should -Not -Match 'Get-PSSession\s+-ComputerName'
     }
+
+    It 'loads xWindowsUpdate on the target before compiling the DSC fallback' {
+        $repositoryRoot = (Resolve-Path (Join-Path $PSScriptRoot '../..')).Path
+        $dscWorker = Get-Content -LiteralPath (Join-Path $repositoryRoot 'private/Start-DscUpdate.ps1') -Raw
+        $remoteBlockStart = $dscWorker.IndexOf('$null = Invoke-KbCommand @parms -ScriptBlock {')
+        $moduleImport = $dscWorker.IndexOf('Import-Module xWindowsUpdate -RequiredVersion 3.0.0', $remoteBlockStart)
+        $fallbackCompilation = $dscWorker.IndexOf('$dsc = [scriptblock]::Create($DscScript)', $remoteBlockStart)
+
+        $remoteBlockStart | Should -BeGreaterThan -1
+        $moduleImport | Should -BeGreaterThan $remoteBlockStart
+        $fallbackCompilation | Should -BeGreaterThan $moduleImport
+        $dscWorker.Substring(0, $remoteBlockStart) |
+            Should -Not -Match '\[scriptblock\]::Create\(\$scriptblock\)'
+    }
 }
 
