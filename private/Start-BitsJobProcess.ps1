@@ -22,8 +22,11 @@ function Start-BitsJobProcess {
         $bs = $jobs | Where-Object BytesTotal -ne 18446744073709551615
         $bytestotal = ($bs.BytesTotal | Measure-Object -Sum).Sum
         $bstotal = [math]::Round(($bytestotal / 1MB),2)
+        $jobIds = @($jobs | Select-Object -ExpandProperty JobId)
+        $retryCounts = @{}
+        $maximumRetries = 3
 
-        while ($bitsjobs = (Get-BitsTransfer | Where-Object Description -match kbupdate)) {
+        while ($bitsjobs = @(Get-BitsTransfer | Where-Object { $PSItem.JobId -in $jobIds })) {
             $bytesjob = $bitsjobs | Where-Object BytesTotal -ne 18446744073709551615
             $bjbytestotal = ($bytesjob.BytesTransferred | Measure-Object -Sum).Sum
             $mbjtotal = [math]::Round(($bjbytestotal / 1MB),2)
@@ -68,21 +71,32 @@ function Start-BitsJobProcess {
                                 Get-ChildItem $filename
                             }
                         }
-                        "Suspended" {
-                            foreach ($filename in $bitsjob.FileList.LocalName) {
-                                Write-PSFMessage -Level Verbose -Message "Oof, $filename is suspended. Retrying."
+                        { $PSItem -in "Suspended", "TransientError" } {
+                            $retryKey = "$($bitsjob.JobId)"
+                            if (-not $retryCounts.ContainsKey($retryKey)) {
+                                $retryCounts[$retryKey] = 0
                             }
-                            $null = $bitsjob | Resume-BitsTransfer
+                            $retryCounts[$retryKey]++
+                            foreach ($filename in $bitsjob.FileList.LocalName) {
+                                Write-PSFMessage -Level Verbose -Message "Oof, $filename is $($bitsjob.JobState). Retry $($retryCounts[$retryKey]) of $maximumRetries."
+                            }
+                            if ($retryCounts[$retryKey] -ge $maximumRetries) {
+                                $null = Remove-BitsTransfer -BitsJob $bitsjob -Confirm:$false -ErrorAction Ignore
+                                Stop-PSFFunction -Message "Failure downloading $title after $maximumRetries retries | $($bitsjob.ErrorDescription)" -Continue
+                            } else {
+                                $null = Resume-BitsTransfer -BitsJob $bitsjob -Asynchronous -ErrorAction Ignore
+                            }
                         }
-                        "Error" {
+                        { $PSItem -in "Error", "Cancelled" } {
+                            $null = Remove-BitsTransfer -BitsJob $bitsjob -Confirm:$false -ErrorAction Ignore
                             foreach ($file in $bitsjob.FileList.LocalName) {
                                 Write-PSFMessage -Level Verbose -Message "Oh no, $file has errored."
                                 Stop-PSFFunction -Message "Failure downloading $title (file) | $($bitsjob.ErrorDescription)" -Continue
                             }
-                            $null = $bitsjob | Complete-BitsTransfer -ErrorAction Ignore
                         }
                     }
                 } catch {
+                    $null = Remove-BitsTransfer -BitsJob $bitsjob -Confirm:$false -ErrorAction Ignore
                     Stop-PSFFunction -Message "Failure for $title | $PSItem" -Continue
                 }
             }
