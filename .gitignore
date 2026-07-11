@@ -1,0 +1,4 @@
+.artifacts/
+*.local.ps1
+TestResults/
+
