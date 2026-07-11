@@ -65,6 +65,12 @@ function Get-Needed {
                 # iterate the updates in searchresult
                 # it must be force iterated like this
                 $links = @()
+                foreach ($file in $wsuskb.DownloadContents) {
+                    if ($file.DownloadUrl) {
+                        $links += $file.DownloadUrl.Replace("http://download.windowsupdate.com", "https://catalog.s.download.windowsupdate.com")
+                    }
+                }
+
                 foreach ($bundle in $wsuskb.BundledUpdates) {
                     foreach ($file in $bundle.DownloadContents) {
                         if ($file.DownloadUrl) {
@@ -73,6 +79,7 @@ function Get-Needed {
                     }
                 }
 
+                $links = @($links | Select-Object -Unique)
                 [pscustomobject]@{
                     ComputerName      = $Computer
                     Title             = $wsuskb.Title

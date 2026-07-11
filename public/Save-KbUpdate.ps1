@@ -34,7 +34,9 @@ function Save-KbUpdate {
         Search source. By default, Database is searched first, then if no matches are found, it tries finding it on the web if a an internet connection is detected.
 
     .PARAMETER InputObject
-        Enables piping from Get-KbUpdate
+        Enables piping update objects from Get-KbUpdate, Get-KbNeededUpdate, or Import-Clixml.
+
+        Links already present on a piped object are downloaded directly so the exact update artifact selected by an offline scan is preserved.
 
     .PARAMETER AllowClobber
         Overwrite file if it exsits
@@ -82,12 +84,17 @@ function Save-KbUpdate {
         PS C:\> Save-KBUpdate -Link $downloadLink -Path C:\temp
 
         Downloads all files from $downloadLink to C:\temp
+
+    .EXAMPLE
+        PS C:\> Import-Clixml E:\needed-updates.clixml | Save-KbUpdate -Path E:\updates
+
+        Downloads the exact update links exported by Get-KbNeededUpdate on an offline computer.
     #>
     [CmdletBinding(DefaultParameterSetName = 'default', SupportsShouldProcess, ConfirmImpact = 'Low')]
     param(
         [Parameter(Mandatory, ParameterSetName = 'link')]
         [string[]]$Link,
-        [Parameter(ValueFromPipelineByPropertyName, Position = 0)]
+        [Parameter(Position = 0)]
         [Alias("UpdateId", "Id", "KBUpdate", "HotfixId", "Name")]
         [string[]]$Pattern,
         [string]$Path = ".",
@@ -106,6 +113,10 @@ function Save-KbUpdate {
     )
     begin {
         $jobs = $inputobjects = $uniquelinks = @()
+        $requestedPatterns = @(
+            $Pattern |
+                Where-Object { -not [string]::IsNullOrWhiteSpace([string]$PSItem) }
+        )
         $count = 0
     }
     process {
@@ -197,12 +208,12 @@ function Save-KbUpdate {
 
             default {
                 Write-PSFMessage -Level Verbose -Message "Processing default parameter set"
-                if ($Pattern.Count -gt 1 -and $PSBoundParameters.FilePath) {
+                if ($requestedPatterns.Count -gt 1 -and $PSBoundParameters.FilePath) {
                     Stop-PSFFunction -EnableException:$EnableException -Message "You can only specify one KB when using FilePath"
                     return
                 }
 
-                if (-not $PSBoundParameters.InputObject -and -not $PSBoundParameters.Pattern) {
+                if (-not $inputobjects -and -not $requestedPatterns) {
                     Stop-PSFFunction -EnableException:$EnableException -Message "You must specify a KB name or pipe in results from Get-KbUpdate"
                     return
                 }
@@ -214,7 +225,7 @@ function Save-KbUpdate {
 
                 Write-PSFMessage -Level Verbose -Message "Source set to $Source"
 
-                foreach ($kb in $Pattern) {
+                foreach ($kb in $requestedPatterns) {
                     if ($Latest) {
                         $simple = $false
                     } else {
@@ -238,7 +249,6 @@ function Save-KbUpdate {
                     $inputobjects += Get-KbUpdate @params
                 }
 
-                $inputobjects = $inputobjects | Sort-Object -Unique
 
                 if ($Architecture) {
                     foreach ($object in $inputobjects) {
@@ -267,16 +277,43 @@ function Save-KbUpdate {
                 $allDownloadLinks = @(
                     $inputobjects |
                         ForEach-Object { $PSItem.Link } |
-                        Where-Object { $PSItem } |
+                        Where-Object { -not [string]::IsNullOrWhiteSpace([string]$PSItem) } |
                         Select-Object -Unique
                 )
                 if ($PSBoundParameters.FilePath -and $allDownloadLinks.Count -gt 1) {
                     Stop-PSFFunction -EnableException:$EnableException -Message 'You can only specify FilePath when downloading one unique link'
                     return
                 }
+                $processedLinks = @{}
 
                 foreach ($object in $inputobjects) {
-                    foreach ($hyperlinklol in @($object.Link)) {
+                    $objectLinks = @(
+                        $object.Link |
+                            Where-Object { -not [string]::IsNullOrWhiteSpace([string]$PSItem) } |
+                            Select-Object -Unique
+                    )
+                    if (-not $objectLinks) {
+                        $identity = $object.UpdateId
+                        if (-not $identity) {
+                            $identity = $object.KBUpdate
+                        }
+                        if (-not $identity) {
+                            $identity = $object.Title
+                        }
+                        if (-not $identity) {
+                            $identity = 'input object'
+                        }
+                        Write-PSFMessage -Level Warning -Message "No download link was provided for $identity. Skipping."
+                        continue
+                    }
+
+                    foreach ($hyperlinklol in $objectLinks) {
+                        $linkKey = [string]$hyperlinklol
+                        if ($processedLinks.ContainsKey($linkKey)) {
+                            continue
+                        }
+                        $processedLinks[$linkKey] = $true
+
                         $title = $object.Title
                         if (-not $PSBoundParameters.FilePath) {
                             $downloadFileName = Split-Path -Path $hyperlinklol -Leaf
