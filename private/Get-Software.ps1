@@ -7,35 +7,40 @@ function Get-Software {
     $allhotfixids = New-Object System.Collections.ArrayList
     $allcbs = Get-ChildItem 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Component Based Servicing\Packages'
 
-    if ($psversiontable.PsVersion.Major -lt 5 -or ($psversiontable.PsVersion.Major -eq 5 -and $psversiontable.PsVersion.Major -lt 1)) {
-        # using throw because it's a remote computer with no guarantee of psframework. Also the throw is caught at the bottom by PSFramework.
-        throw "$env:ComputerName is running PowerShell version $psversiontalbe. Please upgrade to PowerShell version 5.1 or greater"
-    }
+    $hasPackageManagement = [bool](Get-Command Get-Package -ErrorAction SilentlyContinue)
 
     if ($pattern) {
         $packages = @()
         foreach ($name in $pattern) {
-            $packages += Get-Package -IncludeWindowsInstaller -ProviderName msi, msu, Programs -Name "*$name*" -ErrorAction SilentlyContinue
-            $packages += Get-Package -ProviderName msi, msu, Programs -Name "*$name*" -ErrorAction SilentlyContinue
+            if ($hasPackageManagement) {
+                $packages += Get-Package -IncludeWindowsInstaller -ProviderName msi, msu, Programs -Name "*$name*" -ErrorAction SilentlyContinue
+                $packages += Get-Package -ProviderName msi, msu, Programs -Name "*$name*" -ErrorAction SilentlyContinue
+            }
             if ((Get-Service wuauserv | Where-Object StartType -ne Disabled)) {
                 $session = [type]::GetTypeFromProgID("Microsoft.Update.Session")
                 $wua = [activator]::CreateInstance($session)
                 $updatesearcher = $wua.CreateUpdateSearcher()
                 $count = $updatesearcher.GetTotalHistoryCount()
-                $packages += $updatesearcher.QueryHistory(0, $count) | Where-Object Name -match $Pattern
+                if ($count -gt 0) {
+                    $packages += $updatesearcher.QueryHistory(0, $count) | Where-Object Name -match $Pattern
+                }
             }
         }
     } else {
         $packages = @()
-        $packages += Get-Package -IncludeWindowsInstaller -ProviderName msi, msu, Programs
-        $packages += Get-Package -ProviderName msi, msu, Programs
+        if ($hasPackageManagement) {
+            $packages += Get-Package -IncludeWindowsInstaller -ProviderName msi, msu, Programs
+            $packages += Get-Package -ProviderName msi, msu, Programs
+        }
         $packages = $packages | Sort-Object -Unique Name
         if ((Get-Service wuauserv | Where-Object StartType -ne Disabled)) {
             $session = [type]::GetTypeFromProgID("Microsoft.Update.Session")
             $wua = [activator]::CreateInstance($session)
             $updatesearcher = $wua.CreateUpdateSearcher()
             $count = $updatesearcher.GetTotalHistoryCount()
-            $packages += $updatesearcher.QueryHistory(0, $count)
+            if ($count -gt 0) {
+                $packages += $updatesearcher.QueryHistory(0, $count)
+            }
         }
     }
 

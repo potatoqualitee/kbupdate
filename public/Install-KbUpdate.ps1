@@ -161,10 +161,6 @@ function Install-KbUpdate {
             $HotfixId = "KB$HotfixId"
         }
 
-        if ($Credential.UserName) {
-            $PSDefaultParameterValues["*:Credential"] = $Credential
-        }
-
         if (-not $PSBoundParameters.ComputerName -and $InputObject) {
             $ComputerName = [PSFComputer[]]$InputObject.ComputerName
             Write-PSFMessage -Level Verbose -Message "Added $ComputerName"
@@ -191,6 +187,8 @@ function Install-KbUpdate {
             try {
                 $parms = @{
                     ComputerName      = $hostname
+                    Credential        = $Credential
+                    PSDscRunAsCredential = $PSDscRunAsCredential
                     FilePath          = $FilePath
                     HotfixId          = $HotfixId
                     RepositoryPath    = $RepositoryPath

@@ -109,13 +109,13 @@ function Start-DscUpdate {
             Write-PSFMessage -Level Verbose -Message "Initializing remote session to $hostname and also getting the remote home directory"
             $programhome = Invoke-KbCommand -ScriptBlock { $home }
 
-            if (-not $remotesession) {
-                $remotesession = Get-PSSession -ComputerName $ComputerName -Verbose | Where-Object { $PsItem.Availability -eq 'Available' -and ($PsItem.Name -match 'WinRM' -or $PsItem.Name -match 'Runspace') } | Select-Object -First 1
-            }
-
-            if (-not $remotesession) {
-                $remotesession = Get-PSSession -ComputerName $ComputerName | Where-Object { $PsItem.Availability -eq 'Available' } | Select-Object -First 1
-            }
+            $remotesession = Get-PSSession |
+                Where-Object {
+                    $PSItem.Name -eq "kbupdate-$ComputerName" -and
+                    $PSItem.State -eq 'Opened' -and
+                    $PSItem.Availability -eq 'Available'
+                } |
+                Select-Object -First 1
 
             if (-not $remotesession) {
                 Stop-PSFFunction -Message "Session for $hostname can't be found or no runspaces are available. Please file an issue on the GitHub repo at https://github.com/potatoqualitee/kbupdate/issues" -Continue
@@ -499,9 +499,6 @@ function Start-DscUpdate {
                         }
                         DscWithoutWinRm
 "@
-                $dsc = [scriptblock]::Create($scriptblock)
-
-
             } elseif ("$FilePath".EndsWith("cab")) {
                 Write-PSFMessage -Level Verbose -Message "It's a cab file"
                 Write-PSFMessage -Level Verbose -Message "ArgumentList is $ArgumentList"
@@ -537,8 +534,6 @@ function Start-DscUpdate {
                     }
                     DscWithoutWinRm
 "@
-
-                $dsc = [scriptblock]::Create($scriptblock)
             } else {
                 Write-PSFMessage -Level Verbose -Message "It's a WSU file"
                 Write-PSFMessage -Level Verbose -Message "ArgumentList is $ArgumentList"
@@ -577,7 +572,6 @@ function Start-DscUpdate {
                         DscWithoutWinRm
 "@
 
-                    $dsc = [scriptblock]::Create($scriptblock)
                 } else {
                      $scriptblock = @"
                             Configuration DscWithoutWinRm {
@@ -595,12 +589,11 @@ function Start-DscUpdate {
                         DscWithoutWinRm
 "@
 
-                    $dsc = [scriptblock]::Create($scriptblock)
                 }
             }
             try {
                 $parms = @{
-                    ArgumentList    = $hotfix, $VerbosePreference, $FileName
+                    ArgumentList    = $hotfix, $VerbosePreference, $FileName, $scriptblock
                     EnableException = $true
                     WarningAction   = "SilentlyContinue"
                     WarningVariable = "dscwarnings"
@@ -609,7 +602,8 @@ function Start-DscUpdate {
                     param (
                         $Hotfix,
                         $VerbosePreference,
-                        $ManualFileName
+                        $ManualFileName,
+                        $DscScript
                     )
 
                     if ($PSVersionTable.PSVersion.Major -gt 5) {
@@ -645,6 +639,7 @@ function Start-DscUpdate {
                         Write-Verbose -Message "Invoke-DscResource is not available on this system because remoting isn't enabled. Using Invoke-CimMethod."
                         $workaround = $true
                         Push-Location -Path $env:temp
+                        $dsc = [scriptblock]::Create($DscScript)
                         $null = Invoke-Command -ScriptBlock $dsc
                         $mofpath = Resolve-Path -Path ".\DscWithoutWinRm\localhost.mof"
                         $configData = [byte[]][System.IO.File]::ReadAllBytes($mofpath)

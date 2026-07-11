@@ -111,6 +111,9 @@ function Invoke-KbCommand {
                     SessionOption = $sessionOption
                     ErrorAction   = "Stop"
                 }
+                if ($Credential) {
+                    $sessionparm.Credential = $Credential
+                }
                 if (Get-PSFConfigValue -FullName PSRemoting.PsSession.UseSSL) {
                     $null = $sessionparm.Add("UseSSL", (Get-PSFConfigValue -FullName PSRemoting.PsSession.UseSSL))
                 }
@@ -132,6 +135,6 @@ function Invoke-KbCommand {
             Invoke-PSFCommand @commandparm
         }
     } catch {
-        Stop-PSFFunction -Message "Failure on $ComputerName" -ErrorRecord $PSItem
+        Stop-PSFFunction -Message "Failure on $ComputerName" -ErrorRecord $PSItem -EnableException:$EnableException
     }
 }
