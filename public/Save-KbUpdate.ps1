@@ -85,7 +85,7 @@ function Save-KbUpdate {
     #>
     [CmdletBinding(DefaultParameterSetName = 'default', SupportsShouldProcess, ConfirmImpact = 'Low')]
     param(
-        [Parameter(ValueFromPipelineByPropertyName, Mandatory, ParameterSetName = 'link')]
+        [Parameter(Mandatory, ParameterSetName = 'link')]
         [string[]]$Link,
         [Parameter(ValueFromPipelineByPropertyName, Position = 0)]
         [Alias("UpdateId", "Id", "KBUpdate", "HotfixId", "Name")]
