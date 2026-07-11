@@ -29,11 +29,13 @@ _content_hash() {
 # MUST be called on a canonicalized path (realpath -m): applying the check to a raw path would let a
 # traversal like "$REPO_ROOT/sub/../other/x.ps1" slip a file past review under a masqueraded prefix.
 #   * in-repo AND a reviewable extension (or the dispositions ledger, force-included so a suppression
-#     edit can never be auto-committed unreviewed).
+#     edit can never be auto-committed unreviewed). Case-INSENSITIVE: on this Windows/PowerShell repo a
+#     file may be named .PS1 / .PSD1 / .YAML, and a case-sensitive miss would skip the gate AND let the
+#     file be mis-classified as auto-committable non-code.
 _in_review_scope() {
     local p="$1"
     [[ "$p" == "$REPO_ROOT/"* ]] || return 1
-    printf '%s\n' "$p" | grep -qE "$CODE_EXT_RE|/\.claude/codex-review-dispositions\.jsonl$" || return 1
+    printf '%s\n' "$p" | grep -qiE "$CODE_EXT_RE|/\.claude/codex-review-dispositions\.jsonl$" || return 1
     return 0
 }
 
@@ -170,16 +172,22 @@ build_session_payload() {
             mkdir -p "$SNAP_DIR" 2>/dev/null && chmod 700 "$SNAP_DIR" 2>/dev/null
             printf '%s' "CODEX AUTO-REVIEW -- ${f#$REPO_ROOT/} was deleted but no session baseline was captured, so its removed content could not be shown to the reviewer. A deletion of unreviewed content cannot be codex-approved; it will be committed UNREVIEWED at SessionEnd." > "$SNAP_DIR/${key}.findings" 2>/dev/null
         elif (( _arc == 1 )); then
-            # Content differs from the last-reviewed hash but produces NO baseline->current diff. Resolve an
-            # OPEN block ONLY on a genuine revert to the session baseline:
+            # Content differs from the last-reviewed hash but produces NO baseline->current diff: a genuine
+            # revert to the session baseline —
             #   * a PRESENT file byte-identical to its baseline (fix-by-revert, finding D), or
             #   * a DELETION of a file that was ABSENT at baseline (created this session, then removed).
             # An existing file (even an EMPTY one) that was DELETED is a real change -> leave its block so it
             # is never silently cleared without a CLEAN review. Empty <key>.base can't tell absent from
             # empty; the <key>.baseabsent marker can.
-            if [[ -f "$SNAP_DIR/${key}.findings" ]] && { [[ -f "$f" ]] || [[ -f "$SNAP_DIR/${key}.baseabsent" ]]; }; then
+            # On a genuine revert, mark the content BOTH reviewed AND clean for the current hash (not only
+            # when an open finding exists): the file is back to a known baseline state, nothing is left to
+            # review. Without the .clean mark, build_commit_allowlist would withhold the reverted file and
+            # the SessionEnd sweep would mislabel it UNREVIEWED.
+            if [[ -f "$f" ]] || [[ -f "$SNAP_DIR/${key}.baseabsent" ]]; then
+                mkdir -p "$SNAP_DIR" 2>/dev/null && chmod 700 "$SNAP_DIR" 2>/dev/null
                 rm -f "$SNAP_DIR/${key}.findings" 2>/dev/null
                 printf '%s' "$curhash" > "$SNAP_DIR/${key}.reviewed" 2>/dev/null
+                printf '%s' "$curhash" > "$SNAP_DIR/${key}.clean" 2>/dev/null
             fi
         fi
     done
@@ -295,6 +303,10 @@ build_commit_allowlist() {
         rf=$(realpath -m "$f" 2>/dev/null) || continue
         [[ "$rf" == "$REPO_ROOT/"* ]] || continue
         rel="${rf#$REPO_ROOT/}"
+        # Never allowlist a secret/credential/private-key/inventory/lab-host file for auto-commit, in or
+        # out of review scope (kbupdate policy — AGENTS.md). commit_session_files enforces the same at the
+        # SessionEnd sweep; this keeps the per-turn allowlist from even listing such a path.
+        _is_sensitive_path "$rf" && continue
         if _in_review_scope "$rf"; then
             key=$(_snap_key "$rf")
             [[ -f "$SNAP_DIR/${key}.clean" ]] || continue          # in scope but never approved -> hold

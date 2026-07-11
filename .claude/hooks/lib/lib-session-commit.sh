@@ -29,6 +29,24 @@ _LIB_SESSION_COMMIT_LOADED=1
 
 source "$(dirname "${BASH_SOURCE[0]}")/lib-git-lock.sh"
 
+# _is_sensitive_path <path> — true if the basename looks like a secret, private key/cert, credential
+# store, machine inventory, or lab/host list that kbupdate policy forbids committing (AGENTS.md:
+# "Never commit credentials, machine inventories, private host names, raw lab addresses"). Auto-commit
+# — the per-turn gate AND the SessionEnd sweep — NEVER stages a match; such a file is left for the
+# human to commit deliberately or not at all. Case-insensitive (lowercased basename); targets secret
+# FILE signatures (extensions + telltale names), so ordinary source files keep auto-committing.
+_is_sensitive_path() {
+    local base="${1##*/}"; base="${base,,}"
+    case "$base" in
+        *.env|*.env.*|.env|.netrc|.pgpass) return 0 ;;                             # env / rc secret files
+        *.pem|*.key|*.pfx|*.p12|*.pkcs12|*.ppk|*.jks|*.keystore|*.pat) return 0 ;; # private keys / certs / tokens
+        id_rsa|id_rsa.*|id_dsa|id_dsa.*|id_ecdsa|id_ecdsa.*|id_ed25519|id_ed25519.*) return 0 ;;
+        secret|secrets|secret.*|secrets.*|*.secrets.*|*credential*) return 0 ;;    # credential stores
+        inventory|inventory.*|*inventory*|computers.txt|hosts.txt|*lab-computers*) return 0 ;; # machine inventories / lab hosts
+    esac
+    return 1
+}
+
 commit_session_files() {
     local session_id="$1"
     local subject="${2:-chore(session): auto-commit session changes}"
@@ -69,6 +87,9 @@ commit_session_files() {
             *) continue ;;
         esac
         rel="${cfilepath#$repo_root/}"
+        # Never auto-commit a secret/credential/private-key/inventory/lab-host file — this is the single
+        # choke point, so it also blocks the SessionEnd UNREVIEWED sweep (which passes no allowlist).
+        _is_sensitive_path "$cfilepath" && continue
         # Per-file allowlist gate: when the caller supplied one, a path NOT in it is skipped — this is
         # how the per-turn codex commit avoids persisting a blocked/unreviewed code file as approved.
         if [[ -n "$allow_file" ]]; then

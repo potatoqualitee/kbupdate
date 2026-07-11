@@ -42,12 +42,10 @@ case "$RF" in
     *) exit 0 ;;
 esac
 # Kept in lockstep with CODE_EXT_RE in stop/stop-codex-review.sh, plus the dispositions ledger
-# (force-included in review scope despite its extension).
-case "$RF" in
-    *.ps1|*.psm1|*.psd1|*.ps1xml|*.md|*.sh|*.yml|*.yaml) ;;
-    */codex-review-dispositions.jsonl) ;;
-    *) exit 0 ;;
-esac
+# (force-included in review scope despite its extension). Case-INSENSITIVE like _in_review_scope: a
+# file named .PS1 / .YAML on Windows must still get a baseline, or the Stop hook would treat it as
+# out-of-scope auto-committable non-code.
+printf '%s\n' "$RF" | grep -qiE '\.(ps1|psm1|psd1|ps1xml|md|sh|yml|yaml)$|/codex-review-dispositions\.jsonl$' || exit 0
 
 KEY=$(printf '%s' "$RF" | sha1sum 2>/dev/null | cut -d' ' -f1)
 [[ -z "$KEY" ]] && exit 0
