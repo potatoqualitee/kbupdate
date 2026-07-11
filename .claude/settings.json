@@ -10,6 +10,15 @@
             "command": "pwsh -NoProfile -File \"$CLAUDE_PROJECT_DIR/.claude/hooks/guard-kbupdate-command.ps1\""
           }
         ]
+      },
+      {
+        "matcher": "Write|Edit|MultiEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"C:\\Program Files\\Git\\bin\\bash.exe\" \"$CLAUDE_PROJECT_DIR/.claude/hooks/infra/pre-write-snapshot-baseline.sh\""
+          }
+        ]
       }
     ],
     "PostToolUse": [
@@ -19,10 +28,35 @@
           {
             "type": "command",
             "command": "pwsh -NoProfile -File \"$CLAUDE_PROJECT_DIR/.claude/hooks/check-powershell-edit.ps1\""
+          },
+          {
+            "type": "command",
+            "command": "\"C:\\Program Files\\Git\\bin\\bash.exe\" \"$CLAUDE_PROJECT_DIR/.claude/hooks/infra/post-write-track-session-files.sh\""
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"C:\\Program Files\\Git\\bin\\bash.exe\" \"$CLAUDE_PROJECT_DIR/.claude/hooks/stop/stop-codex-review.sh\"",
+            "timeout": 660,
+            "statusMessage": "Running codex auto-review — tail -f ~/.codex-review.live.log to watch"
+          }
+        ]
+      }
+    ],
+    "SessionEnd": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"C:\\Program Files\\Git\\bin\\bash.exe\" \"$CLAUDE_PROJECT_DIR/.claude/hooks/stop/session-end-auto-commit.sh\""
           }
         ]
       }
     ]
   }
 }
-
