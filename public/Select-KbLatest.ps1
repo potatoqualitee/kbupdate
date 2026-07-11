@@ -37,6 +37,12 @@ function Select-KbLatest {
             $otherkbs = $allkbs | Where-Object Id -ne $kb.Id
             $match += $allkbs | Where-Object { $PSItem.Id -eq $kb.Id -and $otherkbs.Supersedes.Kb -notcontains $kb.Id }
         }
-        $match | Sort-Object -Property @{Expression = "Id"; Descending = $true }, @{Expression = "LastModified"; Descending = $true } -Unique
+        $sortProperties = @(
+            @{ Expression = 'Id'; Descending = $true }
+            @{ Expression = 'LastModified'; Descending = $true }
+            @{ Expression = 'UpdateId'; Descending = $false }
+            @{ Expression = 'Link'; Descending = $false }
+        )
+        $match | Sort-Object -Property $sortProperties -Unique
     }
 }
