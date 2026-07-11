@@ -5,6 +5,10 @@ BeforeAll {
 
 Describe 'Save-KbUpdate download handling' {
     InModuleScope kbupdate {
+        BeforeAll {
+            function Get-BitsTransfer { }
+        }
+
         BeforeEach {
             Mock Test-Path { $false }
             Mock Get-Command { [pscustomobject]@{ Name = 'Start-BitsTransfer' } }
