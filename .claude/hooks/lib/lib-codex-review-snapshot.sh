@@ -62,19 +62,19 @@ collect_session_files() {
 
 # _append_review_diff <canonical-path> <key> — append this file's baseline->current diff (POSIX diff,
 # never git; repo-relative a/ b/ labels so codex never sees a /tmp snapshot path) to the review arrays if
-# there is a net change. Returns 0 if appended, 1 if nothing to review (identical to baseline), or 2 if the
-# removed/original content is unknown so the caller MUST hard-block it: a DELETION with no captured
-# baseline, OR a PRESENT file that has neither a baseline nor a baseabsent marker (pre-write never
-# recorded this path). Both can never be safely reviewed/approved from a /dev/null diff.
+# there is a net change. Returns 0 if appended, 1 if nothing to review (identical to baseline), or 2 if it
+# is a DELETION with no captured baseline (the removed content is unknown, so it can never be safely
+# reviewed/approved and the caller MUST hard-block it).
 _append_review_diff() {
     local f="$1" key="$2" rel base d
     rel="${f#$REPO_ROOT/}"
     base="$SNAP_DIR/${key}.base"
-    # Fail CLOSED for a PRESENT file with NO captured baseline AND no baseabsent marker: diffing it against
-    # /dev/null would present the whole file as "added" and let a CLEAN verdict auto-commit current bytes
-    # even if the file pre-existed with different content that was replaced (never shown to codex). Hard-
-    # block (return 2). A file the session legitimately CREATED has a baseabsent marker, so it is exempt.
-    [[ -f "$f" && ! -e "$base" && ! -e "$SNAP_DIR/${key}.baseabsent" ]] && return 2
+    # A PRESENT file with no captured baseline is diffed against /dev/null: its ENTIRE current content is
+    # shown to codex and fully reviewed, so a CLEAN verdict validates the current bytes. We deliberately do
+    # NOT hard-block that case. Baselines can be legitimately absent — a compaction / SessionEnd between
+    # turns wipes the .snap store while the session tracker persists — and hard-blocking would mislabel
+    # every such PRESENT file as "deleted" and wedge the gate on false blocks (observed 2026-07-11; see the
+    # rejected disposition in .claude/codex-review-dispositions.jsonl).
     [[ -e "$base" ]] || base=/dev/null
     if [[ -f "$f" ]]; then
         d=$(diff -u --label "a/$rel" --label "b/$rel" "$base" "$f" 2>/dev/null)
