@@ -27,9 +27,10 @@ function Get-KbDownloadLink {
             $matches = [regex]::Matches($document, $pattern, [Text.RegularExpressions.RegexOptions]::IgnoreCase)
             $links = foreach ($match in $matches) {
                 $link = [Net.WebUtility]::HtmlDecode($match.Value)
-                $link = $link.Replace('http://www.download.windowsupdate.com', 'https://catalog.s.download.windowsupdate.com')
-                $link = $link.Replace('http://download.windowsupdate.com', 'https://catalog.s.download.windowsupdate.com')
-                $link = $link.Replace('https://www.download.windowsupdate.com', 'https://catalog.s.download.windowsupdate.com')
+                # Canonicalize the bare or www legacy host to the secure catalog host (case-insensitive).
+                $link = $link -replace '(?i)^https?://(?:www\.)?download\.windowsupdate\.com', 'https://catalog.s.download.windowsupdate.com'
+                # Every matched host is Microsoft-owned; never hand back a plaintext HTTP link.
+                $link = $link -replace '(?i)^http://', 'https://'
                 $link
             }
             $links | Select-Object -Unique

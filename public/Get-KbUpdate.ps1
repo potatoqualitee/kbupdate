@@ -777,7 +777,7 @@ function Get-KbUpdate {
                         }
                     }
 
-                    if (-not $script:kbcollection[$hashkey]) {
+                    if (-not $script:kbcollection.ContainsKey($hashkey)) {
                         $null = $script:kbcollection.Add($hashkey, $linkResults)
                     }
                     $script:kbcollection[$hashkey]

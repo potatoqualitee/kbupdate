@@ -129,8 +129,7 @@ function Save-KbUpdate {
                 }
 
                 Write-PSFMessage -Level Verbose -Message "Processing link parameter set"
-                $uniquelinks | Foreach-Object {
-                    $hyperlinklol = $PSItem
+                foreach ($hyperlinklol in $uniquelinks) {
                     $fileName = Split-Path $hyperlinklol -Leaf
                     if ($FilePath) {
                         $filename = $FilePath
@@ -149,7 +148,7 @@ function Save-KbUpdate {
                         continue
                     }
 
-                    Write-PSFMessage -Level Verbose -Message "Link: $PSItem"
+                    Write-PSFMessage -Level Verbose -Message "Link: $hyperlinklol"
                     Write-PSFMessage -Level Verbose -Message "FilePath: $file"
                     Write-PSFMessage -Level Verbose -Message "File: $file"
 
@@ -241,19 +240,8 @@ function Save-KbUpdate {
 
                 $inputobjects = $inputobjects | Sort-Object -Unique
 
-                $allDownloadLinks = @(
-                    $inputobjects |
-                        ForEach-Object { $PSItem.Link } |
-                        Where-Object { $PSItem } |
-                        Select-Object -Unique
-                )
-                if ($PSBoundParameters.FilePath -and $allDownloadLinks.Count -gt 1) {
-                    Stop-PSFFunction -EnableException:$EnableException -Message 'You can only specify FilePath when downloading one unique link'
-                    return
-                }
-
-                foreach ($object in $inputobjects) {
-                    if ($Architecture) {
+                if ($Architecture) {
+                    foreach ($object in $inputobjects) {
                         $templinks = @()
                         foreach ($arch in $Architecture) {
                             $templinks += $object.Link | Where-Object { $PSItem -match "$($arch)_" }
@@ -273,7 +261,21 @@ function Save-KbUpdate {
                             Stop-PSFFunction -EnableException:$EnableException -Message "Could not find architecture match, downloading all"
                         }
                     }
+                }
 
+                # Count links after architecture filtering so a single-arch download with FilePath is allowed.
+                $allDownloadLinks = @(
+                    $inputobjects |
+                        ForEach-Object { $PSItem.Link } |
+                        Where-Object { $PSItem } |
+                        Select-Object -Unique
+                )
+                if ($PSBoundParameters.FilePath -and $allDownloadLinks.Count -gt 1) {
+                    Stop-PSFFunction -EnableException:$EnableException -Message 'You can only specify FilePath when downloading one unique link'
+                    return
+                }
+
+                foreach ($object in $inputobjects) {
                     foreach ($hyperlinklol in @($object.Link)) {
                         $title = $object.Title
                         if (-not $PSBoundParameters.FilePath) {

@@ -205,16 +205,26 @@ function Install-KbUpdate {
                     ModulePath        = $script:dependencies
                 }
 
-                $null = $PSDefaultParameterValues["Start-Job:ArgumentList"] = $parms
-                $null = $PSDefaultParameterValues["Start-Job:Name"] = $hostname
+                if ($HotfixId) {
+                    $updatetarget = $HotfixId
+                } elseif ($FilePath) {
+                    $updatetarget = Split-Path -Path $FilePath -Leaf
+                } else {
+                    $updatetarget = "needed updates"
+                }
 
                 Write-PSFMessage -Level Verbose -Message "Installing using DSC"
-                if ($NoMultithreading) {
-                    Write-PSFMessage -Level Verbose -Message "Not using jobs for update to $hostname"
-                    Start-DscUpdate @parms -ErrorAction Stop
-                } else {
-                    Write-PSFMessage -Level Verbose -Message "Using jobs for update to $hostname"
-                    $jobs += Start-Job -ScriptBlock $dscblock -ErrorAction Stop
+                if ($PSCmdlet.ShouldProcess($hostname, "Install $updatetarget")) {
+                    if ($NoMultithreading) {
+                        Write-PSFMessage -Level Verbose -Message "Not using jobs for update to $hostname"
+                        Start-DscUpdate @parms -ErrorAction Stop
+                    } else {
+                        # Pass the (credential-bearing) argument list directly to Start-Job instead of
+                        # via $PSDefaultParameterValues, whose mutations leak into the caller's session
+                        # and would leave the credential as the default -ArgumentList for later jobs.
+                        Write-PSFMessage -Level Verbose -Message "Using jobs for update to $hostname"
+                        $jobs += Start-Job -Name $hostname -ArgumentList $parms -ScriptBlock $dscblock -ErrorAction Stop
+                    }
                 }
             } catch {
                 Stop-PSFFunction -Message "Failure on $hostname" -ErrorRecord $PSItem -EnableException:$EnableException -Continue

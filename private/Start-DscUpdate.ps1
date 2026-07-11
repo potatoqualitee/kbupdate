@@ -61,6 +61,7 @@ function Start-DscUpdate {
         if ($AllNeeded) {
             $GetKbNeededUpdate = @{
                 ComputerName = $ComputerName
+                Credential   = $Credential
             }
             if ($ScanFilePath) {
                 $GetKbNeededUpdate['ScanFilePath'] = $ScanFilePath
@@ -74,7 +75,7 @@ function Start-DscUpdate {
 
         if ($HotfixId -and -not $InputObject.Link) {
             Write-PSFMessage -Level Verbose -Message "Hotfix detected without InputObject, getting info"
-            $InputObject += Get-KbUpdate -HotfixId $HotfixId -ComputerName $ComputerName
+            $InputObject += Get-KbUpdate -HotfixId $HotfixId -ComputerName $ComputerName -Credential $Credential
         }
 
         $script:ModuleRoot = Split-Path -Path $($ModulePath | Select-Object -Last 1)
@@ -252,7 +253,7 @@ function Start-DscUpdate {
                     # try to automatically download it for them
                     if (-not $object -and $Pattern) {
                         Write-Message -Level Verbose -Message "No object and a pattern"
-                        $object = Get-KbUpdate -ComputerName $ComputerName -Pattern $Pattern | Where-Object { $PSItem.Link -and $PSItem.Title -match $Pattern }
+                        $object = Get-KbUpdate -ComputerName $ComputerName -Pattern $Pattern -Credential $Credential | Where-Object { $PSItem.Link -and $PSItem.Title -match $Pattern }
                     }
 
                     # note to reader: if this picks the wrong one, please download the required file manually.
@@ -773,7 +774,7 @@ function Start-DscUpdate {
 
                 Write-PSFMessage -Level Verbose -Message "Finished installing, checking status"
                 if ($hotfix.property.id) {
-                    $exists = Get-KbInstalledSoftware -ComputerName $ComputerName -Pattern $hotfix.property.id -IncludeHidden
+                    $exists = Get-KbInstalledSoftware -ComputerName $ComputerName -Pattern $hotfix.property.id -IncludeHidden -Credential $Credential
                 }
 
                 if ($exists.Summary -match "restart") {
@@ -819,7 +820,7 @@ function Start-DscUpdate {
                     Write-PSFMessage -Level Verbose -Message "Serialized XML is nested too deeply. Forcing output."
 
                     if ($hotfix.property.id) {
-                        $exists = Get-KbInstalledSoftware -ComputerName $ComputerName -Pattern $hotfix.property.id -IncludeHidden
+                        $exists = Get-KbInstalledSoftware -ComputerName $ComputerName -Pattern $hotfix.property.id -IncludeHidden -Credential $Credential
                     }
 
                     if ($exists.Summary -match "restart") {
@@ -860,7 +861,7 @@ function Start-DscUpdate {
                     Write-PSFMessage -Level Verbose -Message "The system cannot find message text for message number 0x%1 in the message file for %2. Checking to see if it was actually installed."
 
                     if ($hotfix.property.id) {
-                        $exists = Get-KbInstalledSoftware -ComputerName $ComputerName -Pattern $hotfix.property.id -IncludeHidden
+                        $exists = Get-KbInstalledSoftware -ComputerName $ComputerName -Pattern $hotfix.property.id -IncludeHidden -Credential $Credential
                     }
 
                     if (-not $exists) {

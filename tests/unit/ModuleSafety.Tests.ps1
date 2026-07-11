@@ -32,6 +32,9 @@ Describe 'AI-safe command metadata' {
         $installCommand = Get-Content -LiteralPath (Join-Path $repositoryRoot 'public/Install-KbUpdate.ps1') -Raw
 
         $installCommand | Should -Not -Match '\$PSDefaultParameterValues\["\*:Credential"\]'
+        # The install argument list carries the credential; it must be passed directly to
+        # Start-Job, not stashed in $PSDefaultParameterValues (which leaks into the caller).
+        $installCommand | Should -Not -Match '\$PSDefaultParameterValues\["Start-Job:ArgumentList"\]'
     }
 
     It 'reuses local cached sessions instead of querying remote sessions without credentials' {

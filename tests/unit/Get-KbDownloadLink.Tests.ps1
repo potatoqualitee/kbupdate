@@ -41,5 +41,26 @@ url = 'https://example.com/update.msu';
 
         @(Get-KbDownloadLink -Content $content).Count | Should -Be 0
     }
+
+    It 'upgrades an http delivery-host link to https' {
+        $content = "url = 'http://catalog.sf.dl.delivery.mp.microsoft.com/filestreamingservice/files/abc/public/current.msu';"
+
+        Get-KbDownloadLink -Content $content |
+            Should -Be 'https://catalog.sf.dl.delivery.mp.microsoft.com/filestreamingservice/files/abc/public/current.msu'
+    }
+
+    It 'normalizes mixed-case legacy hosts' {
+        $content = "url = 'HTTP://WWW.Download.WindowsUpdate.com/test/update.cab';"
+
+        Get-KbDownloadLink -Content $content |
+            Should -Be 'https://catalog.s.download.windowsupdate.com/test/update.cab'
+    }
+
+    It 'upgrades an http legacy subdomain link to https' {
+        $content = "url = 'http://catalog.s.download.windowsupdate.com/test/update.cab';"
+
+        Get-KbDownloadLink -Content $content |
+            Should -Be 'https://catalog.s.download.windowsupdate.com/test/update.cab'
+    }
 }
 
