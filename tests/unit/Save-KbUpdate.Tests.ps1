@@ -12,7 +12,7 @@ Describe 'Save-KbUpdate download handling' {
             Mock Start-BitsJobProcess
         }
 
-        It 'queues every input link with its own filename and the update title' {
+        It 'queues every input link with its own filename and the update title' -Skip:($env:OS -ne 'Windows_NT') {
             Mock Start-BitsTransfer
 
             $update = [pscustomobject]@{
@@ -37,7 +37,7 @@ Describe 'Save-KbUpdate download handling' {
             }
         }
 
-        It 'returns the downloaded file when BITS falls back to a web request' {
+        It 'returns the downloaded file when BITS falls back to a web request' -Skip:($env:OS -ne 'Windows_NT') {
             Mock Start-BitsTransfer { throw 'BITS failed' }
             Mock Invoke-TlsWebRequest
             Mock Get-ChildItem {

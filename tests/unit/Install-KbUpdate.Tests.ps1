@@ -24,7 +24,7 @@ Describe 'Install-KbUpdate ShouldProcess safety' {
             Should -Invoke Start-Job -Times 0 -Exactly
         }
 
-        It 'launches a background install when confirmation is bypassed' {
+        It 'launches a background install when confirmation is bypassed' -Skip:($env:OS -ne 'Windows_NT') {
             $null = Install-KbUpdate -ComputerName 'server.example.test' -HotfixId KB1234567 -Confirm:$false
 
             Should -Invoke Start-Job -Times 1 -Exactly

@@ -21,7 +21,7 @@ Describe 'Invoke-KbCommand remoting' {
             }
         }
 
-        It 'passes an explicit credential when creating a cached session' {
+        It 'passes an explicit credential when creating a cached session' -Skip:($env:OS -ne 'Windows_NT') {
             { Invoke-KbCommand -ComputerName 'server.example.test' -Credential $script:testCredential -ScriptBlock { 'test' } -EnableException } |
                 Should -Throw
 
