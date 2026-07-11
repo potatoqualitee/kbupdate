@@ -690,7 +690,12 @@ function Get-KbUpdate {
                     }
 
                     $downloaddialog = $downloaddialog.Replace('www.download.windowsupdate', 'download.windowsupdate')
-                    $links = $downloaddialog | Select-String -AllMatches -Pattern "(http[s]?\://.*download\.windowsupdate\.com\/[^\'\""]*)" | Select-Object -Unique
+                    # Thanks @BWarmuskerken https://github.com/potatoqualitee/kbupdate/issues/226
+					$links = $downloaddialog | Select-String -AllMatches -Pattern "(http[s]?\://.*download\.windowsupdate\.com\/[^\'\""]*)" | Select-Object -Unique
+					if (-not $links) {
+						$links = $downloaddialog | Select-String -AllMatches -Pattern "(http[s]?\://.*catalog\.sf\.dl\.delivery\.mp\.microsoft\.com\/[^\'""]*)" | Select-Object -Unique
+					}
+
 
                     foreach ($link in $links) {
                         if ($arch -eq "n/a") {
