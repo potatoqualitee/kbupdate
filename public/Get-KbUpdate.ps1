@@ -70,6 +70,12 @@ function Get-KbUpdate {
 
         Unless you set -Source Web, more than 25xMaxPages may be returned (because db lookups are faster and dont need to care about paging).
 
+    .PARAMETER Proxy
+        Proxy server URI used for Microsoft Update Catalog web requests. When omitted, the system proxy configuration is detected automatically.
+
+    .PARAMETER ProxyCredential
+        Alternate credential used to authenticate to Proxy. When Proxy is omitted, the command uses the automatically detected system proxy. The credential is used only for the current command unless configured with Set-KbProxy.
+
     .PARAMETER EnableException
         By default, when something goes wrong we try to catch it, interpret it and give you a friendly warning message.
         This avoids overwhelming you with "sea of red" exceptions, but is inconvenient because it basically disables advanced scripting.
@@ -129,6 +135,11 @@ function Get-KbUpdate {
         PS C:\> Get-KbUpdate -Pattern "Windows Server 2019" -MaxPages 2 -Source Web
 
         Gets KBs for Windows Server 2019 from the web, and returns 2 pages (up to 50 results) instead of 1 (25 max).
+
+    .EXAMPLE
+        PS C:\> Get-KbUpdate -Pattern KB5062557 -Source Web -Proxy http://proxy.contoso.com:8080 -ProxyCredential (Get-Credential)
+
+        Searches the catalog through a custom authenticated proxy. Omit Proxy to use the system proxy automatically.
 #>
     [CmdletBinding()]
     param(
@@ -152,9 +163,19 @@ function Get-KbUpdate {
         [int]$MaxPages = 1,
         [datetime]$Since,
         [string]$CustomQuery,
+        [uri]$Proxy = (Get-PSFConfigValue -FullName kbupdate.app.proxy),
+        [pscredential]$ProxyCredential = (Get-PSFConfigValue -FullName kbupdate.app.proxycredential),
         [switch]$EnableException
     )
     begin {
+        $webRequestParameters = @{}
+        if ($Proxy) {
+            $webRequestParameters.Proxy = $Proxy
+        }
+        if ($ProxyCredential) {
+            $webRequestParameters.ProxyCredential = $ProxyCredential
+        }
+
         $script:MaxPages = $MaxPages
         if ($NoMultithreading) {
             Write-PSFMessage -Level Warning -Message "Multithreading now disabled by default. This parameter will likely be removed in future versions."
@@ -460,7 +481,7 @@ function Get-KbUpdate {
                     $os = $OperatingSystem -join '" "'
                     $url = "https://www.catalog.update.microsoft.com/Search.aspx?q=$kb+`"$os`""
                     Write-PSFMessage -Level Verbose -Message "Accessing $url"
-                    $results = Invoke-TlsWebRequest -Uri $url
+                    $results = Invoke-TlsWebRequest @webRequestParameters -Uri $url
                     $kbids = $results.InputFields |
                         Where-Object { $_.type -eq 'Button' -and ($_.Value -eq 'Download' -or $_.class -eq 'flatBlueButtonDownload focus-only') } |
                         Select-Object -ExpandProperty ID
@@ -469,7 +490,7 @@ function Get-KbUpdate {
                     $url = "https://www.catalog.update.microsoft.com/Search.aspx?q=$kb"
                     $boundparams.OperatingSystem = $OperatingSystem
                     Write-PSFMessage -Level Verbose -Message "Failing back to $url"
-                    $results = Invoke-TlsWebRequest -Uri $url
+                    $results = Invoke-TlsWebRequest @webRequestParameters -Uri $url
                     $kbids = $results.InputFields |
                         Where-Object { $_.type -eq 'Button' -and ($_.Value -eq 'Download' -or $_.class -eq 'flatBlueButtonDownload focus-only') } |
                         Select-Object -ExpandProperty ID
@@ -478,7 +499,7 @@ function Get-KbUpdate {
 
                 if (-not $kbids) {
                     try {
-                        $null = Invoke-TlsWebRequest -Uri "https://support.microsoft.com/en-us/topic/$kb"
+                        $null = Invoke-TlsWebRequest @webRequestParameters -Uri "https://support.microsoft.com/en-us/topic/$kb"
                         Stop-PSFFunction -EnableException:$EnableException -Message "Matches were found for $kb, but the results no longer exist in the catalog"
                         return
                     } catch {
@@ -595,7 +616,7 @@ function Get-KbUpdate {
                     Write-ProgressHelper -TotalSteps $total -StepNumber $completed -Activity "Searching catalog" -Message "Downloading information for $itemtitle"
                     $post = @{ size = 0; updateID = $guid; uidInfo = $guid } | ConvertTo-Json -Compress
                     $body = @{ updateIDs = "[$post]" }
-                    Invoke-TlsWebRequest -Uri 'https://www.catalog.update.microsoft.com/DownloadDialog.aspx' -Method Post -Body $body | Select-Object -ExpandProperty Content
+                    Invoke-TlsWebRequest @webRequestParameters -Uri 'https://www.catalog.update.microsoft.com/DownloadDialog.aspx' -Method Post -Body $body | Select-Object -ExpandProperty Content
                 }
 
 
@@ -658,7 +679,7 @@ function Get-KbUpdate {
 
                     if (-not $Simple) {
                         # Multi-byte character is corrupted if passing BasicHtmlWebResponseObject to Get-Info -Text.
-                        $detaildialog = Invoke-TlsWebRequest -Uri "https://www.catalog.update.microsoft.com/ScopedViewInline.aspx?updateid=$updateid" | Select-Object -ExpandProperty Content
+                        $detaildialog = Invoke-TlsWebRequest @webRequestParameters -Uri "https://www.catalog.update.microsoft.com/ScopedViewInline.aspx?updateid=$updateid" | Select-Object -ExpandProperty Content
                         $description = Get-Info -Text $detaildialog -Pattern '<span id="ScopedViewHandler_desc">'
                         $lastmodified = Get-Info -Text $detaildialog -Pattern '<span id="ScopedViewHandler_date">'
                         $size = Get-Info -Text $detaildialog -Pattern '<span id="ScopedViewHandler_size">'

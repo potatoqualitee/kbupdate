@@ -1,5 +1,34 @@
 function Invoke-TlsWebRequest {
-    $script:arrgs = $Args
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [uri]$Uri,
+        [string]$Method,
+        [object]$Body,
+        [string]$OutFile,
+        [uri]$Proxy,
+        [pscredential]$ProxyCredential
+    )
+
+    $requestParameters = @{
+        Uri = $Uri
+    }
+    foreach ($parameterName in 'Method', 'Body', 'OutFile') {
+        if ($PSBoundParameters.ContainsKey($parameterName)) {
+            $requestParameters[$parameterName] = $PSBoundParameters[$parameterName]
+        }
+    }
+
+    $effectiveProxy = $Proxy
+    if ($ProxyCredential -and -not $effectiveProxy) {
+        $systemProxy = [System.Net.WebRequest]::DefaultWebProxy
+        if ($systemProxy) {
+            $detectedProxy = $systemProxy.GetProxy($Uri)
+            if ($detectedProxy -and $detectedProxy -ne $Uri) {
+                $effectiveProxy = $detectedProxy
+            }
+        }
+    }
     $PSDefaultParameterValues["Invoke-WebRequest:UseBasicParsing"] = $true
     $PSDefaultParameterValues["Invoke-WebRequest:WebSession"] = $script:websession
     $PSDefaultParameterValues["Invoke-WebRequest:OutVariable"] = "script:previouspage"
@@ -23,11 +52,27 @@ function Invoke-TlsWebRequest {
 
     if (-not $IsLinux -and -not $IsMacOs) {
         $regproxy = Get-ItemProperty -Path "Registry::HKCU\Software\Microsoft\Windows\CurrentVersion\Internet Settings"
-        $proxy = $regproxy.ProxyServer
+        $registryProxy = $regproxy.ProxyServer
 
-        if ($proxy -and -not ([System.Net.Webrequest]::DefaultWebProxy).Address -and $regproxy.ProxyEnable) {
-            [System.Net.Webrequest]::DefaultWebProxy = New-object System.Net.WebProxy $proxy
+        if ($registryProxy -and -not ([System.Net.Webrequest]::DefaultWebProxy).Address -and $regproxy.ProxyEnable) {
+            [System.Net.Webrequest]::DefaultWebProxy = New-Object System.Net.WebProxy $registryProxy
             [System.Net.Webrequest]::DefaultWebProxy.Credentials = [System.Net.CredentialCache]::DefaultNetworkCredentials
+            if ($ProxyCredential -and -not $effectiveProxy) {
+                $effectiveProxy = [uri]$registryProxy
+            }
+        }
+    }
+
+    if ($ProxyCredential -and -not $effectiveProxy) {
+        throw 'No system proxy was detected. Specify Proxy when using ProxyCredential.'
+    }
+
+    if ($effectiveProxy) {
+        $requestParameters.Proxy = $effectiveProxy
+        if ($ProxyCredential) {
+            $requestParameters.ProxyCredential = $ProxyCredential
+        } else {
+            $requestParameters.ProxyUseDefaultCredentials = $true
         }
     }
 
@@ -52,17 +97,22 @@ function Invoke-TlsWebRequest {
         $Language = "en-US;q=0.5,en;q=0.3"
     }
 
-    if ($script:Maxpages -eq 1 -or $args[1] -notmatch "Search.aspx") {
-        Write-PSFMessage -Level Verbose -Message "URL: $($args[1])"
+    if ($script:Maxpages -eq 1 -or $Uri.AbsoluteUri -notmatch "Search.aspx") {
+        Write-PSFMessage -Level Verbose -Message "URL: $Uri"
         if ($script:websession -and $script:websession.Headers."Accept-Language" -eq $Language) {
-            Invoke-WebRequest @Args
+            Invoke-WebRequest @requestParameters
         } else {
-            Invoke-WebRequest @Args -SessionVariable websession -Headers @{ "Accept-Language" = $Language } -WebSession $null
+            $sessionParameters = $requestParameters.Clone()
+            $sessionParameters.SessionVariable = 'websession'
+            $sessionParameters.Headers = @{ "Accept-Language" = $Language }
+            $sessionParameters.WebSession = $null
+            Invoke-WebRequest @sessionParameters
             $script:websession = $websession
         }
     } else {
         1..$script:MaxPages | ForEach-Object -Process {
-            Write-PSFMessage -Level Verbose -Message "URL: $($arrgs[1])"
+            Write-PSFMessage -Level Verbose -Message "URL: $Uri"
+            $pageParameters = $requestParameters.Clone()
             if ($PSItem -gt 1) {
                 $body = @{
                     '__EVENTTARGET'        = 'ctl00$catalogBody$nextPageLinkText'
@@ -71,22 +121,17 @@ function Invoke-TlsWebRequest {
                     '__VIEWSTATEGENERATOR' = ($script:previouspage.InputFields | Where-Object Name -eq __VIEWSTATEGENERATOR).Value
                     '__EVENTVALIDATION'    = ($script:previouspage.InputFields | Where-Object Name -eq __EVENTVALIDATION).Value
                 }
-                $pages = @{
-                    Body   = $body
-                    Method = "POST"
-                }
-            } else {
-                $pages = @{}
+                $pageParameters.Body = $body
+                $pageParameters.Method = "POST"
             }
 
             if ($script:websession -and $script:websession.Headers."Accept-Language" -eq $Language) {
-                if ($pages -and $arrgs[3] -ne "POST") {
-                    Invoke-WebRequest @arrgs @pages
-                } else {
-                    Invoke-WebRequest @arrgs
-                }
+                Invoke-WebRequest @pageParameters
             } else {
-                Invoke-WebRequest @arrgs -SessionVariable websession -Headers @{ "Accept-Language" = $Language } -WebSession $null
+                $pageParameters.SessionVariable = 'websession'
+                $pageParameters.Headers = @{ "Accept-Language" = $Language }
+                $pageParameters.WebSession = $null
+                Invoke-WebRequest @pageParameters
                 $script:websession = $websession
             }
         }

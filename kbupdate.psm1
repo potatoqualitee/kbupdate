@@ -113,6 +113,10 @@ if (-not $internet) {
 # Source
 Set-PSFConfig -FullName kbupdate.app.source -Value @('Web', 'Database') -Initialize -Validation stringarray -Handler { } -Description 'Data source for Get-KbUpdate and Save-KbUpdate'
 
+# Proxy
+Set-PSFConfig -FullName kbupdate.app.proxy -Value $null -Initialize -Handler { } -Description 'Optional proxy URI for catalog lookups and downloads. When empty, the system proxy is detected automatically.'
+Set-PSFConfig -FullName kbupdate.app.proxycredential -Value $null -Initialize -Handler { } -Description 'Optional in-memory credential for authenticating to the configured or automatically detected proxy.'
+
 # Disables session caching
 Set-PSFConfig -FullName PSRemoting.Sessions.Enable -Value $true -Initialize -Validation bool -Handler { } -Description 'Globally enables session caching for PowerShell remoting'
 

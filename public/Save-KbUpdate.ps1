@@ -49,6 +49,12 @@ function Save-KbUpdate {
     .PARAMETER Link
         When link is specified only the links in the array are processed and downloaded to the system.
 
+    .PARAMETER Proxy
+        Proxy server URI used for Microsoft Update Catalog lookups and update downloads. When omitted, the system proxy configuration is detected automatically.
+
+    .PARAMETER ProxyCredential
+        Alternate credential used to authenticate to Proxy. When Proxy is omitted, the command uses the automatically detected system proxy. The credential is used only for the current command unless configured with Set-KbProxy.
+
     .NOTES
         Tags: Update
         Author: Chrissy LeMaire (@cl), netnerds.net
@@ -89,6 +95,11 @@ function Save-KbUpdate {
         PS C:\> Import-Clixml E:\needed-updates.clixml | Save-KbUpdate -Path E:\updates
 
         Downloads the exact update links exported by Get-KbNeededUpdate on an offline computer.
+
+    .EXAMPLE
+        PS C:\> Save-KbUpdate -Pattern KB5062557 -Proxy http://proxy.contoso.com:8080 -ProxyCredential (Get-Credential)
+
+        Finds and downloads KB5062557 through a custom authenticated proxy. Omit Proxy to use the system proxy automatically.
     #>
     [CmdletBinding(DefaultParameterSetName = 'default', SupportsShouldProcess, ConfirmImpact = 'Low')]
     param(
@@ -109,9 +120,19 @@ function Save-KbUpdate {
         [switch]$AllowClobber,
         [ValidateSet("Wsus", "Web", "Database")]
         [string[]]$Source = (Get-PSFConfigValue -FullName kbupdate.app.source),
+        [uri]$Proxy = (Get-PSFConfigValue -FullName kbupdate.app.proxy),
+        [pscredential]$ProxyCredential = (Get-PSFConfigValue -FullName kbupdate.app.proxycredential),
         [switch]$EnableException
     )
     begin {
+        $webRequestParameters = @{}
+        if ($Proxy) {
+            $webRequestParameters.Proxy = $Proxy
+        }
+        if ($ProxyCredential) {
+            $webRequestParameters.ProxyCredential = $ProxyCredential
+        }
+
         $jobs = $inputobjects = $uniquelinks = @()
         $requestedPatterns = @(
             $Pattern |
@@ -182,12 +203,28 @@ function Save-KbUpdate {
                         try {
                             if ((Get-BitsTransfer | Where-Object Description -match kbupdate).FileList.RemoteName -notcontains $hyperlinklol) {
                                 Write-PSFMessage -Level Verbose -Message "Adding $filename to download queue"
-                                $jobs += Start-BitsTransfer -Asynchronous -Source $hyperlinklol -Destination $file -ErrorAction Stop -Description kbupdate
+                                $bitsParameters = @{
+                                    Asynchronous = $true
+                                    Source       = $hyperlinklol
+                                    Destination  = $file
+                                    ErrorAction  = 'Stop'
+                                    Description  = 'kbupdate'
+                                }
+                                if ($Proxy) {
+                                    $bitsParameters.ProxyUsage = 'Override'
+                                    $bitsParameters.ProxyList = $Proxy
+                                } elseif ($ProxyCredential) {
+                                    $bitsParameters.ProxyUsage = 'SystemDefault'
+                                }
+                                if ($ProxyCredential) {
+                                    $bitsParameters.ProxyCredential = $ProxyCredential
+                                }
+                                $jobs += Start-BitsTransfer @bitsParameters
                             }
                         } catch {
                             Write-PSFMessage -Level Verbose -Message "Going to use uri: $hyperlinklol"
                             Write-Progress -Activity "Downloading $file" -Id 1
-                            Invoke-TlsWebRequest -OutFile $file -Uri $hyperlinklol
+                            Invoke-TlsWebRequest @webRequestParameters -OutFile $file -Uri $hyperlinklol
                             Write-Progress -Activity "Downloading $file" -Id 1 -Completed
                             Get-ChildItem -Path $file -ErrorAction Ignore
                         }
@@ -196,7 +233,7 @@ function Save-KbUpdate {
                             Write-PSFMessage -Level Verbose -Message "Transfer failed. Trying again."
                             # IWR is crazy slow for large downloads
                             Write-Progress -Activity "Downloading $file" -Id 1
-                            Invoke-TlsWebRequest -OutFile $file -Uri $hyperlinklol
+                            Invoke-TlsWebRequest @webRequestParameters -OutFile $file -Uri $hyperlinklol
                             Write-Progress -Activity "Downloading $file" -Id 1 -Completed
                             Get-ChildItem -Path $file -ErrorAction Ignore
                         } catch {
@@ -244,6 +281,12 @@ function Save-KbUpdate {
 
                     if ($PSBoundParameters.Source) {
                         $params.Source = $Source
+                    }
+                    if ($Proxy) {
+                        $params.Proxy = $Proxy
+                    }
+                    if ($ProxyCredential) {
+                        $params.ProxyCredential = $ProxyCredential
                     }
 
                     $inputobjects += Get-KbUpdate @params
@@ -337,13 +380,29 @@ function Save-KbUpdate {
                                 $filename = Split-Path $hyperlinklol -Leaf
                                 if ((Get-BitsTransfer | Where-Object Description -match kbupdate).FileList.RemoteName -notcontains $hyperlinklol) {
                                     Write-PSFMessage -Level Verbose -Message "Adding $filename to download queue"
-                                    $jobs += Start-BitsTransfer -Asynchronous -Source $hyperlinklol -Destination $file -ErrorAction Stop -Description "kbupdate - $title"
+                                    $bitsParameters = @{
+                                        Asynchronous = $true
+                                        Source       = $hyperlinklol
+                                        Destination  = $file
+                                        ErrorAction  = 'Stop'
+                                        Description  = "kbupdate - $title"
+                                    }
+                                    if ($Proxy) {
+                                        $bitsParameters.ProxyUsage = 'Override'
+                                        $bitsParameters.ProxyList = $Proxy
+                                    } elseif ($ProxyCredential) {
+                                        $bitsParameters.ProxyUsage = 'SystemDefault'
+                                    }
+                                    if ($ProxyCredential) {
+                                        $bitsParameters.ProxyCredential = $ProxyCredential
+                                    }
+                                    $jobs += Start-BitsTransfer @bitsParameters
                                 }
                             } catch {
                                 foreach ($hyperlink in $hyperlinklol) {
                                     Write-Progress -Activity "Downloading $downloadFileName" -Id 1
                                     Write-PSFMessage -Level Verbose -Message "That failed, trying Invoke-WebRequest"
-                                    $null = Invoke-TlsWebRequest -OutFile $file -Uri "$hyperlink"
+                                    $null = Invoke-TlsWebRequest @webRequestParameters -OutFile $file -Uri "$hyperlink"
                                     Write-Progress -Activity "Downloading $downloadFileName" -Id 1 -Completed
                                     Get-ChildItem -Path $file -ErrorAction Ignore
                                 }
@@ -352,7 +411,7 @@ function Save-KbUpdate {
                             try {
                                 # IWR is crazy slow for large downloads
                                 Write-Progress -Activity "Downloading $downloadFileName" -Id 1
-                                $null = Invoke-TlsWebRequest -OutFile $file -Uri "$hyperlinklol"
+                                $null = Invoke-TlsWebRequest @webRequestParameters -OutFile $file -Uri "$hyperlinklol"
                                 Write-Progress -Activity "Downloading $downloadFileName" -Id 1 -Completed
                             } catch {
                                 Stop-PSFFunction -EnableException:$EnableException -Message "Failure" -ErrorRecord $PSItem -Continue
