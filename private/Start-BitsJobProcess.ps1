@@ -2,7 +2,7 @@ function Start-BitsJobProcess {
     [CmdletBinding()]
     param(
         [Parameter(ValueFromPipeline)]
-        [Microsoft.BackgroundIntelligentTransfer.Management.BitsJob[]]$InputObject,
+        [object[]]$InputObject,
         [switch]$EnableException
     )
     begin {
