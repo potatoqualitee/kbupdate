@@ -28,10 +28,10 @@ function Get-KbNeededUpdate {
 
         This optional parameter will force the command to use a local update database instead of WSUS or Windows Update.
 
-        The scan file catalog/database can be downloaded using Save-KbScanFile from an internet-connected computer.
+        The scan file catalog/database can be downloaded using Save-KbScanFile from an internet-connected computer. UNC paths are staged automatically in the target computer's temporary directory because WUA requires a local path. A cached file with the same name and size is reused.
 
     .PARAMETER Force
-        Force will copies the scan file to a temporary directory on the remote system if required.
+        Copies a controller-local scan file to a temporary directory on a remote target. UNC scan files are staged automatically and do not require Force.
 
     .PARAMETER EnableException
         By default, when something goes wrong we try to catch it, interpret it and give you a friendly warning message.
@@ -57,6 +57,11 @@ function Get-KbNeededUpdate {
         PS C:\> Get-KbNeededUpdate -ComputerName server01 -ScanFilePath $scanfile | Install-KbUpdate
 
         Installs needed updates on server01
+
+    .EXAMPLE
+        PS C:\> Get-KbNeededUpdate -ComputerName server01 -ScanFilePath \\fileserver\updates\wsusscn2.cab
+
+        Stages the UNC scan file in server01's temporary directory when needed, then scans with the target-local copy.
 
     .EXAMPLE
         PS C:\> Get-KbNeededUpdate | Save-KbUpdate -Path C:\temp
@@ -91,19 +96,23 @@ function Get-KbNeededUpdate {
             return
         }
         foreach ($computer in $ComputerName) {
-            if ($machine.IsLocalHost -and -not (Test-ElevationRequirement -ComputerName $computer)) {
+            if ($computer.IsLocalHost -and -not (Test-ElevationRequirement -ComputerName $computer)) {
                 continue
             }
 
             try {
                 Write-PSFMessage -Level Verbose -Message "Adding job for $computer"
+                if ($ScanFilePath -and -not $UseWindowsUpdate) {
+                    $cabPath = Resolve-KbScanFilePath -ScanFilePath $ScanFilePath -ComputerName $computer -Credential $Credential -Force:$Force
+                } else {
+                    $cabPath = $ScanFilePath
+                }
                 $arglist = [pscustomobject]@{
                     ComputerName     = $computer
                     Credential       = $Credential
                     UseWindowsUpdate = $UseWindowsUpdate
-                    ScanFilePath     = $ScanFilePath
+                    ScanFilePath     = $cabPath
                     EnableException  = $EnableException
-                    Force            = $Force
                     ScriptBlock      = $remotescriptblock
                     ModulePath       = $script:dependencies
                 }
@@ -119,53 +128,10 @@ function Get-KbNeededUpdate {
                     $UseWindowsUpdate = $args.UseWindowsUpdate
                     $ScanFilePath     = $args.ScanFilePath
                     $EnableException  = $args.EnableException
-                    $Force            = $args.Force
                     $ScriptBlock      = $sb
 
                     $computer = $machine.ComputerName
                     $null = $completed++
-
-                    if ($ScanFilePath -and $Force -and -not $machine.IsLocalhost -and -not $UseWindowsUpdate) {
-                        Write-PSFMessage -Level Verbose -Message "Initializing remote session to $computer and getting the path to the temp directory"
-
-                        $scanfile = Get-ChildItem -Path $ScanFilePath
-                        $temp = Invoke-PSFCommand -Computer $computer -Credential $Credential -ErrorAction Stop -ScriptBlock {
-                            [system.io.path]::GetTempPath()
-                        }
-                        $filename = Split-Path -Path $ScanFilePath -Leaf
-                        $cabpath = Join-PSFPath -Path $temp -Child $filename
-
-                        Write-PSFMessage -Level Verbose -Message "Checking to see if $cabpath already exists on $computer"
-
-                        $exists = Invoke-PSFCommand -Computer $computer -Credential $Credential -ArgumentList $cabpath -ErrorAction Stop -ScriptBlock {
-                            Get-ChildItem -Path $args -ErrorAction Ignore
-                        }
-
-                        if ($exists.BaseName -and $scanfile.Length -eq $exists.Length) {
-                            Write-PSFMessage -Level Verbose -Message "File exists and is of the same size. Skipping copy"
-                        } else {
-                            Write-PSFMessage -Level Verbose -Message "File does not exist"
-                            if ($Credential) {
-                                $PSDefaultParameterValues["*:Credential"] = $Credential
-                            }
-
-                            $remotesession = Get-PSSession | Where-Object Name -eq "kbupdate-$computer"
-
-                            if (-not $remotesession) {
-                                $remotesession = Invoke-KbCommand -ComputerName $computer -ScriptBlock { Get-ChildItem }
-                                $remotesession = Get-PSSession | Where-Object Name -eq "kbupdate-$computer"
-                            }
-
-                            if (-not $remotesession) {
-                                Stop-PSFFunction -EnableException:$EnableException -Message "Session for $computer can't be found or no runspaces are available. Please file an issue on the GitHub repo at https://github.com/potatoqualitee/kbupdate/issues" -Continue
-                            }
-
-                            Write-PSFMessage -Level Verbose -Message "Copying $ScanFilePath to $temp on $computer"
-                            $null = Copy-Item -Path $ScanFilePath -Destination $temp -ToSession $remotesession -Force
-                        }
-                    } else {
-                        $cabpath = $ScanFilePath
-                    }
 
                     function Test-ElevationRequirement {
                         [CmdletBinding(DefaultParameterSetName = 'Stop')]
