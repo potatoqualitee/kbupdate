@@ -27,9 +27,11 @@ function Start-BitsJobProcess {
         $maximumRetries = 3
 
         while ($bitsjobs = @(Get-BitsTransfer | Where-Object { $PSItem.JobId -in $jobIds })) {
-            $bytesjob = $bitsjobs | Where-Object BytesTotal -ne 18446744073709551615
+            $bytesjob = @($bitsjobs | Where-Object BytesTotal -ne 18446744073709551615)
             $bjbytestotal = ($bytesjob.BytesTransferred | Measure-Object -Sum).Sum
             $mbjtotal = [math]::Round(($bjbytestotal / 1MB),2)
+            $bytestotal = ($bytesjob.BytesTotal | Measure-Object -Sum).Sum
+            $bstotal = [math]::Round(($bytestotal / 1MB),2)
 
             $currentcount = $bitsjobs.FileList.Count
             $completed = $totalfiles - $currentcount
@@ -40,7 +42,7 @@ function Start-BitsJobProcess {
             }
 
             $progressparms = @{
-                Activity        = "Downloaded $mbjtotal MB of at least $bstotal MB total from $($bs.count) files in this batch."
+                Activity        = "Downloaded $mbjtotal MB of at least $bstotal MB total from $($bytesjob.Count) files in this batch."
                 Status          = "$completed of $totalfiles files completed"
                 PercentComplete = $percentcomplete
             }
@@ -50,9 +52,6 @@ function Start-BitsJobProcess {
                 Write-PSFMessage -Level Debug -Message "$completed have been completed"
                 Write-PSFMessage -Level Debug -Message "$(($currentcount / $totalfiles) * 100) percent left"
                 $oldmbjtotal = $mbjtotal
-                $bs = $bitsjobs | Where-Object BytesTotal -ne 18446744073709551615
-                $bytestotal = ($bs.BytesTotal | Measure-Object -Sum).Sum
-                $mbjtotal = [math]::Round(($bytestotal / 1MB),2)
                 Write-Progress @progressparms
                 Start-Sleep -Seconds 1
             }
