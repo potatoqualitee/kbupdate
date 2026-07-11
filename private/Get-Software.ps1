@@ -7,14 +7,69 @@ function Get-Software {
     $allhotfixids = New-Object System.Collections.ArrayList
     $allcbs = Get-ChildItem 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Component Based Servicing\Packages'
 
-    $hasPackageManagement = [bool](Get-Command Get-Package -ErrorAction SilentlyContinue)
+    $packageProviderNames = @()
+    if ((Get-Command Get-Package -ErrorAction SilentlyContinue) -and (Get-Command Get-PackageProvider -ErrorAction SilentlyContinue)) {
+        try {
+            $availablePackageProviders = @(Get-PackageProvider -ListAvailable -ErrorAction Stop)
+            foreach ($providerName in @('msi', 'msu', 'Programs')) {
+                if ($providerName -in $availablePackageProviders.Name) {
+                    $packageProviderNames += $providerName
+                }
+            }
+        } catch {
+            Write-Verbose "PackageManagement providers are unavailable: $($PSItem.Exception.Message)"
+        }
+    }
+
+    $registryPackages = @()
+    if ('Programs' -notin $packageProviderNames) {
+        $uninstallPaths = @(
+            'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\*',
+            'HKLM:\SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\*'
+        )
+        foreach ($uninstallPath in $uninstallPaths) {
+            $installedPrograms = Get-ItemProperty -Path $uninstallPath -ErrorAction SilentlyContinue | Where-Object DisplayName
+            foreach ($installedProgram in $installedPrograms) {
+                $registryPackages += [pscustomobject]@{
+                    Name                 = $installedProgram.DisplayName
+                    ProviderName         = 'Programs'
+                    Source               = $null
+                    Status               = 'Installed'
+                    HotfixId             = $null
+                    FullPath             = $null
+                    PackageFilename      = $null
+                    Summary              = $null
+                    FastPackageReference = $null
+                    TagId                = $null
+                    RegistryObject       = $installedProgram
+                    Meta                 = [pscustomobject]@{
+                        Attributes = @{
+                            DisplayName          = $installedProgram.DisplayName
+                            DisplayIcon          = $installedProgram.DisplayIcon
+                            UninstallString      = $installedProgram.UninstallString
+                            QuietUninstallString = $installedProgram.QuietUninstallString
+                            InstallLocation      = $installedProgram.InstallLocation
+                            EstimatedSize        = $installedProgram.EstimatedSize
+                            Publisher            = $installedProgram.Publisher
+                            VersionMajor         = $installedProgram.VersionMajor
+                            VersionMinor         = $installedProgram.VersionMinor
+                        }
+                    }
+                }
+            }
+        }
+    }
 
     if ($pattern) {
         $packages = @()
         foreach ($name in $pattern) {
-            if ($hasPackageManagement) {
-                $packages += Get-Package -IncludeWindowsInstaller -ProviderName msi, msu, Programs -Name "*$name*" -ErrorAction SilentlyContinue
-                $packages += Get-Package -ProviderName msi, msu, Programs -Name "*$name*" -ErrorAction SilentlyContinue
+            if ($packageProviderNames) {
+                try {
+                    $packages += Get-Package -IncludeWindowsInstaller -ProviderName $packageProviderNames -Name "*$name*" -ErrorAction Stop
+                    $packages += Get-Package -ProviderName $packageProviderNames -Name "*$name*" -ErrorAction Stop
+                } catch {
+                    Write-Verbose "PackageManagement query failed: $($PSItem.Exception.Message)"
+                }
             }
             if ((Get-Service wuauserv | Where-Object StartType -ne Disabled)) {
                 $session = [type]::GetTypeFromProgID("Microsoft.Update.Session")
@@ -25,13 +80,19 @@ function Get-Software {
                     $packages += $updatesearcher.QueryHistory(0, $count) | Where-Object Name -match $Pattern
                 }
             }
+            $packages += $registryPackages | Where-Object Name -like "*$name*"
         }
     } else {
         $packages = @()
-        if ($hasPackageManagement) {
-            $packages += Get-Package -IncludeWindowsInstaller -ProviderName msi, msu, Programs
-            $packages += Get-Package -ProviderName msi, msu, Programs
+        if ($packageProviderNames) {
+            try {
+                $packages += Get-Package -IncludeWindowsInstaller -ProviderName $packageProviderNames -ErrorAction Stop
+                $packages += Get-Package -ProviderName $packageProviderNames -ErrorAction Stop
+            } catch {
+                Write-Verbose "PackageManagement query failed: $($PSItem.Exception.Message)"
+            }
         }
+        $packages += $registryPackages
         $packages = $packages | Sort-Object -Unique Name
         if ((Get-Service wuauserv | Where-Object StartType -ne Disabled)) {
             $session = [type]::GetTypeFromProgID("Microsoft.Update.Session")
@@ -61,7 +122,10 @@ function Get-Software {
         }
 
         $null = $package | Add-Member -MemberType ScriptMethod -Name ToString -Value { $this.Name } -Force
-        if (($regpath = "$($package.FastPackageReference)".Replace("hklm64\HKEY_LOCAL_MACHINE", "HKLM:\")) -match 'HKLM') {
+        if ($package.RegistryObject) {
+            $reg = $package.RegistryObject
+            $hotfixid = $null
+        } elseif (($regpath = "$($package.FastPackageReference)".Replace("hklm64\HKEY_LOCAL_MACHINE", "HKLM:\")) -match 'HKLM') {
             $reg = Get-ItemProperty -Path $regpath -ErrorAction SilentlyContinue
             $null = $reg | Add-Member -MemberType ScriptMethod -Name ToString -Value { $this.DisplayName } -Force
             $hotfixid = Split-Path -Path $regpath -Leaf | Where-Object { "$PSItem".StartsWith("KB") }

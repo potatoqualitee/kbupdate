@@ -4,7 +4,7 @@ function Get-KbInstalledSoftware {
         Tries its darndest to return all of the software installed on a system.
 
     .DESCRIPTION
-        Tries its darndest to return all of the software installed on a system. It's intended to be a replacement for Get-Hotfix, Get-Package, Windows Update results and searching CIM for install updates and programs.
+        Tries its darndest to return all of the software installed on a system. It's intended to be a replacement for Get-Hotfix, Get-Package, Windows Update results and searching CIM for install updates and programs. If the Windows PackageManagement providers are unavailable, installed programs are discovered from the uninstall registry instead.
 
     .PARAMETER Pattern
         Any pattern. But really, a KB pattern is your best bet.
