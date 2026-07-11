@@ -259,9 +259,9 @@ function Save-KbUpdate {
                         }
                     }
 
-                    foreach ($dl in $object) {
+                    foreach ($dl in $object.Link) {
                         $title = $dl.Title
-                        $hyperlinklol = $object.Link
+                        $hyperlinklol = $dl
                         if (-not $PSBoundParameters.FilePath) {
                             $FilePath = Split-Path -Path $hyperlinklol -Leaf
                         } else {
