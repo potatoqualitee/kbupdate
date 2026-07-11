@@ -134,5 +134,58 @@ Describe 'Save-KbUpdate download handling' {
             }
             Should -Invoke Invoke-TlsWebRequest -Times 1 -Exactly
         }
+
+        It 'forwards a custom proxy and alternate credential to lookup and download' {
+            Mock Get-Command { $null }
+            Mock Get-KbUpdate {
+                [pscustomobject]@{
+                    Title    = 'Authenticated proxy update'
+                    UpdateId = '44444444-4444-4444-4444-444444444444'
+                    Link     = 'https://catalog.s.download.windowsupdate.com/test/proxy.msu'
+                }
+            }
+            Mock Invoke-TlsWebRequest
+
+            $credential = New-Object pscredential 'proxy-user', (ConvertTo-SecureString 'proxy-password' -AsPlainText -Force)
+            $proxy = [uri]'http://proxy.contoso.com:8080'
+
+            $null = Save-KbUpdate -Pattern KB5000004 -Path $TestDrive -Proxy $proxy -ProxyCredential $credential -Confirm:$false
+
+            Should -Invoke Get-KbUpdate -Times 1 -Exactly -ParameterFilter {
+                $Proxy -eq $proxy -and $ProxyCredential.UserName -eq 'proxy-user'
+            }
+            Should -Invoke Invoke-TlsWebRequest -Times 1 -Exactly -ParameterFilter {
+                $Proxy -eq $proxy -and $ProxyCredential.UserName -eq 'proxy-user'
+            }
+        }
+
+        It 'forwards custom authenticated proxy settings to BITS' -Skip:($env:OS -ne 'Windows_NT') {
+            Mock Start-BitsTransfer
+
+            $credential = New-Object pscredential 'proxy-user', (ConvertTo-SecureString 'proxy-password' -AsPlainText -Force)
+            $proxy = [uri]'http://proxy.contoso.com:8080'
+
+            $null = Save-KbUpdate -Link 'https://catalog.s.download.windowsupdate.com/test/proxy-bits.msu' -Path 'C:\Temp\kbupdate-tests' -Proxy $proxy -ProxyCredential $credential -Confirm:$false
+
+            Should -Invoke Start-BitsTransfer -Times 1 -Exactly -ParameterFilter {
+                $ProxyUsage -eq 'Override' -and
+                    $ProxyList -eq $proxy -and
+                    $ProxyCredential.UserName -eq 'proxy-user'
+            }
+        }
+
+        It 'uses preconfigured BITS proxy detection with an alternate credential' -Skip:($env:OS -ne 'Windows_NT') {
+            Mock Start-BitsTransfer
+
+            $credential = New-Object pscredential 'proxy-user', (ConvertTo-SecureString 'proxy-password' -AsPlainText -Force)
+
+            $null = Save-KbUpdate -Link 'https://catalog.s.download.windowsupdate.com/test/auto-proxy-bits.msu' -Path 'C:\Temp\kbupdate-tests' -ProxyCredential $credential -Confirm:$false
+
+            Should -Invoke Start-BitsTransfer -Times 1 -Exactly -ParameterFilter {
+                $ProxyUsage -eq 'SystemDefault' -and
+                    -not $ProxyList -and
+                    $ProxyCredential.UserName -eq 'proxy-user'
+            }
+        }
     }
 }

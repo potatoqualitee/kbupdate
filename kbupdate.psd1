@@ -48,7 +48,9 @@
         'Select-KbLatest',
         'Save-KbScanFile',
         'Get-KbNeededUpdate',
-        'Disconnect-KbWsusServer'
+        'Disconnect-KbWsusServer',
+        'Get-KbProxy',
+        'Set-KbProxy'
     )
 
     AliasesToExport   = @('Get-KbInstalledUpdate')
