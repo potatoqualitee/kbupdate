@@ -10,6 +10,7 @@ Describe 'Start-BitsJobProcess PowerShell compatibility' {
             LocalName = 'C:\temp\update.msu'
         }
         $job = [pscustomobject]@{
+            JobId            = [guid]::NewGuid()
             BytesTotal       = 1024
             BytesTransferred = 0
             FileList         = $file
