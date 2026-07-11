@@ -434,11 +434,15 @@ function Get-KbUpdate {
                         } catch {
                             #whatever
                         }
-                    } else {
+                    } elseif (Test-KbSqliteSupport) {
                         # I do wish my import didn't return empties but sometimes it does so check for length of 3
-                        $supersededby = Invoke-SqliteQuery -DataSource $script:basedb -Query "select KB, Description from SupersededBy where UpdateId = '$($guid)' COLLATE NOCASE and LENGTH(kb) > 3"
-                        $supersedes = Invoke-SqliteQuery -DataSource $script:basedb -Query "select KB, Description from Supersedes where UpdateId = '$($guid)' COLLATE NOCASE and LENGTH(kb) > 3"
-                        $link = (Invoke-SqliteQuery -DataSource $script:basedb -Query "select DISTINCT Link from Link where UpdateId = '$($guid)' COLLATE NOCASE").Link
+                        try {
+                            $supersededby = Invoke-SqliteQuery -DataSource $script:basedb -Query "select KB, Description from SupersededBy where UpdateId = '$($guid)' COLLATE NOCASE and LENGTH(kb) > 3"
+                            $supersedes = Invoke-SqliteQuery -DataSource $script:basedb -Query "select KB, Description from Supersedes where UpdateId = '$($guid)' COLLATE NOCASE and LENGTH(kb) > 3"
+                            $link = (Invoke-SqliteQuery -DataSource $script:basedb -Query "select DISTINCT Link from Link where UpdateId = '$($guid)' COLLATE NOCASE").Link
+                        } catch {
+                            Write-PSFMessage -Level Verbose -Message "Could not enrich $guid from the local database: $($PSItem.Exception.Message)"
+                        }
                     }
                 }
 
@@ -863,6 +867,20 @@ function Get-KbUpdate {
             Write-PSFMessage -Level Verbose -Message "Source is ignored when Latest is specified, as latest requires the freshest data from the web. Use -Force to override this."
             $PSBoundParameters.Source = $null
             $Source = "Web"
+        }
+
+        if (($Source -contains "Database") -and -not (Test-KbSqliteSupport)) {
+            $architecturename = "$env:PROCESSOR_ARCHITECTURE"
+            if (-not $architecturename) {
+                $architecturename = "this"
+            }
+            if (($Source | Where-Object { $PSItem -ne "Database" })) {
+                Write-PSFMessage -Level Warning -Message "Skipping the local update database: the bundled SQLite provider (PSSQLite) has no native library for the $architecturename processor architecture. Continuing with the remaining sources. To use the database, run kbupdate from the x64 or x86 Windows PowerShell, where the bundled SQLite loads under emulation."
+                $Source = @($Source | Where-Object { $PSItem -ne "Database" })
+            } else {
+                Stop-PSFFunction -Message "kbupdate cannot query its local update database on this system. The bundled SQLite provider (PSSQLite) does not include a native library for the $architecturename processor architecture, so the Database source is unavailable. Use '-Source Web' instead, or run kbupdate from the x64 or x86 Windows PowerShell, where the bundled SQLite loads under emulation." -EnableException:$EnableException
+                return
+            }
         }
 
         foreach ($computer in $Computername) {
