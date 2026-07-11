@@ -1,4 +1,5 @@
 BeforeAll {
+    function Get-BitsTransfer { }
     . (Join-Path $PSScriptRoot '../../private/Start-BitsJobProcess.ps1')
 }
 
