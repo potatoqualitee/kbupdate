@@ -47,6 +47,13 @@ esac
 # out-of-scope auto-committable non-code.
 printf '%s\n' "$RF" | grep -qiE '\.(ps1|psm1|psd1|ps1xml|md|sh|yml|yaml)$|/codex-review-dispositions\.jsonl$' || exit 0
 
+# Never copy a sensitive file's content into /tmp — even a reviewable-extension one named like a secret,
+# inventory, or private-host list (credentials.ps1, hosts.yml, lab-computers.yaml). Shared predicate with
+# the review + commit hooks; _in_review_scope excludes these too, so a captured baseline would have no
+# consumer anyway. Excluding it here keeps the content off disk entirely.
+source "$(dirname "$0")/../lib/lib-sensitive-path.sh"
+_is_sensitive_path "$RF" && exit 0
+
 KEY=$(printf '%s' "$RF" | sha1sum 2>/dev/null | cut -d' ' -f1)
 [[ -z "$KEY" ]] && exit 0
 

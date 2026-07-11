@@ -16,6 +16,11 @@ if [[ -n "${_LIB_CODEX_REVIEW_SNAPSHOT_LOADED:-}" ]]; then
 fi
 _LIB_CODEX_REVIEW_SNAPSHOT_LOADED=1
 
+# _is_sensitive_path — a secret/inventory/host/lab file is excluded from review scope (never diffed,
+# never sent to codex, never mirrored to the live log) and from the commit allowlist. Shared with the
+# commit + baseline hooks so all three stages agree on what must stay out of every automated channel.
+source "$(dirname "${BASH_SOURCE[0]}")/lib-sensitive-path.sh"
+
 _snap_key() { printf '%s' "$1" | sha1sum 2>/dev/null | cut -d' ' -f1; }
 # _content_hash <path> — a per-content fingerprint. An ABSENT (deleted) file returns a distinct sentinel
 # ("absent"), NOT the empty-file hash: otherwise deleting a file that was approved while empty would
@@ -32,9 +37,13 @@ _content_hash() {
 #     edit can never be auto-committed unreviewed). Case-INSENSITIVE: on this Windows/PowerShell repo a
 #     file may be named .PS1 / .PSD1 / .YAML, and a case-sensitive miss would skip the gate AND let the
 #     file be mis-classified as auto-committable non-code.
+#   * EXCLUDED even when the extension is reviewable: a sensitive file (credentials.ps1, secrets.md,
+#     hosts.yml, lab-computers.yaml). Its content must never be diffed into the codex payload or the
+#     live log, so it is never in scope — and _is_sensitive_path keeps it out of the commit allowlist too.
 _in_review_scope() {
     local p="$1"
     [[ "$p" == "$REPO_ROOT/"* ]] || return 1
+    _is_sensitive_path "$p" && return 1
     printf '%s\n' "$p" | grep -qiE "$CODE_EXT_RE|/\.claude/codex-review-dispositions\.jsonl$" || return 1
     return 0
 }
@@ -313,7 +322,11 @@ build_commit_allowlist() {
             curhash=$(_content_hash "$rf")
             clean=$(cat "$SNAP_DIR/${key}.clean" 2>/dev/null)
             [[ "$curhash" == "$clean" ]] || continue               # approved content != disk -> hold
+            # Carry the approved hash: commit_session_files revalidates it immediately before staging, so a
+            # concurrent edit in the window between here and `git add` cannot land UNREVIEWED bytes as clean.
+            printf '%s\t%s\n' "$rel" "$curhash" >> "$ALLOW_FILE"
+        else
+            printf '%s\t-\n' "$rel" >> "$ALLOW_FILE"               # non-code, non-sensitive: no review hash
         fi
-        printf '%s\n' "$rel" >> "$ALLOW_FILE"
     done < <(sort -u "$SESSION_STATE")
 }

@@ -307,9 +307,15 @@ codex_review_run
 #     reasoning and a retry didn't give us a clean answer, we MUST block -- fail-open only applies
 #     to first-attempt infra failures where we never saw suspicious behavior.
 if [[ -n "$CODEX_REASONING_GUARD_BLOCK" ]]; then
-    advance_reviewed                           # don't re-run codex on this unchanged content
-    save_findings "$CODEX_REASONING_GUARD_BLOCK"   # DURABLE open block: keeps blocking until the file changes/CLEAN
-    finalize_and_exit                          # (fixes: a guard block used to vanish on the next no-change turn)
+    # Do NOT advance_reviewed: the guard fired because codex's reasoning looked untrustworthy, so the SAME
+    # bytes should be RETRIED next turn (a fresh codex run may be trustworthy) — advancing .reviewed would
+    # make the no-change turn skip codex and only replay the finding, so the advertised "Re-run the review"
+    # could never clear the block for unchanged content. rearm_pending keeps the file in the per-turn scope
+    # so the retry happens even without a new edit. The DURABLE .findings block still blocks every turn
+    # until codex returns CLEAN or the file changes, so the block never silently vanishes.
+    save_findings "$CODEX_REASONING_GUARD_BLOCK"
+    rearm_pending
+    finalize_and_exit
 fi
 
 # 7b. Fail OPEN on an infra failure (codex error/timeout, empty output) — never block a turn because codex

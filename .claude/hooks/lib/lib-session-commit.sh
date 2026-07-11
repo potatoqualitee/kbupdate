@@ -28,23 +28,16 @@ fi
 _LIB_SESSION_COMMIT_LOADED=1
 
 source "$(dirname "${BASH_SOURCE[0]}")/lib-git-lock.sh"
+# _is_sensitive_path — auto-commit (per-turn gate AND SessionEnd sweep) NEVER stages a secret/
+# credential/private-key/inventory/host/lab-target file (shared with the review + baseline hooks).
+source "$(dirname "${BASH_SOURCE[0]}")/lib-sensitive-path.sh"
 
-# _is_sensitive_path <path> — true if the basename looks like a secret, private key/cert, credential
-# store, machine inventory, or lab/host list that kbupdate policy forbids committing (AGENTS.md:
-# "Never commit credentials, machine inventories, private host names, raw lab addresses"). Auto-commit
-# — the per-turn gate AND the SessionEnd sweep — NEVER stages a match; such a file is left for the
-# human to commit deliberately or not at all. Case-insensitive (lowercased basename); targets secret
-# FILE signatures (extensions + telltale names), so ordinary source files keep auto-committing.
-_is_sensitive_path() {
-    local base="${1##*/}"; base="${base,,}"
-    case "$base" in
-        *.env|*.env.*|.env|.netrc|.pgpass) return 0 ;;                             # env / rc secret files
-        *.pem|*.key|*.pfx|*.p12|*.pkcs12|*.ppk|*.jks|*.keystore|*.pat) return 0 ;; # private keys / certs / tokens
-        id_rsa|id_rsa.*|id_dsa|id_dsa.*|id_ecdsa|id_ecdsa.*|id_ed25519|id_ed25519.*) return 0 ;;
-        secret|secrets|secret.*|secrets.*|*.secrets.*|*credential*) return 0 ;;    # credential stores
-        inventory|inventory.*|*inventory*|computers.txt|hosts.txt|*lab-computers*) return 0 ;; # machine inventories / lab hosts
-    esac
-    return 1
+# _commit_content_hash <path> — same fingerprint scheme as lib-codex-review-snapshot.sh _content_hash
+# (sha256 of a present file, the "absent" sentinel for a missing one), so the allowlist's expected .clean
+# hash can be revalidated here immediately before staging (TOCTOU guard).
+_commit_content_hash() {
+    if [[ -f "$1" ]]; then sha256sum "$1" 2>/dev/null | cut -d' ' -f1
+    else printf 'absent'; fi
 }
 
 commit_session_files() {
@@ -75,8 +68,25 @@ commit_session_files() {
     # e.g. `*.ps1` would otherwise match unrelated files and sweep them past the per-session gate.
     # `git status --porcelain -- <spec>` reports modifications, staged content, untracked files AND
     # deletions/renames in one shot — so it does not skip a deleted path the way `-f` would.
+    # Load the optional allowlist into a map: repo-relative path -> expected sha256 (or "-" for a
+    # non-code file committed without a review hash). Lines are "<rel>\t<hash>". A NON-EMPTY allow_file
+    # means the gate is active (even /dev/null -> empty map -> nothing committed, fail-closed); an EMPTY
+    # allow_file (the SessionEnd sweep) leaves the gate off so all non-sensitive changes are swept.
+    declare -A _allow_hash=()
+    local _have_allow=0
+    if [[ -n "$allow_file" ]]; then
+        _have_allow=1
+        if [[ -r "$allow_file" ]]; then
+            local _ap _ah
+            while IFS=$'\t' read -r _ap _ah; do
+                [[ -z "$_ap" ]] && continue
+                _allow_hash["$_ap"]="${_ah:--}"
+            done < "$allow_file"
+        fi
+    fi
+
     local -a specs=()
-    local filepath cfilepath rel
+    local filepath cfilepath rel exp_hash cur_hash
     while IFS= read -r filepath; do
         [[ -z "$filepath" ]] && continue
         # Canonicalize each tracked path (backslash->forward-slash, resolve ..) before containment so
@@ -90,10 +100,17 @@ commit_session_files() {
         # Never auto-commit a secret/credential/private-key/inventory/lab-host file — this is the single
         # choke point, so it also blocks the SessionEnd UNREVIEWED sweep (which passes no allowlist).
         _is_sensitive_path "$cfilepath" && continue
-        # Per-file allowlist gate: when the caller supplied one, a path NOT in it is skipped — this is
-        # how the per-turn codex commit avoids persisting a blocked/unreviewed code file as approved.
-        if [[ -n "$allow_file" ]]; then
-            grep -qxF -- "$rel" "$allow_file" 2>/dev/null || continue
+        # Per-file allowlist gate: a path NOT in the allowlist is skipped, and a path WITH an expected
+        # review hash is revalidated NOW — if the on-disk bytes changed since the allowlist was built (a
+        # concurrent edit in the TOCTOU window), do NOT commit them as codex-approved; skip and let the
+        # next review round judge the new content. A "-" hash (non-code, no review) skips the recheck.
+        if (( _have_allow )); then
+            [[ -n "${_allow_hash[$rel]+x}" ]] || continue
+            exp_hash="${_allow_hash[$rel]}"
+            if [[ "$exp_hash" != "-" ]]; then
+                cur_hash=$(_commit_content_hash "$cfilepath")
+                [[ "$cur_hash" == "$exp_hash" ]] || continue
+            fi
         fi
         if [[ -n "$(git -C "$repo_root" status --porcelain -- ":(literal)$rel" 2>/dev/null)" ]]; then
             specs+=(":(literal)$rel")
