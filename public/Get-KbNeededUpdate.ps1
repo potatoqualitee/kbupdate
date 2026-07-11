@@ -62,6 +62,11 @@ function Get-KbNeededUpdate {
         PS C:\> Get-KbNeededUpdate | Save-KbUpdate -Path C:\temp
 
         Saves all the updates needed on the local machine to C:\temp
+
+    .EXAMPLE
+        PS C:\> Get-KbNeededUpdate -ScanFilePath D:\wsusscn2.cab | Export-Clixml D:\needed-updates.clixml
+
+        Exports the exact update identities and download links found on an offline computer. Move the CLIXML file to an internet-connected computer and pipe Import-Clixml to Save-KbUpdate.
 #>
     [CmdletBinding(DefaultParameterSetName = 'UseWUA')]
     param(
@@ -212,21 +217,7 @@ function Get-KbNeededUpdate {
         if ($jobs.Name) {
             try {
                 foreach ($result in ($jobs | Start-JobProcess -Activity "Getting needed updates" -Status "getting needed updates" | Select-Object -Property * -ExcludeProperty PSComputerName, RunspaceId | Select-DefaultView -ExcludeProperty InstallFile | Select-DefaultView -Property ComputerName, Title, KBUpdate, UpdateId, Description, LastModified, RebootBehavior, RequestsUserInput, NetworkRequired, Link)) {
-                    if (-not $result.Link -and $result.KBUpdate) {
-                        Write-PSFMessage -Level Verbose -Message "No link found for $($result.KBUpdate.Trim()). Looking it up."
-                        $lookupParameters = @{
-                            Pattern      = $result.KBUpdate.Trim()
-                            Simple       = $true
-                            ComputerName = $result.ComputerName
-                            Credential   = $Credential
-                        }
-                        $link = (Get-KbUpdate @lookupParameters |
-                                Where-Object Title -Match $result.KBUpdate).Link
-                        if ($link) {
-                            $result.Link = $link
-                        }
-                    }
-                    $result
+                    $result | Resolve-KbNeededUpdateLink -Credential $Credential
                 }
             } catch {
                 Stop-PSFFunction -Message "Failure" -ErrorRecord $PSItem -EnableException:$EnableException -Continue

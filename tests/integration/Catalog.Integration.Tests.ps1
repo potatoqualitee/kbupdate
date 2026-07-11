@@ -60,5 +60,28 @@ Describe 'Live Microsoft Update Catalog' -Tag 'Integration', 'Catalog' {
             $file.Length | Should -BeGreaterThan 0
         }
     }
+
+    It 'preserves exact links through a CLIXML handoff when downloading' -Skip:(-not $context.IncludeDownloads) {
+        $targetPath = Join-Path $context.DownloadPath 'clixml-handoff'
+        $null = New-Item -ItemType Directory -Path $targetPath -Force
+        $handoffPath = Join-Path $targetPath 'needed-updates.clixml'
+        $update = Get-KbUpdate -Name KB2992080 -Source Web -Simple -EnableException |
+            Select-Object -First 1
+        $update | Export-Clixml -Path $handoffPath
+        $restoredUpdate = Import-Clixml -Path $handoffPath
+        $expectedFileNames = @(
+            $restoredUpdate.Link |
+                Where-Object { $PSItem } |
+                ForEach-Object { Split-Path -Path $PSItem -Leaf } |
+                Sort-Object -Unique
+        )
+
+        $result = @($restoredUpdate | Save-KbUpdate -Path $targetPath -AllowClobber -Confirm:$false -EnableException)
+        $actualFileNames = @($result.Name | Sort-Object -Unique)
+
+        $actualFileNames.Count | Should -BeGreaterThan 0
+        Compare-Object -ReferenceObject $expectedFileNames -DifferenceObject $actualFileNames |
+            Should -BeNullOrEmpty
+    }
 }
 

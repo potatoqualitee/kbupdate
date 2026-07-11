@@ -58,5 +58,77 @@ Describe 'Save-KbUpdate download handling' {
                 $Path -eq 'C:\Temp\kbupdate-tests\fallback.msu'
             }
         }
+
+        It 'downloads the exact link from a serialized needed-update object without re-querying it' {
+            Mock Get-Command { $null }
+            Mock Get-KbUpdate
+            Mock Invoke-TlsWebRequest
+
+            $exactLink = 'https://catalog.s.download.windowsupdate.com/test/exact-offline-scan.cab'
+            $update = [pscustomobject]@{
+                Title      = 'Exact offline scan update'
+                KBUpdate   = 'KB5048652'
+                UpdateId   = 'abfafad8-5378-48df-a64f-deedc7de0f5a'
+                Link       = $exactLink
+            }
+            $serialized = [Management.Automation.PSSerializer]::Serialize($update)
+            $restored = [Management.Automation.PSSerializer]::Deserialize($serialized)
+
+            $null = $restored | Save-KbUpdate -Path $TestDrive -Confirm:$false
+
+            Should -Invoke Get-KbUpdate -Times 0 -Exactly
+            Should -Invoke Invoke-TlsWebRequest -Times 1 -Exactly
+        }
+
+        It 'skips null links and continues downloading valid objects in the same pipeline' {
+            Mock Get-Command { $null }
+            Mock Get-KbUpdate
+            Mock Invoke-TlsWebRequest
+            Mock Write-PSFMessage
+
+            $validLink = 'https://catalog.s.download.windowsupdate.com/test/valid-after-null.msu'
+            $updates = @(
+                [pscustomobject]@{
+                    Title    = 'Missing link update'
+                    KBUpdate = 'KB5000001'
+                    UpdateId = '11111111-1111-1111-1111-111111111111'
+                    Link     = $null
+                }
+                [pscustomobject]@{
+                    Title    = 'Valid link update'
+                    KBUpdate = 'KB5000002'
+                    UpdateId = '22222222-2222-2222-2222-222222222222'
+                    Link     = $validLink
+                }
+            )
+
+            $null = $updates | Save-KbUpdate -Path $TestDrive -Confirm:$false
+
+            Should -Invoke Get-KbUpdate -Times 0 -Exactly
+            Should -Invoke Invoke-TlsWebRequest -Times 1 -Exactly
+            Should -Invoke Write-PSFMessage -Times 1 -Exactly -ParameterFilter {
+                $Message -match '11111111-1111-1111-1111-111111111111' -and
+                    $Message -match 'Skipping'
+            }
+        }
+
+        It 'still resolves an explicitly supplied pattern' {
+            Mock Get-Command { $null }
+            Mock Get-KbUpdate {
+                [pscustomobject]@{
+                    Title    = 'Explicit pattern update'
+                    UpdateId = '33333333-3333-3333-3333-333333333333'
+                    Link     = 'https://catalog.s.download.windowsupdate.com/test/explicit-pattern.msu'
+                }
+            }
+            Mock Invoke-TlsWebRequest
+
+            $null = Save-KbUpdate -Pattern KB5000003 -Path $TestDrive -Confirm:$false
+
+            Should -Invoke Get-KbUpdate -Times 1 -Exactly -ParameterFilter {
+                $Pattern -eq 'KB5000003'
+            }
+            Should -Invoke Invoke-TlsWebRequest -Times 1 -Exactly
+        }
     }
 }
