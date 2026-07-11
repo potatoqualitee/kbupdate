@@ -88,4 +88,15 @@ else
 fi
 chmod 600 "$TMP" 2>/dev/null
 mv -f "$TMP" "$BASE" 2>/dev/null || rm -f "$TMP" 2>/dev/null
+
+# Record pre-existing dirtiness at FIRST touch (the file still holds its session-start bytes here — this
+# is a PreToolUse hook, before the write). If it already differed from HEAD (a sibling session's
+# uncommitted hunks, or pre-existing untracked content), the codex review will cover only this session's
+# baseline->current diff while `git add` would stage the whole HEAD->current diff — so those pre-existing
+# hunks are UNREVIEWED. build_commit_allowlist skips a .predirty file so it is never auto-committed as
+# codex-approved; it can still ride the SessionEnd UNREVIEWED sweep.
+REL="${RF#$REPO_ROOT/}"
+if [[ -f "$RF" && -n "$(git -C "$REPO_ROOT" status --porcelain -- "$REL" 2>/dev/null)" ]]; then
+    ( umask 077; : > "$SNAP_DIR/${KEY}.predirty" ) 2>/dev/null
+fi
 exit 0

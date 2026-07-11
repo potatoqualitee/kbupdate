@@ -33,11 +33,22 @@ _is_sensitive_path() {
         credential|credentials|credential.*|credentials.*|*.credential.*|*.credentials.*) return 0 ;;
         password|passwords|password.*|passwords.*|*.password.*|*.passwords.*) return 0 ;;
     esac
-    # 3. Machine inventories / private host lists / lab targets — sensitive ONLY as a data/config file.
+    # 3a. Machine inventories / private host lists / lab targets as DATA/config/office files — these
+    #     are inventories regardless of which host/computer/inventory/lab token appears in the name.
     case "$base" in
         *host*|*computer*|*inventory*|*lab-*|*lab_*)
             case "$base" in
-                *.json|*.jsonl|*.csv|*.tsv|*.txt|*.xml|*.yml|*.yaml|*.ini|*.cfg|*.conf|*.config|*.list|*.dat) return 0 ;;
+                *.json|*.jsonl|*.csv|*.tsv|*.txt|*.xml|*.yml|*.yaml|*.ini|*.cfg|*.conf|*.config|*.list|*.dat|*.xlsx|*.xls|*.xlsm|*.ods|*.psd1|*.pson|*.clixml|*.mof|*.reg|*.parquet) return 0 ;;
+            esac ;;
+    esac
+    # 3b. CODE files (.ps1/.psm1/.sh) are usually source and ARE reviewed (which catches embedded secrets),
+    #     so the common host/computer tokens are NOT failed closed for code — they appear in legitimate
+    #     cmdlet names (Get-ComputerInfo.ps1, New-PSWSUSComputerScope.ps1). But an inventory / lab-target
+    #     name is a strong signal the file is data masquerading as a script -> fail closed for those tokens.
+    case "$base" in
+        *inventory*|*lab-*|*lab_*)
+            case "$base" in
+                *.ps1|*.psm1|*.sh) return 0 ;;
             esac ;;
     esac
     return 1

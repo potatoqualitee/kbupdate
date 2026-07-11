@@ -322,6 +322,10 @@ build_commit_allowlist() {
             curhash=$(_content_hash "$rf")
             clean=$(cat "$SNAP_DIR/${key}.clean" 2>/dev/null)
             [[ "$curhash" == "$clean" ]] || continue               # approved content != disk -> hold
+            # Withhold a file that was already dirty vs HEAD at first touch (pre-write recorded .predirty):
+            # codex reviewed only baseline->current, but `git add` stages HEAD->current, so its pre-existing
+            # hunks are UNREVIEWED. Never auto-commit it as approved; the SessionEnd UNREVIEWED sweep may take it.
+            [[ -f "$SNAP_DIR/${key}.predirty" ]] && continue
             # Carry the approved hash: commit_session_files revalidates it immediately before staging, so a
             # concurrent edit in the window between here and `git add` cannot land UNREVIEWED bytes as clean.
             printf '%s\t%s\n' "$rel" "$curhash" >> "$ALLOW_FILE"
