@@ -1,0 +1,38 @@
+name: Quality gate
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: quality-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: PowerShell on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os:
+          - windows-latest
+          - ubuntu-latest
+          - macos-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Restore PowerShell module cache
+        uses: actions/cache@v4
+        with:
+          path: .artifacts/Modules
+          key: powershell-${{ runner.os }}-${{ hashFiles('kbupdate.psd1', 'build/Invoke-KbUpdateQualityGate.ps1') }}
+
+      - name: Run deterministic quality gate
+        shell: pwsh
+        run: ./build/Invoke-KbUpdateQualityGate.ps1 -Bootstrap
+

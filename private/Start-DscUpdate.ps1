@@ -61,6 +61,7 @@ function Start-DscUpdate {
         if ($AllNeeded) {
             $GetKbNeededUpdate = @{
                 ComputerName = $ComputerName
+                Credential   = $Credential
             }
             if ($ScanFilePath) {
                 $GetKbNeededUpdate['ScanFilePath'] = $ScanFilePath
@@ -74,7 +75,7 @@ function Start-DscUpdate {
 
         if ($HotfixId -and -not $InputObject.Link) {
             Write-PSFMessage -Level Verbose -Message "Hotfix detected without InputObject, getting info"
-            $InputObject += Get-KbUpdate -HotfixId $HotfixId -ComputerName $ComputerName
+            $InputObject += Get-KbUpdate -HotfixId $HotfixId -ComputerName $ComputerName -Credential $Credential
         }
 
         $script:ModuleRoot = Split-Path -Path $($ModulePath | Select-Object -Last 1)
@@ -109,13 +110,13 @@ function Start-DscUpdate {
             Write-PSFMessage -Level Verbose -Message "Initializing remote session to $hostname and also getting the remote home directory"
             $programhome = Invoke-KbCommand -ScriptBlock { $home }
 
-            if (-not $remotesession) {
-                $remotesession = Get-PSSession -ComputerName $ComputerName -Verbose | Where-Object { $PsItem.Availability -eq 'Available' -and ($PsItem.Name -match 'WinRM' -or $PsItem.Name -match 'Runspace') } | Select-Object -First 1
-            }
-
-            if (-not $remotesession) {
-                $remotesession = Get-PSSession -ComputerName $ComputerName | Where-Object { $PsItem.Availability -eq 'Available' } | Select-Object -First 1
-            }
+            $remotesession = Get-PSSession |
+                Where-Object {
+                    $PSItem.Name -eq "kbupdate-$ComputerName" -and
+                    $PSItem.State -eq 'Opened' -and
+                    $PSItem.Availability -eq 'Available'
+                } |
+                Select-Object -First 1
 
             if (-not $remotesession) {
                 Stop-PSFFunction -Message "Session for $hostname can't be found or no runspaces are available. Please file an issue on the GitHub repo at https://github.com/potatoqualitee/kbupdate/issues" -Continue
@@ -252,7 +253,7 @@ function Start-DscUpdate {
                     # try to automatically download it for them
                     if (-not $object -and $Pattern) {
                         Write-Message -Level Verbose -Message "No object and a pattern"
-                        $object = Get-KbUpdate -ComputerName $ComputerName -Pattern $Pattern | Where-Object { $PSItem.Link -and $PSItem.Title -match $Pattern }
+                        $object = Get-KbUpdate -ComputerName $ComputerName -Pattern $Pattern -Credential $Credential | Where-Object { $PSItem.Link -and $PSItem.Title -match $Pattern }
                     }
 
                     # note to reader: if this picks the wrong one, please download the required file manually.
@@ -499,9 +500,6 @@ function Start-DscUpdate {
                         }
                         DscWithoutWinRm
 "@
-                $dsc = [scriptblock]::Create($scriptblock)
-
-
             } elseif ("$FilePath".EndsWith("cab")) {
                 Write-PSFMessage -Level Verbose -Message "It's a cab file"
                 Write-PSFMessage -Level Verbose -Message "ArgumentList is $ArgumentList"
@@ -537,8 +535,6 @@ function Start-DscUpdate {
                     }
                     DscWithoutWinRm
 "@
-
-                $dsc = [scriptblock]::Create($scriptblock)
             } else {
                 Write-PSFMessage -Level Verbose -Message "It's a WSU file"
                 Write-PSFMessage -Level Verbose -Message "ArgumentList is $ArgumentList"
@@ -577,7 +573,6 @@ function Start-DscUpdate {
                         DscWithoutWinRm
 "@
 
-                    $dsc = [scriptblock]::Create($scriptblock)
                 } else {
                      $scriptblock = @"
                             Configuration DscWithoutWinRm {
@@ -595,12 +590,11 @@ function Start-DscUpdate {
                         DscWithoutWinRm
 "@
 
-                    $dsc = [scriptblock]::Create($scriptblock)
                 }
             }
             try {
                 $parms = @{
-                    ArgumentList    = $hotfix, $VerbosePreference, $FileName
+                    ArgumentList    = $hotfix, $VerbosePreference, $FileName, $scriptblock
                     EnableException = $true
                     WarningAction   = "SilentlyContinue"
                     WarningVariable = "dscwarnings"
@@ -609,7 +603,8 @@ function Start-DscUpdate {
                     param (
                         $Hotfix,
                         $VerbosePreference,
-                        $ManualFileName
+                        $ManualFileName,
+                        $DscScript
                     )
 
                     if ($PSVersionTable.PSVersion.Major -gt 5) {
@@ -645,6 +640,7 @@ function Start-DscUpdate {
                         Write-Verbose -Message "Invoke-DscResource is not available on this system because remoting isn't enabled. Using Invoke-CimMethod."
                         $workaround = $true
                         Push-Location -Path $env:temp
+                        $dsc = [scriptblock]::Create($DscScript)
                         $null = Invoke-Command -ScriptBlock $dsc
                         $mofpath = Resolve-Path -Path ".\DscWithoutWinRm\localhost.mof"
                         $configData = [byte[]][System.IO.File]::ReadAllBytes($mofpath)
@@ -778,7 +774,7 @@ function Start-DscUpdate {
 
                 Write-PSFMessage -Level Verbose -Message "Finished installing, checking status"
                 if ($hotfix.property.id) {
-                    $exists = Get-KbInstalledSoftware -ComputerName $ComputerName -Pattern $hotfix.property.id -IncludeHidden
+                    $exists = Get-KbInstalledSoftware -ComputerName $ComputerName -Pattern $hotfix.property.id -IncludeHidden -Credential $Credential
                 }
 
                 if ($exists.Summary -match "restart") {
@@ -824,7 +820,7 @@ function Start-DscUpdate {
                     Write-PSFMessage -Level Verbose -Message "Serialized XML is nested too deeply. Forcing output."
 
                     if ($hotfix.property.id) {
-                        $exists = Get-KbInstalledSoftware -ComputerName $ComputerName -Pattern $hotfix.property.id -IncludeHidden
+                        $exists = Get-KbInstalledSoftware -ComputerName $ComputerName -Pattern $hotfix.property.id -IncludeHidden -Credential $Credential
                     }
 
                     if ($exists.Summary -match "restart") {
@@ -865,7 +861,7 @@ function Start-DscUpdate {
                     Write-PSFMessage -Level Verbose -Message "The system cannot find message text for message number 0x%1 in the message file for %2. Checking to see if it was actually installed."
 
                     if ($hotfix.property.id) {
-                        $exists = Get-KbInstalledSoftware -ComputerName $ComputerName -Pattern $hotfix.property.id -IncludeHidden
+                        $exists = Get-KbInstalledSoftware -ComputerName $ComputerName -Pattern $hotfix.property.id -IncludeHidden -Credential $Credential
                     }
 
                     if (-not $exists) {

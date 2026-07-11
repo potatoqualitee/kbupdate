@@ -1,0 +1,4 @@
+interface:
+  display_name: "Codex Review"
+  short_description: "Review kbupdate changes with Codex CLI"
+  default_prompt: "Use $codex to review the current uncommitted kbupdate changes."

@@ -1,0 +1,4 @@
+# Shell hook scripts must check out with LF endings — Git Bash (MSYS) breaks on
+# CR, so with core.autocrlf=true a fresh clone would otherwise get CRLF and the
+# .claude/hooks/*.sh codex-review hooks would fail to run.
+*.sh text eol=lf

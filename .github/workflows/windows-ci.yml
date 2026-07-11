@@ -1,9 +1,17 @@
 name: Windows test
-on: [push]
+on:
+  workflow_dispatch:
+    inputs:
+      confirm_mutating:
+        description: 'I authorize this run to download and install updates on disposable GitHub runners'
+        required: true
+        default: false
+        type: boolean
 
 jobs:
   build:
     name: Let's see what needs to be installed
+    if: ${{ inputs.confirm_mutating == true }}
     runs-on: windows-latest
 
     steps:
@@ -87,6 +95,7 @@ jobs:
 
   second:
     name: Let's try another VM
+    if: ${{ inputs.confirm_mutating == true }}
     runs-on: windows-latest
 
     steps:
