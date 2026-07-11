@@ -62,13 +62,19 @@ collect_session_files() {
 
 # _append_review_diff <canonical-path> <key> — append this file's baseline->current diff (POSIX diff,
 # never git; repo-relative a/ b/ labels so codex never sees a /tmp snapshot path) to the review arrays if
-# there is a net change. Returns 0 if appended, 1 if nothing to review (identical to baseline), or 2 if it
-# is a DELETION with no captured baseline (the caller MUST hard-block it: the removed content is unknown,
-# so it can never be safely reviewed/approved).
+# there is a net change. Returns 0 if appended, 1 if nothing to review (identical to baseline), or 2 if the
+# removed/original content is unknown so the caller MUST hard-block it: a DELETION with no captured
+# baseline, OR a PRESENT file that has neither a baseline nor a baseabsent marker (pre-write never
+# recorded this path). Both can never be safely reviewed/approved from a /dev/null diff.
 _append_review_diff() {
     local f="$1" key="$2" rel base d
     rel="${f#$REPO_ROOT/}"
     base="$SNAP_DIR/${key}.base"
+    # Fail CLOSED for a PRESENT file with NO captured baseline AND no baseabsent marker: diffing it against
+    # /dev/null would present the whole file as "added" and let a CLEAN verdict auto-commit current bytes
+    # even if the file pre-existed with different content that was replaced (never shown to codex). Hard-
+    # block (return 2). A file the session legitimately CREATED has a baseabsent marker, so it is exempt.
+    [[ -f "$f" && ! -e "$base" && ! -e "$SNAP_DIR/${key}.baseabsent" ]] && return 2
     [[ -e "$base" ]] || base=/dev/null
     if [[ -f "$f" ]]; then
         d=$(diff -u --label "a/$rel" --label "b/$rel" "$base" "$f" 2>/dev/null)
@@ -330,7 +336,14 @@ build_commit_allowlist() {
             # concurrent edit in the window between here and `git add` cannot land UNREVIEWED bytes as clean.
             printf '%s\t%s\n' "$rel" "$curhash" >> "$ALLOW_FILE"
         else
-            printf '%s\t-\n' "$rel" >> "$ALLOW_FILE"               # non-code, non-sensitive: no review hash
+            # Non-code, non-sensitive (settings.json, docs data, etc.). It is not codex-reviewed, but it is
+            # still subject to the SAME two commit-safety checks as code: withhold if it was already dirty vs
+            # HEAD at first touch (pre-write records .predirty for every touched path now, not just code), and
+            # carry its current hash so commit_session_files revalidates it before staging (a concurrent
+            # sibling-session edit in the window cannot be swept in wholesale as this session's work).
+            key=$(_snap_key "$rf")
+            [[ -f "$SNAP_DIR/${key}.predirty" ]] && continue
+            printf '%s\t%s\n' "$rel" "$(_content_hash "$rf")" >> "$ALLOW_FILE"
         fi
     done < <(sort -u "$SESSION_STATE")
 }

@@ -21,17 +21,36 @@ _LIB_SENSITIVE_PATH_LOADED=1
 #     DSC_xEnvironmentResource.psm1) are NEVER withheld — only data files that actually carry a host
 #     list / inventory are. The lab token requires a lab-/lab_ separator so "Lab.ReadOnly" is not a hit.
 _is_sensitive_path() {
-    local base="${1##*/}"; base="${base,,}"
+    local p="${1,,}"                 # full path, lowercased — for directory-component matching
+    local base="${p##*/}"            # basename, lowercased
+
+    # 0. Sensitive DIRECTORY component anywhere in the path: a file INSIDE one of these is sensitive
+    #    whatever its own name/extension (config.json under credentials/ or .ssh/ is still a secret).
+    #    Slash-guarded so only exact components match (not "secret-handling/"). Deliberately NOT
+    #    public/private/tests/build/library/.claude — those are kbupdate's own source trees.
+    case "/$p/" in
+        */.ssh/*|*/.gnupg/*|*/.aws/*|*/.azure/*|*/.gcloud/*|*/.kube/*|*/.docker/*|\
+        */credential/*|*/credentials/*|*/secret/*|*/secrets/*|*/inventory/*|*/inventories/*) return 0 ;;
+    esac
+
     # 1. Secret / key / cert / env / token file types — sensitive regardless of name.
     case "$base" in
         *.env|*.env.*|.env|.netrc|.pgpass|*.pem|*.key|*.pfx|*.p12|*.pkcs12|*.ppk|*.jks|*.keystore|*.pat) return 0 ;;
         id_rsa|id_rsa.*|id_dsa|id_dsa.*|id_ecdsa|id_ecdsa.*|id_ed25519|id_ed25519.*) return 0 ;;
     esac
-    # 2. Credential / secret / password stores — sensitive regardless of extension.
+    # 2. Credential / secret / password / token / api-key / known-hosts stores — regardless of extension.
     case "$base" in
         secret|secrets|secret.*|secrets.*|*.secret.*|*.secrets.*) return 0 ;;
         credential|credentials|credential.*|credentials.*|*.credential.*|*.credentials.*) return 0 ;;
         password|passwords|password.*|passwords.*|*.password.*|*.passwords.*) return 0 ;;
+        *apikey*|*api-key*|*api_key*|*access-token*|*access_token*|*.token|known_hosts|known_hosts.*) return 0 ;;
+    esac
+    # 2b. Extensionless inventory / host / lab / credential basenames (no extension to gate on, so the
+    #     whole basename is matched: "hosts", "inventory", "known_hosts", "lab-computers", "credentials").
+    case "$base" in
+        *.*) ;;   # has an extension -> handled by the typed rules below
+        hosts|host|known_hosts|inventory|inventories|computers|computer|netrc|pgpass|\
+        lab-*|lab_*|*-hosts|*_hosts|*-computers|*_computers|*-inventory|*_inventory) return 0 ;;
     esac
     # 3a. Machine inventories / private host lists / lab targets as DATA/config/office files — these
     #     are inventories regardless of which host/computer/inventory/lab token appears in the name.
