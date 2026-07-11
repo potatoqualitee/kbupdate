@@ -187,5 +187,15 @@ Describe 'Save-KbUpdate download handling' {
                     $ProxyCredential.UserName -eq 'proxy-user'
             }
         }
+
+        It 'keeps delisted package downloads side-effect free under WhatIf' {
+            Mock Get-Command { $null }
+            Mock Invoke-TlsWebRequest
+
+            Save-KbUpdate -Pattern KB4503294 -Source Delisted -Path $TestDrive -WhatIf
+
+            Should -Invoke Invoke-TlsWebRequest -Times 0 -Exactly
+            Get-ChildItem -LiteralPath $TestDrive -File | Should -BeNullOrEmpty
+        }
     }
 }

@@ -33,6 +33,8 @@ function Save-KbUpdate {
     .PARAMETER Source
         Search source. By default, Database is searched first, then if no matches are found, it tries finding it on the web if a an internet connection is detected.
 
+        Delisted is an opt-in curated source for packages no longer returned by the Microsoft Update Catalog. Its package links are restricted to trusted Microsoft download hosts.
+
     .PARAMETER InputObject
         Enables piping update objects from Get-KbUpdate, Get-KbNeededUpdate, or Import-Clixml.
 
@@ -100,6 +102,11 @@ function Save-KbUpdate {
         PS C:\> Save-KbUpdate -Pattern KB5062557 -Proxy http://proxy.contoso.com:8080 -ProxyCredential (Get-Credential)
 
         Finds and downloads KB5062557 through a custom authenticated proxy. Omit Proxy to use the system proxy automatically.
+
+    .EXAMPLE
+        PS C:\> Save-KbUpdate -Pattern KB4503294 -Source Delisted -WhatIf
+
+        Previews downloads for curated Microsoft-hosted packages that are no longer returned by the live Catalog.
     #>
     [CmdletBinding(DefaultParameterSetName = 'default', SupportsShouldProcess, ConfirmImpact = 'Low')]
     param(
@@ -118,7 +125,7 @@ function Save-KbUpdate {
         [pscustomobject[]]$InputObject,
         [switch]$Latest,
         [switch]$AllowClobber,
-        [ValidateSet("Wsus", "Web", "Database")]
+        [ValidateSet("Wsus", "Web", "Database", "Delisted")]
         [string[]]$Source = (Get-PSFConfigValue -FullName kbupdate.app.source),
         [uri]$Proxy = (Get-PSFConfigValue -FullName kbupdate.app.proxy),
         [pscredential]$ProxyCredential = (Get-PSFConfigValue -FullName kbupdate.app.proxycredential),

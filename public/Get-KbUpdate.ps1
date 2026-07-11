@@ -51,6 +51,8 @@ function Get-KbUpdate {
     .PARAMETER Source
         Search source. By default, Database is searched first, then if no matches are found, it tries finding it on the web.
 
+        Delisted is an opt-in curated source for packages no longer returned by the Microsoft Update Catalog. Its package links are restricted to the same trusted Microsoft download hosts used by live Catalog results.
+
     .PARAMETER Multithread
         Multithread when three or more matches are returned. This is a lot faster than the default singlethread but also a lot less reliable.
 
@@ -140,6 +142,11 @@ function Get-KbUpdate {
         PS C:\> Get-KbUpdate -Pattern KB5062557 -Source Web -Proxy http://proxy.contoso.com:8080 -ProxyCredential (Get-Credential)
 
         Searches the catalog through a custom authenticated proxy. Omit Proxy to use the system proxy automatically.
+
+    .EXAMPLE
+        PS C:\> Get-KbUpdate -Pattern KB4503294 -Source Delisted
+
+        Gets curated Microsoft-hosted packages for a KB that is no longer returned by the live Catalog.
 #>
     [CmdletBinding()]
     param(
@@ -158,7 +165,7 @@ function Get-KbUpdate {
         [switch]$Latest,
         [switch]$Force,
         [switch]$Multithread,
-        [ValidateSet("Wsus", "Web", "Database")]
+        [ValidateSet("Wsus", "Web", "Database", "Delisted")]
         [string[]]$Source = (Get-PSFConfigValue -FullName kbupdate.app.source),
         [int]$MaxPages = 1,
         [datetime]$Since,
@@ -927,6 +934,10 @@ function Get-KbUpdate {
                 if ($Source -contains "Web") {
                     $results += Get-KbItemFromWeb -kb $kb -exact $exact -exclude $exclude
                 }
+
+                if ($Source -contains "Delisted") {
+                    $results += Get-KbDelistedUpdate -Pattern $kb -Architecture $Architecture -Exclude $Exclude -Since $Since
+                }
                 $allkbs += $results
             } elseif ($Source.Count -eq 1 -and $Source -eq "Database") {
                 if ($Since -or $CustomQuery) {
@@ -945,6 +956,10 @@ function Get-KbUpdate {
 
                 if ($Source -contains "Web") {
                     $results += Get-KbItemFromWeb -kb $kb -exact $exact -exclude $exclude
+                }
+
+                if ($Source -contains "Delisted") {
+                    $results += Get-KbDelistedUpdate -Pattern $kb -Architecture $Architecture -Exclude $Exclude -Since $Since
                 }
 
                 $allkbs += $results
