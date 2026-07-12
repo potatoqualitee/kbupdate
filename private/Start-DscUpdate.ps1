@@ -186,6 +186,16 @@ function Start-DscUpdate {
         }
     }
     process {
+        # Preserve the originally-bound parameter values. When -AllNeeded (or a piped
+        # batch) sends several updates through the loop below in one invocation, each
+        # update must derive its own file, id, guid and title instead of reusing the
+        # first update's values -- see issue #203.
+        $originalHotfixId = $HotfixId
+        $originalFilePath = $FilePath
+        $originalGuid = $Guid
+        $originalTitle = $Title
+        $originalArgumentList = $ArgumentList
+
         if ($FilePath -and -not $InputObject) {
             Write-PSFMessage -Level Verbose -Message "Setting InputObject to $FilePath"
             $InputObject = $FilePath
@@ -194,6 +204,16 @@ function Start-DscUpdate {
             Write-PSFMessage -Level Verbose -Message "Nothing to install on $hostname, moving on"
         }
         foreach ($object in $InputObject) {
+            # Reset per-update state so one update's values never leak into the next (#203).
+            # The sticky "if (-not ...)" guards further down would otherwise keep the first
+            # update's file/id/guid for every subsequent update in an -AllNeeded batch.
+            $HotfixId = $originalHotfixId
+            $FilePath = $originalFilePath
+            $Guid = $originalGuid
+            $Title = $originalTitle
+            $ArgumentList = $originalArgumentList
+            $updatefile = $remotefile = $deleteremotefile = $file = $filename = $hotfix = $exists = $status = $message = $tempguid = $number = $null
+
             if ($object.Link -and $RepositoryPath) {
                 try {
                     foreach ($item in $object.Link) {
