@@ -780,7 +780,7 @@ function Get-KbUpdate {
                         # may fix later
                         $ishotfix = $null
 
-                        $lastmod = Repair-Date $lastmodified
+                        $lastmod = Repair-Date -Date $lastmodified -Language $Language
 
                         $linkResults += [pscustomobject]@{
                             Title             = $title
