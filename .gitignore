@@ -1,4 +1,7 @@
 .artifacts/
 *.local.ps1
 TestResults/
-
+node_modules/
+.wrangler/
+.dev.vars
+.env

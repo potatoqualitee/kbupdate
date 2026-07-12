@@ -14,6 +14,8 @@ This repository is a PowerShell module for finding, downloading, installing, and
 - tests/Integration.Tests.ps1: legacy integration coverage retained for reference while scenarios move to tests/integration/.
 - library/: vendored third-party modules and binaries. Do not reformat or bulk-edit this directory.
 - build/Invoke-KbUpdateQualityGate.ps1: the local and CI verification entry point.
+- build/Invoke-KbUpdateLibraryRefresh.ps1: builds and validates a refreshed kbupdate-library candidate without publishing it.
+- workers/kbupdate-library-scheduler/: Cloudflare Cron Worker that detects a new Microsoft scan catalog and dispatches the candidate refresh workflow.
 
 ## Compatibility and style
 

@@ -505,11 +505,18 @@ function Update-KbDatabase {
 
         Write-ProgressHelper -StepNumber 6 -Activity "Setting up prerequisites" -Message "Searching for recent updates"
 
-        # Only process from the last 3 months, this is an arbitrary amount that will cover
-        # since the last release of the offline wsus db which usually occurs every 30 days
-        $recent = $updates.Where({ ([datetime]($PSItem.CreationDate)) -gt ((Get-Date).AddMonths(-3)) })
-        Write-Warning "$($recent.Count) updates to process"
-        Write-PSFMessage -Level Verbose -Message "Processing $($recent.Count) kbs"
+        # Refresh recent entries and every UpdateId that is missing from the installed database.
+        # The missing-ID path lets an interrupted or long-dormant publisher catch up instead of
+        # silently retaining gaps older than the original three-month refresh window.
+        $knownUpdateIds = @(
+            Invoke-SqliteQuery -DataSource $db -Query "select UpdateId from Kb" |
+                Select-Object -ExpandProperty UpdateId
+        )
+        $recent = @(
+            $updates | Select-KbDatabaseUpdate -KnownUpdateId $knownUpdateIds -RecentSince (Get-Date).AddMonths(-3)
+        )
+        Write-Warning "$($recent.Count) missing or recently changed updates to process"
+        Write-PSFMessage -Level Verbose -Message "Processing $($recent.Count) missing or recently changed kbs"
 
         Write-ProgressHelper -StepNumber 7 -Activity "Setting up prerequisites" -Message "Processing $($recent.Count) kbs"
         Write-Progress -Activity "Setting up prerequisites" -Completed

@@ -1,0 +1,32 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "kbupdate-library-scheduler",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-07-12",
+  "compatibility_flags": ["nodejs_compat"],
+  "workers_dev": false,
+  "secrets": {
+    "required": ["GITHUB_TOKEN"]
+  },
+  "vars": {
+    "CATALOG_URL": "https://catalog.s.download.windowsupdate.com/microsoftupdate/v6/wsusscan/wsusscn2.cab",
+    "GITHUB_API_URL": "https://api.github.com",
+    "GITHUB_OWNER": "potatoqualitee",
+    "GITHUB_REPO": "kbupdate",
+    "GITHUB_WORKFLOW": "refresh-kbupdate-library.yml",
+    "GITHUB_REF": "main",
+    "DISPATCH_ENABLED": "true"
+  },
+  "kv_namespaces": [
+    {
+      "binding": "STATE"
+    }
+  ],
+  "triggers": {
+    "crons": ["17 1 * * *"]
+  },
+  "observability": {
+    "enabled": true,
+    "head_sampling_rate": 1
+  }
+}
