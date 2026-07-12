@@ -853,9 +853,6 @@ function Start-DscUpdate {
                     $filetitle = $Title
                 }
 
-                if ($message) {
-                    $status = "sucks"
-                }
                 [pscustomobject]@{
                     ComputerName = $hostname
                     Title        = $filetitle
@@ -946,8 +943,57 @@ function Start-DscUpdate {
                         FileName     = $updatefile.Name
                     }
                 } else {
-                    Pop-Location
-                    Stop-PSFFunction -Message "Failure on $hostname" -ErrorRecord $PSitem -Continue -EnableException:$EnableException
+                    # A successful install can still surface a message that DSC treats as an error
+                    # (notably SQL Server cumulative updates), which previously produced no summary at
+                    # all (#161). Confirm whether the update actually installed before reporting failure,
+                    # and still return a summary when it did.
+                    $exists = $null
+                    $checkpattern = $HotfixId
+                    if (-not $checkpattern) {
+                        $checkpattern = $hotfix.property.id
+                    }
+                    if ($checkpattern) {
+                        $exists = Get-KbInstalledSoftware -ComputerName $ComputerName -Pattern $checkpattern -IncludeHidden -Credential $Credential
+                    }
+
+                    if (-not $exists) {
+                        Pop-Location
+                        Stop-PSFFunction -Message "Failure on $hostname" -ErrorRecord $PSitem -Continue -EnableException:$EnableException
+                    } else {
+                        if ($exists.Summary -match "restart") {
+                            $status = "Install successful. This update requires a restart."
+                        } else {
+                            $status = "Install successful"
+                        }
+
+                        if ($HotfixId) {
+                            $id = $HotfixId
+                        } else {
+                            $id = $guid
+                        }
+                        if ($id -eq "DAADB00F-DAAD-B00F-B00F-DAADB00FB00F") {
+                            $id = $null
+                        }
+
+                        if ($object.Title) {
+                            $filetitle = $object.Title
+                        } elseif ($exists.Title) {
+                            $filetitle = $exists.Title
+                        } else {
+                            $filetitle = $updatefile.VersionInfo.ProductName
+                        }
+                        if (-not $filetitle) {
+                            $filetitle = $Title
+                        }
+
+                        [pscustomobject]@{
+                            ComputerName = $hostname
+                            Title        = $filetitle
+                            ID           = $id
+                            Status       = $status
+                            FileName     = $updatefile.Name
+                        }
+                    }
                 }
             }
         }
