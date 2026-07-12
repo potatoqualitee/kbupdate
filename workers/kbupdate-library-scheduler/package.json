@@ -1,0 +1,22 @@
+{
+  "name": "kbupdate-library-scheduler",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "types": "wrangler types --include-runtime false",
+    "typecheck": "npm run types && tsc --noEmit && tsc -p test/tsconfig.json --noEmit",
+    "test": "vitest run",
+    "check": "npm run typecheck && npm test",
+    "dev": "wrangler dev --test-scheduled",
+    "deploy:dry-run": "wrangler deploy --dry-run",
+    "deploy": "wrangler deploy"
+  },
+  "devDependencies": {
+    "@cloudflare/vitest-pool-workers": "^0.18.4",
+    "@cloudflare/workers-types": "^5.20260712.1",
+    "typescript": "5.9.3",
+    "vitest": "^4.1.10",
+    "wrangler": "^4.110.0"
+  }
+}

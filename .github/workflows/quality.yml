@@ -36,3 +36,27 @@ jobs:
         shell: pwsh
         run: ./build/Invoke-KbUpdateQualityGate.ps1 -Bootstrap
 
+  cloudflare-scheduler:
+    name: Cloudflare scheduler
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: workers/kbupdate-library-scheduler
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: workers/kbupdate-library-scheduler/package-lock.json
+
+      - name: Install pinned dependencies
+        run: npm ci
+
+      - name: Typecheck and test scheduler
+        run: npm run check
+
+      - name: Validate Worker bundle
+        run: npm run deploy:dry-run

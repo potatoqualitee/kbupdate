@@ -1,0 +1,93 @@
+name: Refresh kbupdate-library candidate
+run-name: Refresh kbupdate-library for ${{ inputs.catalog_fingerprint || 'manual request' }}
+
+on:
+  workflow_dispatch:
+    inputs:
+      catalog_fingerprint:
+        description: Cloudflare-observed catalog fingerprint
+        required: false
+        type: string
+      catalog_etag:
+        description: Microsoft catalog ETag
+        required: false
+        type: string
+      catalog_last_modified:
+        description: Microsoft catalog Last-Modified value
+        required: false
+        type: string
+      catalog_content_length:
+        description: Microsoft catalog size in bytes
+        required: false
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: kbupdate-library-refresh
+  cancel-in-progress: false
+
+jobs:
+  build-candidate:
+    name: Build and validate candidate library
+    runs-on: windows-latest
+    timeout-minutes: 360
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install and cache PowerShell modules
+        uses: potatoqualitee/psmodulecache@v5.0
+        with:
+          modules-to-cache: Pester:5.7.1, PSFramework, PSSQLite, kbupdate-library
+          shell: powershell, pwsh
+
+      - name: Run deterministic quality gate
+        shell: pwsh
+        run: ./build/Invoke-KbUpdateQualityGate.ps1 -Bootstrap
+
+      - name: Build refreshed kbupdate-library candidate
+        shell: pwsh
+        env:
+          CATALOG_FINGERPRINT: ${{ inputs.catalog_fingerprint }}
+          CATALOG_ETAG: ${{ inputs.catalog_etag }}
+          CATALOG_LAST_MODIFIED: ${{ inputs.catalog_last_modified }}
+          CATALOG_CONTENT_LENGTH: ${{ inputs.catalog_content_length }}
+        run: |
+          $parameters = @{
+            CatalogFingerprint   = $env:CATALOG_FINGERPRINT
+            CatalogETag          = $env:CATALOG_ETAG
+            CatalogLastModified  = $env:CATALOG_LAST_MODIFIED
+            CatalogContentLength = $env:CATALOG_CONTENT_LENGTH
+          }
+          ./build/Invoke-KbUpdateLibraryRefresh.ps1 @parameters
+
+      - name: Validate candidate contents
+        shell: pwsh
+        run: |
+          $candidate = Join-Path $PWD '.artifacts\kbupdate-library'
+          $required = @(
+            'kbupdate-library.psd1'
+            'library\kb.sqlite'
+            'library\links.dat'
+            'library\supersedes.dat'
+            'library\supersededby.dat'
+            'refresh-metadata.json'
+          )
+          foreach ($relativePath in $required) {
+            $path = Join-Path $candidate $relativePath
+            if (-not (Test-Path -LiteralPath $path -PathType Leaf)) {
+              throw "Candidate is missing $relativePath"
+            }
+          }
+          Test-ModuleManifest -Path (Join-Path $candidate 'kbupdate-library.psd1') -ErrorAction Stop
+          Get-Content -Raw -LiteralPath (Join-Path $candidate 'refresh-metadata.json')
+
+      - name: Upload candidate library
+        uses: actions/upload-artifact@v4
+        with:
+          name: kbupdate-library-candidate
+          path: .artifacts/kbupdate-library
+          if-no-files-found: error
+          retention-days: 14
