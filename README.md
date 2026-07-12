@@ -218,7 +218,7 @@ If you can't update to WMF 5.0+, downloading patches using kbupdate then install
 
 kbupdate makes it much easier to patch your offline servers, all without SCCM or WSUS. It's basically a 5-step process.
 
-1. **Download** the needed patches from the Microsoft Update Catalog for the last 30 days
+1. **Download** patches from the Microsoft Update Catalog (the 30-day window below is just an example -- adjust or omit it)
 1. **Download** the WUA database which enables computers to check for needed updates
 1. **Burn** to DVD, along with kbupdate + required modules
 1. **Check** each server for needed updates against the wsusscn2.cab WUA database (`Save-KbScanFile`)
@@ -250,6 +250,12 @@ $params = @{
 }
 Install-KbUpdate @params
 ```
+
+### Machines that are far behind
+
+The `-Since (Get-Date).AddDays(-30)` filter above only limits the *pre-download* step; it is not a cap on what kbupdate can find. `wsusscn2.cab` is Microsoft's offline scan catalog and covers the **entire** history of security updates, so `Get-KbNeededUpdate`/`Install-KbUpdate -AllNeeded -ScanFilePath` will detect every needed update no matter how far behind a machine is (for example, a Windows 10 1703 box). When you point `-RepositoryPath` at a share, each target downloads exactly the files it needs, so you do not have to guess a date range up front.
+
+You also do not need to install NuGet, Visual Studio, or the module's build prerequisites on every client. The needed-update scan uses the Windows Update Agent (WUA), which is built into Windows, and the DSC install path copies the required helper modules to each target automatically. NuGet/PowerShellGet is only needed once on the internet-connected machine where you install kbupdate itself.
 
 ## Screenshots
 
