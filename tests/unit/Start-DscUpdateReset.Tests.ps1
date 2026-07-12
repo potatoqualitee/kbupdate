@@ -60,7 +60,7 @@ Describe 'Start-DscUpdate resets per-update state across a batch (issue #203)' {
             }
             # Start-DscUpdate emits its install-summary objects (which carry a Status); ignore any
             # incidental values that leak from uncaptured internal helper calls under mocking.
-            $result = @($raw | Where-Object { $_.PSObject.Properties.Name -contains 'Status' })
+            $result = @($raw | Where-Object { $PSItem.PSObject.Properties.Name -contains 'Status' })
 
             $result.Count | Should -Be 2
             (@($result.FileName) | Sort-Object -Unique).Count | Should -Be 2

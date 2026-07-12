@@ -674,30 +674,30 @@ function Start-DscUpdate {
                         $ProgressPreference = "SilentlyContinue"
 
                         if (-not $workaround) {
-                            # A busy LCM (a periodic consistency check, or an earlier operation that is
-                            # still in progress) makes Invoke-DscResource fail with "Cannot invoke the
-                            # Invoke-DscResource cmdlet. The Consistency Check or Pull cmdlet is in
-                            # progress and must return before Invoke-DscResource can be invoked." Cancel
-                            # any in-progress operation and wait for the LCM to return to Idle first, so
-                            # the update can still be applied. Stop-DscConfiguration is asynchronous, so
-                            # polling for Idle avoids racing it. All of this is a no-op when the LCM is
-                            # already idle.
-                            try {
-                                for ($lcmwait = 0; $lcmwait -lt 30; $lcmwait++) {
+                            # A busy LCM (a periodic consistency check, or an operation still in progress)
+                            # makes Invoke-DscResource fail with "Cannot invoke the Invoke-DscResource
+                            # cmdlet. The Consistency Check or Pull cmdlet is in progress and must return
+                            # before Invoke-DscResource can be invoked." Wait for the LCM to return to Idle
+                            # rather than forcibly cancelling whatever it is doing -- that could be an
+                            # unrelated consistency check, pull, or configuration on the target. This is a
+                            # no-op when the LCM is already idle; if it stays busy, surface an actionable
+                            # message instead of the raw DSC error.
+                            $lcmstate = $null
+                            for ($lcmwait = 0; $lcmwait -lt 30; $lcmwait++) {
+                                try {
+                                    $lcmstate = (Get-DscLocalConfigurationManager -ErrorAction Stop).LCMState
+                                } catch {
+                                    # the LCM cannot be queried on this system; let Invoke-DscResource proceed
                                     $lcmstate = $null
-                                    try {
-                                        $lcmstate = (Get-DscLocalConfigurationManager -ErrorAction Stop).LCMState
-                                    } catch {
-                                        $lcmstate = $null
-                                    }
-                                    if (-not $lcmstate -or $lcmstate -eq "Idle") {
-                                        break
-                                    }
-                                    $null = Stop-DscConfiguration -Force -ErrorAction SilentlyContinue -WarningAction SilentlyContinue
-                                    Start-Sleep -Seconds 2
+                                    break
                                 }
-                            } catch {
-                                # the LCM does not support these operations; fall through to Invoke-DscResource
+                                if (-not $lcmstate -or $lcmstate -eq "Idle") {
+                                    break
+                                }
+                                Start-Sleep -Seconds 2
+                            }
+                            if ($lcmstate -and $lcmstate -ne "Idle") {
+                                throw "The Local Configuration Manager on $env:ComputerName is busy ($lcmstate) and did not return to Idle within 60 seconds. Another DSC operation (a consistency check, pull, or configuration) is in progress. Wait for it to finish, or run 'Stop-DscConfiguration -Force' on the target to cancel it, then try again."
                             }
                         }
 

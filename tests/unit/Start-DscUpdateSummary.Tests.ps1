@@ -52,7 +52,7 @@ Describe 'Start-DscUpdate returns a summary for a successful install that DSC re
                 foreach ($key in $savedDefaults.Keys) { $PSDefaultParameterValues[$key] = $savedDefaults[$key] }
             }
 
-            $summary = @($raw | Where-Object { $_.PSObject.Properties.Name -contains 'Status' })
+            $summary = @($raw | Where-Object { $PSItem.PSObject.Properties.Name -contains 'Status' })
 
             $summary.Count | Should -Be 1
             $summary[0].Status | Should -Match 'Install successful'
