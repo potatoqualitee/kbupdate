@@ -35,6 +35,44 @@ Describe 'Invoke-TlsWebRequest proxy handling' {
             }
         }
 
+        It 'passes a supplied timeout to Invoke-WebRequest' {
+            $null = Invoke-TlsWebRequest -Uri 'https://www.catalog.update.microsoft.com/' -TimeoutSec 7
+
+            Should -Invoke Invoke-WebRequest -Times 1 -Exactly -ParameterFilter {
+                $TimeoutSec -eq 7
+            }
+        }
+
+        It 'does not give callers an implicit timeout' {
+            $null = Invoke-TlsWebRequest -Uri 'https://www.catalog.update.microsoft.com/'
+
+            Should -Invoke Invoke-WebRequest -Times 1 -Exactly -ParameterFilter {
+                -not $PSBoundParameters.ContainsKey('TimeoutSec')
+            }
+        }
+
+        It 'restores process-wide request state after a web request fails' {
+            $originalTls = [Net.ServicePointManager]::SecurityProtocol
+            $originalProgressPreference = $ProgressPreference
+            $testTls = [Net.SecurityProtocolType]::Tls
+            Mock Invoke-WebRequest { throw 'request timed out' }
+
+            try {
+                [Net.ServicePointManager]::SecurityProtocol = $testTls
+
+                { Invoke-TlsWebRequest -Uri 'https://www.catalog.update.microsoft.com/' -TimeoutSec 7 } |
+                    Should -Throw -ExpectedMessage '*request timed out*'
+
+                [Net.ServicePointManager]::SecurityProtocol | Should -Be $testTls
+                if ($PSVersionTable.PSEdition -ne 'Core') {
+                    $ProgressPreference | Should -Be $originalProgressPreference
+                }
+            } finally {
+                [Net.ServicePointManager]::SecurityProtocol = $originalTls
+                $ProgressPreference = $originalProgressPreference
+            }
+        }
+
         It 'detects the system proxy when only an alternate credential is supplied' {
             $originalProxy = [Net.WebRequest]::DefaultWebProxy
             $proxy = [uri]'http://system-proxy.contoso.com:8080'

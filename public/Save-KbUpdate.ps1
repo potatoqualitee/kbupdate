@@ -43,6 +43,11 @@ function Save-KbUpdate {
     .PARAMETER AllowClobber
         Overwrite file if it exsits
 
+    .PARAMETER UseWebRequest
+        Forces Invoke-WebRequest instead of BITS for update-file downloads.
+
+        Use this in noninteractive contexts such as scheduled tasks, services, or SQL Agent jobs, where asynchronous BITS transfers may remain suspended until the creating identity logs on.
+
     .PARAMETER EnableException
         By default, when something goes wrong we try to catch it, interpret it and give you a friendly warning message.
         This avoids overwhelming you with "sea of red" exceptions, but is inconvenient because it basically disables advanced scripting.
@@ -94,6 +99,11 @@ function Save-KbUpdate {
         Downloads all files from $downloadLink to C:\temp
 
     .EXAMPLE
+        PS C:\> Save-KbUpdate -Pattern KB4057119 -Path C:\temp -UseWebRequest
+
+        Downloads KB4057119 without using BITS. This is useful in a scheduled task or SQL Agent job that runs without an interactive logon.
+
+    .EXAMPLE
         PS C:\> Import-Clixml E:\needed-updates.clixml | Save-KbUpdate -Path E:\updates
 
         Downloads the exact update links exported by Get-KbNeededUpdate on an offline computer.
@@ -125,6 +135,7 @@ function Save-KbUpdate {
         [pscustomobject[]]$InputObject,
         [switch]$Latest,
         [switch]$AllowClobber,
+        [switch]$UseWebRequest,
         [ValidateSet("Wsus", "Web", "Database", "Delisted")]
         [string[]]$Source = (Get-PSFConfigValue -FullName kbupdate.app.source),
         [uri]$Proxy = (Get-PSFConfigValue -FullName kbupdate.app.proxy),
@@ -206,7 +217,7 @@ function Save-KbUpdate {
 
                     Write-Progress @progressparms
 
-                    if ((Get-Command Start-BitsTransfer -ErrorAction Ignore)) {
+                    if (-not $UseWebRequest -and (Get-Command Start-BitsTransfer -ErrorAction Ignore)) {
                         try {
                             if ((Get-BitsTransfer | Where-Object Description -match kbupdate).FileList.RemoteName -notcontains $hyperlinklol) {
                                 Write-PSFMessage -Level Verbose -Message "Adding $filename to download queue"
@@ -382,7 +393,7 @@ function Save-KbUpdate {
                             continue
                         }
 
-                        if ((Get-Command Start-BitsTransfer -ErrorAction Ignore)) {
+                        if (-not $UseWebRequest -and (Get-Command Start-BitsTransfer -ErrorAction Ignore)) {
                             try {
                                 $filename = Split-Path $hyperlinklol -Leaf
                                 if ((Get-BitsTransfer | Where-Object Description -match kbupdate).FileList.RemoteName -notcontains $hyperlinklol) {

@@ -72,6 +72,11 @@ function Get-KbUpdate {
 
         Unless you set -Source Web, more than 25xMaxPages may be returned (because db lookups are faster and dont need to care about paging).
 
+    .PARAMETER TimeoutSec
+        Specifies how many seconds each Microsoft Update Catalog or support-page request may take before it is abandoned. Defaults to 30 seconds.
+
+        Use this when the Catalog is slow or unreachable. The timeout applies to web lookups only, not to update-file downloads performed by Save-KbUpdate.
+
     .PARAMETER Proxy
         Proxy server URI used for Microsoft Update Catalog web requests. When omitted, the system proxy configuration is detected automatically.
 
@@ -139,6 +144,11 @@ function Get-KbUpdate {
         Gets KBs for Windows Server 2019 from the web, and returns 2 pages (up to 50 results) instead of 1 (25 max).
 
     .EXAMPLE
+        PS C:\> Get-KbUpdate -Pattern KB4057119 -Source Web -TimeoutSec 10
+
+        Searches the Microsoft Update Catalog and abandons any individual web request that takes longer than 10 seconds.
+
+    .EXAMPLE
         PS C:\> Get-KbUpdate -Pattern KB5062557 -Source Web -Proxy http://proxy.contoso.com:8080 -ProxyCredential (Get-Credential)
 
         Searches the catalog through a custom authenticated proxy. Omit Proxy to use the system proxy automatically.
@@ -168,6 +178,8 @@ function Get-KbUpdate {
         [ValidateSet("Wsus", "Web", "Database", "Delisted")]
         [string[]]$Source = (Get-PSFConfigValue -FullName kbupdate.app.source),
         [int]$MaxPages = 1,
+        [ValidateRange(1, [int]::MaxValue)]
+        [int]$TimeoutSec = 30,
         [datetime]$Since,
         [string]$CustomQuery,
         [uri]$Proxy = (Get-PSFConfigValue -FullName kbupdate.app.proxy),
@@ -175,7 +187,9 @@ function Get-KbUpdate {
         [switch]$EnableException
     )
     begin {
-        $webRequestParameters = @{}
+        $webRequestParameters = @{
+            TimeoutSec = $TimeoutSec
+        }
         if ($Proxy) {
             $webRequestParameters.Proxy = $Proxy
         }

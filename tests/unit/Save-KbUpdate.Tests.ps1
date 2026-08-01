@@ -7,18 +7,27 @@ Describe 'Save-KbUpdate download handling' {
     InModuleScope kbupdate {
         BeforeAll {
             function Get-BitsTransfer { }
+            if ($env:OS -ne 'Windows_NT') {
+                function Start-BitsTransfer { throw 'BITS failed' }
+            }
         }
 
         BeforeEach {
+            $script:failBitsTransfer = $false
             Mock Test-Path { $false }
             Mock Get-Command { [pscustomobject]@{ Name = 'Start-BitsTransfer' } }
             Mock Get-BitsTransfer { @() }
+            if ($env:OS -eq 'Windows_NT') {
+                Mock Start-BitsTransfer {
+                    if ($script:failBitsTransfer) {
+                        throw 'BITS failed'
+                    }
+                }
+            }
             Mock Start-BitsJobProcess
         }
 
         It 'queues every input link with its own filename and the update title' -Skip:($env:OS -ne 'Windows_NT') {
-            Mock Start-BitsTransfer
-
             $update = [pscustomobject]@{
                 Title = 'Test cumulative update'
                 Link  = @(
@@ -42,7 +51,7 @@ Describe 'Save-KbUpdate download handling' {
         }
 
         It 'returns the downloaded file when BITS falls back to a web request' -Skip:($env:OS -ne 'Windows_NT') {
-            Mock Start-BitsTransfer { throw 'BITS failed' }
+            $script:failBitsTransfer = $true
             Mock Invoke-TlsWebRequest
             Mock Get-ChildItem {
                 [pscustomobject]@{ FullName = $Path }
@@ -57,9 +66,61 @@ Describe 'Save-KbUpdate download handling' {
 
             $result.Count | Should -Be 1
             $result[0].FullName | Should -Be 'C:\Temp\kbupdate-tests\fallback.msu'
-            Should -Invoke Invoke-TlsWebRequest -Times 1 -Exactly
+            Should -Invoke Invoke-TlsWebRequest -Times 1 -Exactly -ParameterFilter {
+                -not $PSBoundParameters.ContainsKey('TimeoutSec')
+            }
             Should -Invoke Get-ChildItem -Times 1 -Exactly -ParameterFilter {
                 $Path -eq 'C:\Temp\kbupdate-tests\fallback.msu'
+            }
+        }
+
+        It 'uses a web request for a direct link when UseWebRequest is specified' {
+            Mock Invoke-TlsWebRequest
+
+            $null = Save-KbUpdate -Link 'https://catalog.s.download.windowsupdate.com/test/direct-web.msu' -Path $TestDrive -UseWebRequest -Confirm:$false
+
+            if ($env:OS -eq 'Windows_NT') {
+                Should -Invoke Start-BitsTransfer -Times 0 -Exactly
+            }
+            Should -Invoke Invoke-TlsWebRequest -Times 1 -Exactly -ParameterFilter {
+                -not $PSBoundParameters.ContainsKey('TimeoutSec')
+            }
+        }
+
+        It 'uses a web request for a piped update when UseWebRequest is specified' {
+            Mock Invoke-TlsWebRequest
+
+            $update = [pscustomobject]@{
+                Title = 'Noninteractive update'
+                Link  = 'https://catalog.s.download.windowsupdate.com/test/piped-web.msu'
+            }
+
+            $null = $update | Save-KbUpdate -Path $TestDrive -UseWebRequest -Confirm:$false
+
+            if ($env:OS -eq 'Windows_NT') {
+                Should -Invoke Start-BitsTransfer -Times 0 -Exactly
+            }
+            Should -Invoke Invoke-TlsWebRequest -Times 1 -Exactly -ParameterFilter {
+                -not $PSBoundParameters.ContainsKey('TimeoutSec')
+            }
+        }
+
+        It 'falls back to a web request when BITS fails for a piped update' {
+            $script:failBitsTransfer = $true
+            Mock Invoke-TlsWebRequest
+
+            $update = [pscustomobject]@{
+                Title = 'Fallback update'
+                Link  = 'https://catalog.s.download.windowsupdate.com/test/piped-fallback.msu'
+            }
+
+            $null = $update | Save-KbUpdate -Path $TestDrive -Confirm:$false
+
+            if ($env:OS -eq 'Windows_NT') {
+                Should -Invoke Start-BitsTransfer -Times 1 -Exactly
+            }
+            Should -Invoke Invoke-TlsWebRequest -Times 1 -Exactly -ParameterFilter {
+                -not $PSBoundParameters.ContainsKey('TimeoutSec')
             }
         }
 
@@ -160,8 +221,6 @@ Describe 'Save-KbUpdate download handling' {
         }
 
         It 'forwards custom authenticated proxy settings to BITS' -Skip:($env:OS -ne 'Windows_NT') {
-            Mock Start-BitsTransfer
-
             $credential = New-Object pscredential 'proxy-user', (ConvertTo-SecureString 'proxy-password' -AsPlainText -Force)
             $proxy = [uri]'http://proxy.contoso.com:8080'
 
@@ -175,8 +234,6 @@ Describe 'Save-KbUpdate download handling' {
         }
 
         It 'uses preconfigured BITS proxy detection with an alternate credential' -Skip:($env:OS -ne 'Windows_NT') {
-            Mock Start-BitsTransfer
-
             $credential = New-Object pscredential 'proxy-user', (ConvertTo-SecureString 'proxy-password' -AsPlainText -Force)
 
             $null = Save-KbUpdate -Link 'https://catalog.s.download.windowsupdate.com/test/auto-proxy-bits.msu' -Path 'C:\Temp\kbupdate-tests' -ProxyCredential $credential -Confirm:$false

@@ -28,6 +28,35 @@ url = 'https://catalog.s.download.windowsupdate.com/test/proxy-catalog.msu';
             Should -Invoke Invoke-TlsWebRequest -Times 1 -Exactly -ParameterFilter {
                 $Proxy -eq $proxy -and $ProxyCredential.UserName -eq 'proxy-user'
             }
+            Should -Invoke Invoke-TlsWebRequest -Times 1 -Exactly -ParameterFilter {
+                $TimeoutSec -eq 30
+            }
+        }
+
+        It 'forwards an explicit timeout to catalog requests' {
+            $guid = '66666666-6666-6666-6666-666666666666'
+            $content = @"
+enTitle = 'Explicit timeout update';
+longLanguages = 'all';
+updateID = '$guid';
+isHotFix = false;
+url = 'https://catalog.s.download.windowsupdate.com/test/timeout-catalog.msu';
+"@
+            Mock Invoke-TlsWebRequest {
+                [pscustomobject]@{ Content = $content }
+            }
+
+            $result = @(Get-KbUpdate -Pattern $guid -Source Web -Simple -TimeoutSec 7 -EnableException)
+
+            $result.Count | Should -Be 1
+            Should -Invoke Invoke-TlsWebRequest -Times 1 -Exactly -ParameterFilter {
+                $TimeoutSec -eq 7
+            }
+        }
+
+        It 'rejects a timeout of zero' {
+            { Get-KbUpdate -Pattern test -Source Database -TimeoutSec 0 } |
+                Should -Throw -ExpectedMessage '*minimum allowed range*'
         }
     }
 }
