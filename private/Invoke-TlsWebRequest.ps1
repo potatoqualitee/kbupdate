@@ -7,7 +7,9 @@ function Invoke-TlsWebRequest {
         [object]$Body,
         [string]$OutFile,
         [uri]$Proxy,
-        [pscredential]$ProxyCredential
+        [pscredential]$ProxyCredential,
+        [ValidateRange(1, [int]::MaxValue)]
+        [int]$TimeoutSec
     )
 
     $requestParameters = @{
@@ -17,6 +19,9 @@ function Invoke-TlsWebRequest {
         if ($PSBoundParameters.ContainsKey($parameterName)) {
             $requestParameters[$parameterName] = $PSBoundParameters[$parameterName]
         }
+    }
+    if ($PSBoundParameters.ContainsKey('TimeoutSec')) {
+        $requestParameters.TimeoutSec = $TimeoutSec
     }
 
     $effectiveProxy = $Proxy
@@ -44,13 +49,16 @@ function Invoke-TlsWebRequest {
 
     #>
 
+    $currentVersionTls = [Net.ServicePointManager]::SecurityProtocol
+
     # IWR is crazy slow for large downloads
     if ($PSversionTable.PSEdition -ne "Core") {
         $currentProgressPref = $ProgressPreference
         $ProgressPreference = "SilentlyContinue"
     }
 
-    if (-not $IsLinux -and -not $IsMacOs) {
+    try {
+        if (-not $IsLinux -and -not $IsMacOs) {
         $regproxy = Get-ItemProperty -Path "Registry::HKCU\Software\Microsoft\Windows\CurrentVersion\Internet Settings"
         $registryProxy = $regproxy.ProxyServer
 
@@ -76,7 +84,6 @@ function Invoke-TlsWebRequest {
         }
     }
 
-    $currentVersionTls = [Net.ServicePointManager]::SecurityProtocol
     $currentSupportableTls = [Math]::Max($currentVersionTls.value__, [Net.SecurityProtocolType]::Tls.value__)
     $availableTls = [enum]::GetValues('Net.SecurityProtocolType') | Where-Object { $_ -gt $currentSupportableTls }
     $availableTls | ForEach-Object {
@@ -137,9 +144,11 @@ function Invoke-TlsWebRequest {
         }
     }
 
-    [Net.ServicePointManager]::SecurityProtocol = $currentVersionTls
+    } finally {
+        [Net.ServicePointManager]::SecurityProtocol = $currentVersionTls
 
-    if ($PSversionTable.PSEdition -ne "Core") {
-        $ProgressPreference = $currentProgressPref
+        if ($PSversionTable.PSEdition -ne "Core") {
+            $ProgressPreference = $currentProgressPref
+        }
     }
 }
