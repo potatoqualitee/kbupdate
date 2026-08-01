@@ -77,6 +77,11 @@ function Get-KbUpdate {
 
         Use this when the Catalog is slow or unreachable. The timeout applies to web lookups only, not to update-file downloads performed by Save-KbUpdate.
 
+    .PARAMETER RetryCount
+        Specifies how many additional attempts are made after a transient Microsoft Update Catalog request failure. Defaults to 2 additional attempts, for 3 total attempts.
+
+        Retries apply only to Catalog and Microsoft support-page lookups. Use 0 to fail after the first attempt. Update-file downloads performed by Save-KbUpdate are not retried by this parameter.
+
     .PARAMETER Proxy
         Proxy server URI used for Microsoft Update Catalog web requests. When omitted, the system proxy configuration is detected automatically.
 
@@ -149,6 +154,11 @@ function Get-KbUpdate {
         Searches the Microsoft Update Catalog and abandons any individual web request that takes longer than 10 seconds.
 
     .EXAMPLE
+        PS C:\> Get-KbUpdate -Pattern KB4057119 -Source Web -RetryCount 0
+
+        Searches the Microsoft Update Catalog once without retrying a transient failure.
+
+    .EXAMPLE
         PS C:\> Get-KbUpdate -Pattern KB5062557 -Source Web -Proxy http://proxy.contoso.com:8080 -ProxyCredential (Get-Credential)
 
         Searches the catalog through a custom authenticated proxy. Omit Proxy to use the system proxy automatically.
@@ -180,6 +190,8 @@ function Get-KbUpdate {
         [int]$MaxPages = 1,
         [ValidateRange(1, [int]::MaxValue)]
         [int]$TimeoutSec = 30,
+        [ValidateRange(0, [int]::MaxValue)]
+        [int]$RetryCount = 2,
         [datetime]$Since,
         [string]$CustomQuery,
         [uri]$Proxy = (Get-PSFConfigValue -FullName kbupdate.app.proxy),
@@ -188,6 +200,7 @@ function Get-KbUpdate {
     )
     begin {
         $webRequestParameters = @{
+            RetryCount = $RetryCount
             TimeoutSec = $TimeoutSec
         }
         if ($Proxy) {
@@ -506,7 +519,7 @@ function Get-KbUpdate {
                     $os = $OperatingSystem -join '" "'
                     $url = "https://www.catalog.update.microsoft.com/Search.aspx?q=$kb+`"$os`""
                     Write-PSFMessage -Level Verbose -Message "Accessing $url"
-                    $results = Invoke-TlsWebRequest @webRequestParameters -Uri $url
+                    $results = Invoke-KbCatalogRequest @webRequestParameters -Uri $url
                     $kbids = $results.InputFields |
                         Where-Object { $_.type -eq 'Button' -and ($_.Value -eq 'Download' -or $_.class -eq 'flatBlueButtonDownload focus-only') } |
                         Select-Object -ExpandProperty ID
@@ -515,7 +528,7 @@ function Get-KbUpdate {
                     $url = "https://www.catalog.update.microsoft.com/Search.aspx?q=$kb"
                     $boundparams.OperatingSystem = $OperatingSystem
                     Write-PSFMessage -Level Verbose -Message "Failing back to $url"
-                    $results = Invoke-TlsWebRequest @webRequestParameters -Uri $url
+                    $results = Invoke-KbCatalogRequest @webRequestParameters -Uri $url
                     $kbids = $results.InputFields |
                         Where-Object { $_.type -eq 'Button' -and ($_.Value -eq 'Download' -or $_.class -eq 'flatBlueButtonDownload focus-only') } |
                         Select-Object -ExpandProperty ID
@@ -524,7 +537,7 @@ function Get-KbUpdate {
 
                 if (-not $kbids) {
                     try {
-                        $null = Invoke-TlsWebRequest @webRequestParameters -Uri "https://support.microsoft.com/en-us/topic/$kb"
+                        $null = Invoke-KbCatalogRequest @webRequestParameters -Uri "https://support.microsoft.com/en-us/topic/$kb"
                         Stop-PSFFunction -EnableException:$EnableException -Message "Matches were found for $kb, but the results no longer exist in the catalog"
                         return
                     } catch {
@@ -641,7 +654,7 @@ function Get-KbUpdate {
                     Write-ProgressHelper -TotalSteps $total -StepNumber $completed -Activity "Searching catalog" -Message "Downloading information for $itemtitle"
                     $post = @{ size = 0; updateID = $guid; uidInfo = $guid } | ConvertTo-Json -Compress
                     $body = @{ updateIDs = "[$post]" }
-                    Invoke-TlsWebRequest @webRequestParameters -Uri 'https://www.catalog.update.microsoft.com/DownloadDialog.aspx' -Method Post -Body $body | Select-Object -ExpandProperty Content
+                    Invoke-KbCatalogRequest @webRequestParameters -Uri 'https://www.catalog.update.microsoft.com/DownloadDialog.aspx' -Method Post -Body $body | Select-Object -ExpandProperty Content
                 }
 
 
@@ -704,7 +717,7 @@ function Get-KbUpdate {
 
                     if (-not $Simple) {
                         # Multi-byte character is corrupted if passing BasicHtmlWebResponseObject to Get-Info -Text.
-                        $detaildialog = Invoke-TlsWebRequest @webRequestParameters -Uri "https://www.catalog.update.microsoft.com/ScopedViewInline.aspx?updateid=$updateid" | Select-Object -ExpandProperty Content
+                        $detaildialog = Invoke-KbCatalogRequest @webRequestParameters -Uri "https://www.catalog.update.microsoft.com/ScopedViewInline.aspx?updateid=$updateid" | Select-Object -ExpandProperty Content
                         $description = Get-Info -Text $detaildialog -Pattern '<span id="ScopedViewHandler_desc">'
                         $lastmodified = Get-Info -Text $detaildialog -Pattern '<span id="ScopedViewHandler_date">'
                         $size = Get-Info -Text $detaildialog -Pattern '<span id="ScopedViewHandler_size">'

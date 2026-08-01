@@ -2,9 +2,9 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Bound Microsoft Update Catalog lookup waits and provide a reliable non-BITS download path for noninteractive jobs.
+**Goal:** Bound Microsoft Update Catalog lookup waits, retry transient Catalog failures, and provide a reliable non-BITS download path for noninteractive jobs.
 
-**Architecture:** Add an optional timeout to the shared web-request helper, but bind its 30-second default only at the `Get-KbUpdate` public boundary. Add a `Save-KbUpdate` switch that selects the already-existing web-request branches instead of BITS, preserving fallback and large-download behavior.
+**Architecture:** Add an optional timeout to the shared web-request helper, but bind its 30-second default only at the `Get-KbUpdate` public boundary. Route only `Get-KbUpdate` Catalog/support requests through a retry wrapper with response validation, leaving downloads unchanged. Add a `Save-KbUpdate` switch that selects the already-existing web-request branches instead of BITS, preserving fallback and large-download behavior.
 
 **Tech Stack:** Windows PowerShell 3.0-compatible PowerShell module code, Pester 6 unit tests, PSFramework, Microsoft Update Catalog.
 
@@ -14,6 +14,8 @@
 - Use full command names, `$PSItem`, splatting for long commands, and no backtick line continuations.
 - Keep `Save-KbUpdate` confirmation-aware through its existing `ShouldProcess` flow.
 - Do not give large update-file downloads a default timeout.
+- Default `Get-KbUpdate` to 2 additional retries (3 total attempts), with `RetryCount 0` preserving fail-fast behavior.
+- Retry only transient web failures and incomplete Catalog search responses; never retry valid no-results or nonretryable HTTP client errors.
 - Run only read-only live Catalog verification; do not install, remove, or otherwise mutate Windows updates.
 
 ---
@@ -258,3 +260,128 @@ Provide the reviewer the design path, base SHA from `origin/main`, head SHA, and
 - [ ] **Step 6: Push and open a draft PR**
 
 Push `codex/kbupdate-network-resilience`, open a draft PR against `main`, and describe the root causes, compatibility boundary, and tests.
+
+### Task 4: Add a Catalog-Specific Retry Boundary
+
+**Files:**
+- Create: `private/Invoke-KbCatalogRequest.ps1`
+- Create: `tests/unit/Invoke-KbCatalogRequest.Tests.ps1`
+
+**Interfaces:**
+- Consumes: `Invoke-TlsWebRequest [-Uri] <uri> [-Method <string>] [-Body <object>] [-TimeoutSec <int>] [-Proxy <uri>] [-ProxyCredential <pscredential>]`.
+- Produces: `Invoke-KbCatalogRequest [-Uri] <uri> [-Method <string>] [-Body <object>] [-TimeoutSec <int>] [-Proxy <uri>] [-ProxyCredential <pscredential>] [-RetryCount <int>]`, with `RetryCount` representing additional attempts.
+
+- [ ] **Step 1: Write failing transient-retry tests**
+
+Create `tests/unit/Invoke-KbCatalogRequest.Tests.ps1`. Mock only `Invoke-TlsWebRequest` and `Start-Sleep`; call the real retry wrapper. Cover a generic connection exception that succeeds on attempt 3, exhaustion after 3 attempts, and `RetryCount 0` making one attempt. Assert returned data or the thrown error, plus exact attempt and sleep counts.
+
+```powershell
+It 'returns a later successful response after two transient failures' {
+    $script:attempt = 0
+    Mock Invoke-TlsWebRequest {
+        $script:attempt++
+        if ($script:attempt -lt 3) { throw 'temporary connection failure' }
+        [pscustomobject]@{ Content = 'complete detail response' }
+    }
+
+    $result = Invoke-KbCatalogRequest -Uri 'https://www.catalog.update.microsoft.com/ScopedViewInline.aspx?updateid=test' -RetryCount 2
+
+    $result.Content | Should -Be 'complete detail response'
+    Should -Invoke Invoke-TlsWebRequest -Times 3 -Exactly
+    Should -Invoke Start-Sleep -Times 2 -Exactly
+}
+```
+
+- [ ] **Step 2: Run the retry tests and verify RED**
+
+Run:
+
+```powershell
+Invoke-Pester -Path tests/unit/Invoke-KbCatalogRequest.Tests.ps1 -Output Detailed
+```
+
+Expected: FAIL because `Invoke-KbCatalogRequest` does not exist.
+
+- [ ] **Step 3: Implement the minimal retry loop**
+
+Create `private/Invoke-KbCatalogRequest.ps1`. Build a splat containing only bound request parameters. Use a `[long]` attempt counter so `RetryCount = [int]::MaxValue` cannot overflow. Retry an exception without an HTTP status, HTTP 408/429, or HTTP 5xx. Fail immediately for other HTTP status codes. Before each retry, clear `$script:websession` and `$script:previouspage`, write a verbose message, and sleep for 1 second before the first retry and 2 seconds before later retries.
+
+```powershell
+[ValidateRange(0, [int]::MaxValue)]
+[int]$RetryCount = 2
+```
+
+Status extraction must support both `Exception.StatusCode` and `Exception.Response.StatusCode` without referencing PowerShell-7-only exception types.
+
+- [ ] **Step 4: Run the retry tests and verify GREEN**
+
+Run the new test file. Expected: all transient, exhaustion, and fail-fast cases pass.
+
+- [ ] **Step 5: Write failing response-validation tests**
+
+Add tests using complete response-shaped objects with `Content`, `InputFields`, and `Links`:
+
+- an incomplete `Search.aspx` response is retried and a later response with a Download input field is returned;
+- an explicit `We did not find any results for` response is returned without retry;
+- repeated incomplete responses throw an error containing `incomplete` after the configured attempts;
+- an HTTP 407 exception is not retried.
+
+- [ ] **Step 6: Run the validation tests and verify RED**
+
+Expected: incomplete responses return immediately instead of retrying, and the nonretryable-status branch is not yet complete.
+
+- [ ] **Step 7: Implement Catalog search-response validation**
+
+For `https://www.catalog.update.microsoft.com/Search.aspx`, treat the response as structurally complete only when it has a Download input field or its content contains the explicit Catalog no-results message. Retry incomplete responses; after the final incomplete response, throw `System.IO.InvalidDataException` with an actionable message. Do not apply structural validation to DownloadDialog, ScopedViewInline, Microsoft support pages, or any file download.
+
+- [ ] **Step 8: Run all helper tests and verify GREEN**
+
+Run the new helper test file and `tests/unit/Invoke-TlsWebRequest.Tests.ps1`. Expected: all pass without real network calls.
+
+### Task 5: Expose Retries Through Get-KbUpdate
+
+**Files:**
+- Modify: `tests/unit/Get-KbUpdateProxy.Tests.ps1`
+- Modify: `public/Get-KbUpdate.ps1`
+
+**Interfaces:**
+- Consumes: `Invoke-KbCatalogRequest` from Task 4.
+- Produces: `Get-KbUpdate [-RetryCount <int>]`, default 2 additional attempts.
+
+- [ ] **Step 1: Write failing public-boundary tests**
+
+Update the controlled Catalog tests to mock `Invoke-KbCatalogRequest`. Add behavior tests proving the default value 2 and explicit value 0 are forwarded, and that `RetryCount -1` fails parameter binding. Keep existing timeout and proxy assertions.
+
+```powershell
+It 'forwards the default retry count to catalog requests' {
+    $null = Get-KbUpdate -Pattern KB1234567 -Source Web -Simple
+    Should -Invoke Invoke-KbCatalogRequest -ParameterFilter { $RetryCount -eq 2 }
+}
+```
+
+- [ ] **Step 2: Run the public tests and verify RED**
+
+Expected: parameter binding rejects `RetryCount` because the public parameter does not exist, and existing mocks no longer describe the desired boundary.
+
+- [ ] **Step 3: Add RetryCount and route Catalog calls**
+
+Add complete comment-based help, one example, and:
+
+```powershell
+[ValidateRange(0, [int]::MaxValue)]
+[int]$RetryCount = 2
+```
+
+Add `RetryCount` to `$webRequestParameters`. Replace only the `Invoke-TlsWebRequest @webRequestParameters` calls inside `Get-KbUpdate` with `Invoke-KbCatalogRequest @webRequestParameters`. Do not change `Save-KbUpdate`, scan-file downloads, or `Invoke-TlsWebRequest`.
+
+- [ ] **Step 4: Run focused tests and verify GREEN**
+
+Run `Get-KbUpdateProxy.Tests.ps1`, `Invoke-KbCatalogRequest.Tests.ps1`, `Invoke-TlsWebRequest.Tests.ps1`, and `Save-KbUpdate.Tests.ps1`. Expected: all pass.
+
+- [ ] **Step 5: Run full and live verification**
+
+Run `./build/Invoke-KbUpdateQualityGate.ps1 -Bootstrap`, the read-only integration suite, and direct read-only probes for legacy and modern Microsoft delivery hosts. Exercise a controlled retry with mocks; do not cause update installation, removal, or full package downloads.
+
+- [ ] **Step 6: Review, commit, push, and recheck PR 266**
+
+Review the complete diff against the design, commit the retry implementation and tests, push the existing branch, update the PR body, and wait for GitHub checks. Record any external live-Catalog failure separately from deterministic failures.
